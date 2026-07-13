@@ -1,0 +1,351 @@
+import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { AppIcon, AppIconName } from '../src/components/AppIcon';
+import { AppTopBar } from '../src/components/AppTopBar';
+import { tokens } from '../src/theme/tokens';
+
+const WEBSITE_URL = 'https://bitcoder26.github.io/livestock-app/';
+const USERJOT_URL = 'https://your-userjot-url.com';
+const FACEBOOK_GROUP_URL = 'https://your-facebook-group-url.com';
+const CONTACT_EMAIL = 'support@your-app.com';
+
+type SettingsAction =
+  | 'account'
+  | 'upgrade'
+  | 'website'
+  | 'contact'
+  | 'feedback'
+  | 'facebook'
+  | 'whats-new'
+  | 'about'
+  | 'sign-out';
+
+const ITEMS: Array<{
+  label: string;
+  icon: AppIconName;
+  action: Exclude<SettingsAction, 'upgrade'>;
+  accent?: 'danger';
+}> = [
+  { label: 'Account', icon: 'profile', action: 'account' },
+  { label: 'Web Portal', icon: 'web_portal', action: 'website' },
+  { label: 'Contact Us', icon: 'mail', action: 'contact' },
+  { label: 'Feedback & Suggestions', icon: 'alert', action: 'feedback' },
+  { label: 'Facebook Group', icon: 'group', action: 'facebook' },
+  { label: "What's New", icon: 'notebook', action: 'whats-new' },
+  { label: 'About', icon: 'info', action: 'about' },
+  { label: 'Sign Out', icon: 'enter-arrow', action: 'sign-out', accent: 'danger' },
+];
+
+const ITEM_GROUPS = [
+  ITEMS.slice(0, 2),
+  ITEMS.slice(2, 5),
+  ITEMS.slice(5),
+] as const;
+
+const WHATS_NEW_UPDATES = [
+  'Refreshed bottom tab icons, including updated Animals, Setup, Export, and Records tab styling.',
+  'Added a real About page with app information, version details, developer info, and support links.',
+  'Improved the Settings screen with cleaner divider spacing and updated icons such as Web Portal and Upgrade to Pro.',
+  'Updated export action buttons and support actions to feel more polished and easier to use.',
+];
+
+export default function SettingsScreen() {
+  const router = useRouter();
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const whatsNewEntrance = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!showWhatsNew) {
+      whatsNewEntrance.setValue(0);
+      return;
+    }
+
+    Animated.timing(whatsNewEntrance, {
+      toValue: 1,
+      duration: 260,
+      useNativeDriver: true,
+    }).start();
+  }, [showWhatsNew, whatsNewEntrance]);
+
+  function handleAction(action: SettingsAction) {
+    if (action === 'website') {
+      return openExternalTarget(WEBSITE_URL, 'Web Portal');
+    }
+
+    if (action === 'feedback') {
+      return openExternalTarget(USERJOT_URL, 'Feedback & Suggestions');
+    }
+
+    if (action === 'facebook') {
+      return openExternalTarget(FACEBOOK_GROUP_URL, 'Facebook Group');
+    }
+
+    if (action === 'contact') {
+      return Linking.openURL(`mailto:${CONTACT_EMAIL}`);
+    }
+
+    if (action === 'account') {
+      return router.push('/account');
+    }
+
+    if (action === 'upgrade') {
+      return Alert.alert('Upgrade to Pro', 'Add your upgrade flow here.');
+    }
+
+    if (action === 'whats-new') {
+      return setShowWhatsNew(true);
+    }
+
+    if (action === 'about') {
+      return router.push('/about');
+    }
+
+    if (action === 'sign-out') {
+      return Alert.alert('Sign Out', 'Add your sign-out flow here.');
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+      <View style={showWhatsNew ? styles.dimmedContent : undefined}>
+        <AppTopBar
+          title="Settings"
+          leftAction={{
+            icon: 'back',
+            accessibilityLabel: 'Back',
+            onPress: () => router.back(),
+          }}
+        />
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <Pressable
+            accessibilityLabel="Upgrade to Pro"
+            accessibilityRole="button"
+            onPress={() => handleAction('upgrade')}
+            style={({ pressed }) => [styles.upgradeRow, pressed && styles.itemPressed]}
+          >
+            <View style={styles.upgradeLeft}>
+              <View style={styles.upgradeIconWrap}>
+                <AppIcon name="crown" size={20} color={tokens.colors.accent} />
+              </View>
+              <View style={styles.upgradeTextWrap}>
+                <Text style={styles.upgradeTitle}>Upgrade to Pro</Text>
+                <Text style={styles.upgradeSubtitle}>Unlock more features</Text>
+              </View>
+            </View>
+            <AppIcon name="chevron-right" size={18} color={tokens.colors.muted} />
+          </Pressable>
+
+          {ITEM_GROUPS.map((group, groupIndex) => (
+            <View key={`group-${groupIndex}`}>
+              <View style={styles.groupBlock}>
+                {group.map((item) => (
+                  <Pressable
+                    key={item.label}
+                    accessibilityLabel={item.label}
+                    accessibilityRole="button"
+                    onPress={() => handleAction(item.action)}
+                    style={({ pressed }) => [styles.itemRow, pressed && styles.itemPressed]}
+                  >
+                    <View style={styles.leftGroup}>
+                      <AppIcon name={item.icon} size={20} color="#171717" />
+                      <Text
+                        style={[
+                          styles.itemText,
+                          item.accent === 'danger' && styles.itemTextDanger,
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+              {groupIndex < ITEM_GROUPS.length - 1 ? <View style={styles.groupDivider} /> : null}
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+
+      <Modal transparent animationType="fade" visible={showWhatsNew} onRequestClose={() => setShowWhatsNew(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowWhatsNew(false)}>
+          <Animated.View
+            style={[
+              styles.sheet,
+              {
+                opacity: whatsNewEntrance,
+                transform: [
+                  {
+                    translateY: whatsNewEntrance.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [72, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+          <Pressable onPress={() => undefined}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>What&apos;s New</Text>
+            </View>
+            <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
+              {WHATS_NEW_UPDATES.map((item, index) => (
+                <View key={item} style={styles.featureBlock}>
+                  <Text style={styles.featureLabel}>Update {index + 1}</Text>
+                  <Text style={styles.featureText}>{item}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+function openExternalTarget(url: string, label: string) {
+  if (url.includes('your-')) {
+    Alert.alert(label, `Replace the placeholder ${label.toUpperCase()} link in settings.tsx.`);
+    return;
+  }
+
+  Linking.openURL(url);
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: tokens.colors.background,
+  },
+  dimmedContent: {
+    flex: 1,
+    opacity: 0.55,
+  },
+  content: {
+    paddingHorizontal: 28,
+    paddingTop: 18,
+    paddingBottom: 120,
+  },
+  upgradeRow: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 20,
+    backgroundColor: tokens.colors.surface,
+    shadowColor: tokens.colors.shadow,
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+    marginBottom: 18,
+  },
+  upgradeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  upgradeIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.accentSoft,
+  },
+  upgradeTextWrap: {
+    gap: 2,
+    flex: 1,
+  },
+  upgradeTitle: {
+    color: tokens.colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  upgradeSubtitle: {
+    color: tokens.colors.accentDeep,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  itemRow: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  groupBlock: {
+    gap: 10,
+  },
+  groupDivider: {
+    height: 1,
+    backgroundColor: 'rgba(23, 23, 23, 0.12)',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  leftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  itemText: {
+    color: '#262626',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  itemTextDanger: {
+    color: tokens.colors.danger,
+  },
+  itemPressed: {
+    opacity: 0.86,
+  },
+  overlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 26,
+    maxHeight: '86%',
+  },
+  sheetHeader: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  sheetTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  sheetContent: {
+    gap: 16,
+    paddingBottom: 24,
+  },
+  featureBlock: {
+    gap: 6,
+  },
+  featureLabel: {
+    color: tokens.colors.accent,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  featureText: {
+    color: '#383838',
+    fontSize: 14,
+    lineHeight: 23,
+    fontWeight: '500',
+  },
+});
