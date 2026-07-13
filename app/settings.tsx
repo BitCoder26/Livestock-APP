@@ -8,7 +8,7 @@ import { AppIcon, AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { tokens } from '../src/theme/tokens';
 
-const WEBSITE_URL = 'https://bitcoder26.github.io/livestock-app/';
+const WEBSITE_URL = 'https://bitcoder26.github.io/Livestock-APP/';
 const USERJOT_URL = 'https://your-userjot-url.com';
 const FACEBOOK_GROUP_URL = 'https://your-facebook-group-url.com';
 const CONTACT_EMAIL = 'support@your-app.com';

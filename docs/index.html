@@ -3,116 +3,207 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Livestock App</title>
+  <title>Livestock Tracker | Animal records, setup, and exports</title>
   <meta
     name="description"
-    content="Livestock App helps you register animals, keep records, and export data from the field."
+    content="Livestock Tracker helps farmers manage animal records, setup data, and PDF or spreadsheet exports from one clean mobile workflow."
   />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
+  <div class="site-bg"></div>
+  <header class="site-header">
+    <div class="brand-lockup">
+      <span class="brand-mark">LT</span>
+      <div>
+        <p class="brand-kicker">Livestock Tracker</p>
+        <p class="brand-sub">Animal records and exports</p>
+      </div>
+    </div>
+    <nav class="top-nav" aria-label="Primary">
+      <a href="#features">Features</a>
+      <a href="#showcase">Showcase</a>
+      <a href="#screenshots">Screenshots</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </header>
+
   <main class="page-shell">
-    <section class="hero">
-      <p class="eyebrow">Livestock App</p>
-      <h1>Simple livestock records, ready when you are.</h1>
-      <p class="hero-copy">
-        Livestock App helps you register animals, track records, and export clean farm data from one place.
-      </p>
-      <div class="hero-actions">
-        <a class="button button-primary" href="#screenshots">View Screens</a>
-        <span class="button button-muted">App Store Coming Soon</span>
-        <span class="button button-muted">Google Play Coming Soon</span>
+    <section class="hero-panel">
+      <div class="hero-copy-wrap">
+        <p class="eyebrow">Built for day-to-day farm management</p>
+        <h1>Keep your livestock records clean, fast, and ready to export.</h1>
+        <p class="hero-copy">
+          Livestock Tracker helps you register animals, maintain records, organize setup data, and export PDF or
+          spreadsheet files from one mobile workflow.
+        </p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#screenshots">See the app</a>
+          <span class="button button-muted">App Store Coming Soon</span>
+          <span class="button button-muted">Google Play Coming Soon</span>
+        </div>
+        <div class="proof-row">
+          <div class="proof-chip">Animal register</div>
+          <div class="proof-chip">Record keeping</div>
+          <div class="proof-chip">PDF and spreadsheet export</div>
+          <div class="proof-chip">Offline-friendly workflow</div>
+        </div>
+      </div>
+
+      <div class="hero-stage" aria-hidden="true">
+        <div class="hero-card hero-card-back">
+          <img src="./images/screenshots/export.png" alt="" />
+        </div>
+        <div class="hero-card hero-card-front">
+          <img src="./images/screenshots/animals.png" alt="" />
+        </div>
+        <div class="hero-accent"></div>
       </div>
     </section>
 
-    <section class="section">
-      <div class="section-heading">
-        <p class="eyebrow">Features</p>
-        <h2>Built for the basics that matter most</h2>
+    <section class="feature-strip" id="features">
+      <article class="feature-tile">
+        <span class="feature-count">01</span>
+        <h2>Animal register</h2>
+        <p>Track each animal with a straightforward register built for practical farm use.</p>
+      </article>
+      <article class="feature-tile">
+        <span class="feature-count">02</span>
+        <h2>Record keeping</h2>
+        <p>Capture routine farm activity and keep important information easier to review later.</p>
+      </article>
+      <article class="feature-tile">
+        <span class="feature-count">03</span>
+        <h2>Exports</h2>
+        <p>Generate PDF and spreadsheet files without rebuilding the same data by hand.</p>
+      </article>
+      <article class="feature-tile">
+        <span class="feature-count">04</span>
+        <h2>Setup tools</h2>
+        <p>Keep farms, paddocks, groups, and medicines organized in one consistent structure.</p>
+      </article>
+    </section>
+
+    <section class="showcase-section" id="showcase">
+      <div class="showcase-copy">
+        <p class="eyebrow">Register and manage</p>
+        <h2>Start with the essentials, not clutter.</h2>
+        <p>
+          The app opens into clear working screens with room to register animals, move through setup, and keep the
+          core farm structure tidy from the start.
+        </p>
+        <ul class="feature-list">
+          <li>Clear animal overview</li>
+          <li>Structured setup screens</li>
+          <li>Designed for quick navigation</li>
+        </ul>
       </div>
-      <div class="feature-grid">
-        <article class="feature-card">
-          <h3>Animal register</h3>
-          <p>Keep core animal details in one organized register.</p>
-        </article>
-        <article class="feature-card">
-          <h3>Record keeping</h3>
-          <p>Track health, breeding, weight, and day-to-day farm activity.</p>
-        </article>
-        <article class="feature-card">
-          <h3>Export PDF and spreadsheet</h3>
-          <p>Share records quickly in formats that are easy to print and review.</p>
-        </article>
-        <article class="feature-card">
-          <h3>Offline support</h3>
-          <p>Use the app in the field and keep working even when signal is unreliable.</p>
-        </article>
+      <div class="showcase-visual dual-phones">
+        <figure class="phone-shot tilt-left">
+          <img src="./images/screenshots/animals.png" alt="Animals screen in Livestock Tracker" loading="lazy" />
+        </figure>
+        <figure class="phone-shot tilt-right">
+          <img src="./images/screenshots/setup.png" alt="Setup screen in Livestock Tracker" loading="lazy" />
+        </figure>
       </div>
     </section>
 
-    <section class="section" id="screenshots">
-      <div class="section-heading">
+    <section class="showcase-section reverse">
+      <div class="showcase-copy">
+        <p class="eyebrow">Data entry</p>
+        <h2>Forms that stay focused on the job.</h2>
+        <p>
+          Add animals with structured fields, clear required markers, and straightforward dropdown choices built for
+          real farm record entry.
+        </p>
+        <ul class="feature-list">
+          <li>Species and status selection</li>
+          <li>Tag and identity fields</li>
+          <li>Clean field grouping for faster input</li>
+        </ul>
+      </div>
+      <div class="showcase-visual single-phone">
+        <figure class="phone-shot tall-phone">
+          <img src="./images/screenshots/add-animal.png" alt="Add Animal form in Livestock Tracker" loading="lazy" />
+        </figure>
+      </div>
+    </section>
+
+    <section class="showcase-section">
+      <div class="showcase-copy">
+        <p class="eyebrow">Exports</p>
+        <h2>Turn records into files you can actually use.</h2>
+        <p>
+          Export screens are built to help you filter what matters and generate PDF or spreadsheet outputs without
+          leaving the app.
+        </p>
+        <ul class="feature-list">
+          <li>PDF export</li>
+          <li>Spreadsheet export</li>
+          <li>Filter-first workflow</li>
+        </ul>
+      </div>
+      <div class="showcase-visual single-phone">
+        <figure class="phone-shot">
+          <img src="./images/screenshots/export.png" alt="Export screen in Livestock Tracker" loading="lazy" />
+        </figure>
+      </div>
+    </section>
+
+    <section class="gallery-section" id="screenshots">
+      <div class="section-intro">
         <p class="eyebrow">Screenshots</p>
-        <h2>A quick look at the app</h2>
+        <h2>Real screens from the running app.</h2>
       </div>
-      <div class="shot-grid">
-        <article class="shot-card">
-          <div class="phone-frame">
-            <div class="phone-bar"></div>
-            <div class="screen screen-animals">
-              <p class="screen-title">Animals</p>
-              <div class="screen-row"></div>
-              <div class="screen-row short"></div>
-              <div class="screen-row"></div>
-            </div>
-          </div>
-          <p class="shot-label">Animal register</p>
-        </article>
-        <article class="shot-card">
-          <div class="phone-frame">
-            <div class="phone-bar"></div>
-            <div class="screen screen-records">
-              <p class="screen-title">Records</p>
-              <div class="screen-chip"></div>
-              <div class="screen-row"></div>
-              <div class="screen-row short"></div>
-            </div>
-          </div>
-          <p class="shot-label">Record keeping</p>
-        </article>
-        <article class="shot-card">
-          <div class="phone-frame">
-            <div class="phone-bar"></div>
-            <div class="screen screen-export">
-              <p class="screen-title">Export</p>
-              <div class="export-pill">PDF</div>
-              <div class="export-pill">Spreadsheet</div>
-              <div class="screen-row"></div>
-            </div>
-          </div>
-          <p class="shot-label">Exports</p>
-        </article>
+      <div class="gallery-grid">
+        <figure class="gallery-card large">
+          <img src="./images/screenshots/animals.png" alt="Animals screen" loading="lazy" />
+          <figcaption>Animals</figcaption>
+        </figure>
+        <figure class="gallery-card">
+          <img src="./images/screenshots/setup.png" alt="Setup screen" loading="lazy" />
+          <figcaption>Setup</figcaption>
+        </figure>
+        <figure class="gallery-card">
+          <img src="./images/screenshots/export.png" alt="Export screen" loading="lazy" />
+          <figcaption>Export</figcaption>
+        </figure>
+        <figure class="gallery-card">
+          <img src="./images/screenshots/add-animal.png" alt="Add Animal screen" loading="lazy" />
+          <figcaption>Add Animal</figcaption>
+        </figure>
+        <figure class="gallery-card">
+          <img src="./images/screenshots/about.png" alt="About screen" loading="lazy" />
+          <figcaption>About</figcaption>
+        </figure>
       </div>
     </section>
 
-    <section class="section contact-section">
-      <div class="section-heading">
+    <section class="contact-panel" id="contact">
+      <div class="contact-copy-wrap">
         <p class="eyebrow">Contact</p>
-        <h2>Need help?</h2>
+        <h2>Need support or want to follow the project?</h2>
+        <p class="contact-copy">
+          Reach out via <a href="mailto:support@your-app.com">support@your-app.com</a> and use the GitHub Pages
+          version while the production domain is still being set up.
+        </p>
       </div>
-      <p class="contact-copy">
-        Email support at <a href="mailto:support@your-app.com">support@your-app.com</a>.
-      </p>
-      <p class="contact-copy">
-        Temporary website URL:
-        <a href="https://bitcoder26.github.io/livestock-app/">bitcoder26.github.io/livestock-app/</a>
-      </p>
+      <div class="contact-actions">
+        <a class="button button-primary" href="mailto:support@your-app.com">Email support</a>
+        <a class="button button-outline" href="https://bitcoder26.github.io/Livestock-APP/">Open website</a>
+      </div>
     </section>
   </main>
 
   <footer class="site-footer">
-    <a href="./privacy.html">Privacy Policy</a>
-    <a href="./terms.html">Terms of Service</a>
+    <div>
+      <p class="footer-brand">Livestock Tracker</p>
+      <p class="footer-copy">A simple mobile tool for animal records, setup, and exports.</p>
+    </div>
+    <div class="footer-links">
+      <a href="./privacy.html">Privacy Policy</a>
+      <a href="./terms.html">Terms of Service</a>
+    </div>
   </footer>
 </body>
 </html>
