@@ -1,0 +1,279 @@
+import type { PropsWithChildren } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
+
+export type SetupCollectionKey = 'farms' | 'paddocks' | 'groups' | 'medicines';
+export type FarmEntity = {
+  name: string;
+  holdingId: string;
+  address: string;
+  country: string;
+  notes: string;
+};
+export type PaddockEntity = {
+  name: string;
+  farm: string;
+  area: string;
+  areaUnit: string;
+  notes: string;
+};
+export type GroupEntity = {
+  name: string;
+  farm: string;
+  paddocks: string[];
+  species: string;
+  description: string;
+  animals: string;
+  notes: string;
+};
+export type MedicineEntity = {
+  name: string;
+  activeIngredient: string;
+  defaultDose: string;
+  doseUnit: string;
+  defaultRoute: string;
+  meatWithdrawalPeriod: string;
+  milkWithdrawalPeriod: string;
+  manufacturer: string;
+  batchNumber: string;
+  expiryDate: string;
+  notes: string;
+};
+
+type SetupContextValue = {
+  farmEntities: FarmEntity[];
+  paddockEntities: PaddockEntity[];
+  groupEntities: GroupEntity[];
+  medicineEntities: MedicineEntity[];
+  farms: string[];
+  paddocks: string[];
+  groups: string[];
+  medicines: string[];
+  addFarm: (farm: FarmEntity) => void;
+  removeFarm: (name: string) => void;
+  addPaddock: (paddock: PaddockEntity) => void;
+  removePaddock: (name: string) => void;
+  addGroup: (group: GroupEntity) => void;
+  removeGroup: (name: string) => void;
+  addMedicine: (medicine: MedicineEntity) => void;
+  removeMedicine: (name: string) => void;
+  addItem: (collection: SetupCollectionKey, value: string) => void;
+  removeItem: (collection: SetupCollectionKey, value: string) => void;
+  resetSetup: () => void;
+};
+
+const DEFAULT_SETUP = {
+  farms: [] as FarmEntity[],
+  paddocks: [] as PaddockEntity[],
+  groups: [] as GroupEntity[],
+  medicines: [] as MedicineEntity[],
+};
+
+const SetupContext = createContext<SetupContextValue | null>(null);
+
+export function SetupProvider({ children }: PropsWithChildren) {
+  const [farmEntities, setFarmEntities] = useState<FarmEntity[]>(DEFAULT_SETUP.farms);
+  const [paddockEntities, setPaddockEntities] = useState<PaddockEntity[]>(DEFAULT_SETUP.paddocks);
+  const [groupEntities, setGroupEntities] = useState<GroupEntity[]>(DEFAULT_SETUP.groups);
+  const [medicineEntities, setMedicineEntities] = useState<MedicineEntity[]>(DEFAULT_SETUP.medicines);
+
+  const value = useMemo<SetupContextValue>(
+    () => ({
+      farmEntities,
+      paddockEntities,
+      groupEntities,
+      medicineEntities,
+      farms: farmEntities.map((farm) => farm.name),
+      paddocks: paddockEntities.map((paddock) => paddock.name),
+      groups: groupEntities.map((group) => group.name),
+      medicines: medicineEntities.map((medicine) => medicine.name),
+      addFarm: (rawFarm) => {
+        const farm = {
+          name: rawFarm.name.trim(),
+          holdingId: rawFarm.holdingId.trim(),
+          address: rawFarm.address.trim(),
+          country: rawFarm.country.trim(),
+          notes: rawFarm.notes.trim(),
+        };
+
+        if (!farm.name) {
+          return;
+        }
+
+        setFarmEntities((current) =>
+          current.some((entry) => entry.name.toLowerCase() === farm.name.toLowerCase()) ? current : [...current, farm],
+        );
+      },
+      removeFarm: (name) => {
+        setFarmEntities((current) => current.filter((entry) => entry.name !== name));
+      },
+      addPaddock: (rawPaddock) => {
+        const paddock = {
+          name: rawPaddock.name.trim(),
+          farm: rawPaddock.farm.trim(),
+          area: rawPaddock.area.trim(),
+          areaUnit: rawPaddock.areaUnit.trim(),
+          notes: rawPaddock.notes.trim(),
+        };
+
+        if (!paddock.name) {
+          return;
+        }
+
+        setPaddockEntities((current) =>
+          current.some((entry) => entry.name.toLowerCase() === paddock.name.toLowerCase()) ? current : [...current, paddock],
+        );
+      },
+      removePaddock: (name) => {
+        setPaddockEntities((current) => current.filter((entry) => entry.name !== name));
+      },
+      addGroup: (rawGroup) => {
+        const group = {
+          name: rawGroup.name.trim(),
+          farm: rawGroup.farm.trim(),
+          paddocks: rawGroup.paddocks.map((paddock) => paddock.trim()).filter(Boolean),
+          species: rawGroup.species.trim(),
+          description: rawGroup.description.trim(),
+          animals: rawGroup.animals.trim(),
+          notes: rawGroup.notes.trim(),
+        };
+
+        if (!group.name) {
+          return;
+        }
+
+        setGroupEntities((current) =>
+          current.some((entry) => entry.name.toLowerCase() === group.name.toLowerCase()) ? current : [...current, group],
+        );
+      },
+      removeGroup: (name) => {
+        setGroupEntities((current) => current.filter((entry) => entry.name !== name));
+      },
+      addMedicine: (rawMedicine) => {
+        const medicine = {
+          name: rawMedicine.name.trim(),
+          activeIngredient: rawMedicine.activeIngredient.trim(),
+          defaultDose: rawMedicine.defaultDose.trim(),
+          doseUnit: rawMedicine.doseUnit.trim(),
+          defaultRoute: rawMedicine.defaultRoute.trim(),
+          meatWithdrawalPeriod: rawMedicine.meatWithdrawalPeriod.trim(),
+          milkWithdrawalPeriod: rawMedicine.milkWithdrawalPeriod.trim(),
+          manufacturer: rawMedicine.manufacturer.trim(),
+          batchNumber: rawMedicine.batchNumber.trim(),
+          expiryDate: rawMedicine.expiryDate.trim(),
+          notes: rawMedicine.notes.trim(),
+        };
+
+        if (!medicine.name) {
+          return;
+        }
+
+        setMedicineEntities((current) =>
+          current.some((entry) => entry.name.toLowerCase() === medicine.name.toLowerCase()) ? current : [...current, medicine],
+        );
+      },
+      removeMedicine: (name) => {
+        setMedicineEntities((current) => current.filter((entry) => entry.name !== name));
+      },
+      addItem: (collection, rawValue) => {
+        const value = rawValue.trim();
+
+        if (!value) {
+          return;
+        }
+
+        if (collection === 'farms') {
+          setFarmEntities((current) =>
+            current.some((entry) => entry.name.toLowerCase() === value.toLowerCase())
+              ? current
+              : [...current, { name: value, holdingId: '', address: '', country: '', notes: '' }],
+          );
+          return;
+        }
+
+        if (collection === 'paddocks') {
+          setPaddockEntities((current) =>
+            current.some((entry) => entry.name.toLowerCase() === value.toLowerCase())
+              ? current
+              : [...current, { name: value, farm: '', area: '', areaUnit: '', notes: '' }],
+          );
+          return;
+        }
+
+        if (collection === 'groups') {
+          setGroupEntities((current) =>
+            current.some((entry) => entry.name.toLowerCase() === value.toLowerCase())
+              ? current
+              : [...current, { name: value, farm: '', paddocks: [], species: '', description: '', animals: '', notes: '' }],
+          );
+          return;
+        }
+
+        if (collection === 'medicines') {
+          setMedicineEntities((current) =>
+            current.some((entry) => entry.name.toLowerCase() === value.toLowerCase())
+              ? current
+              : [
+                  ...current,
+                  {
+                    name: value,
+                    activeIngredient: '',
+                    defaultDose: '',
+                    doseUnit: '',
+                    defaultRoute: '',
+                    meatWithdrawalPeriod: '',
+                    milkWithdrawalPeriod: '',
+                    manufacturer: '',
+                    batchNumber: '',
+                    expiryDate: '',
+                    notes: '',
+                  },
+                ],
+          );
+          return;
+        }
+
+      },
+      removeItem: (collection, value) => {
+        if (collection === 'farms') {
+          setFarmEntities((current) => current.filter((entry) => entry.name !== value));
+          return;
+        }
+
+        if (collection === 'paddocks') {
+          setPaddockEntities((current) => current.filter((entry) => entry.name !== value));
+          return;
+        }
+
+        if (collection === 'groups') {
+          setGroupEntities((current) => current.filter((entry) => entry.name !== value));
+          return;
+        }
+
+        if (collection === 'medicines') {
+          setMedicineEntities((current) => current.filter((entry) => entry.name !== value));
+          return;
+        }
+
+      },
+      resetSetup: () => {
+        setFarmEntities(DEFAULT_SETUP.farms);
+        setPaddockEntities(DEFAULT_SETUP.paddocks);
+        setGroupEntities(DEFAULT_SETUP.groups);
+        setMedicineEntities(DEFAULT_SETUP.medicines);
+      },
+    }),
+    [farmEntities, paddockEntities, groupEntities, medicineEntities],
+  );
+
+  return <SetupContext.Provider value={value}>{children}</SetupContext.Provider>;
+}
+
+export function useSetup() {
+  const context = useContext(SetupContext);
+
+  if (!context) {
+    throw new Error('useSetup must be used within a SetupProvider');
+  }
+
+  return context;
+}
