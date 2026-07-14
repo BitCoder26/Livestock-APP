@@ -195,33 +195,22 @@ h2,
   color: #fff3f1;
 }
 
-.store-badge {
-  gap: 12px;
-  padding: 10px 18px;
-  justify-content: flex-start;
+.store-badges-row {
+  align-items: center;
 }
 
-.store-copy {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-}
-
-.store-copy small {
-  font-size: 0.68rem;
-  letter-spacing: 0.04em;
-}
-
-.store-copy strong {
-  font-size: 0.98rem;
-  font-weight: 700;
-}
-
-.store-icon-image {
-  width: 30px;
-  height: 30px;
+.store-badge-image {
   display: block;
-  flex: 0 0 auto;
+  height: 44px;
+  width: auto;
+}
+
+.store-badge-play {
+  height: 48px;
+}
+
+.store-badge-app {
+  height: 44px;
 }
 
 .page-shell {
