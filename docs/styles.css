@@ -171,12 +171,14 @@ h2,
 }
 
 .hero-rating-stars {
-  letter-spacing: 0.1em;
-  font-size: 0.92rem;
+  letter-spacing: 0.12em;
+  font-size: 1.18rem;
+  color: #f4c542;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
 }
 
 .hero-rating-text {
-  font-size: 0.88rem;
+  font-size: 0.94rem;
   font-weight: 700;
 }
 
