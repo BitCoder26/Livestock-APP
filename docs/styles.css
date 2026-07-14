@@ -240,6 +240,14 @@ h2,
   border-radius: 22px;
 }
 
+.phone-shot {
+  width: 100%;
+  height: calc(100% - 36px);
+  object-fit: cover;
+  border-radius: 22px;
+  display: block;
+}
+
 .phone-top {
   width: 42%;
   height: 22px;
@@ -340,17 +348,23 @@ h2,
 
 .screen-card {
   min-height: 220px;
-  padding: 20px;
+  padding: 12px;
   border-radius: 22px;
-  border: 1px dashed rgba(57, 88, 69, 0.35);
+  border: 1px solid rgba(57, 88, 69, 0.16);
   background: linear-gradient(180deg, rgba(223, 232, 223, 0.72) 0%, rgba(255, 253, 248, 0.95) 100%);
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  gap: 12px;
+  overflow: hidden;
 }
 
-.screen-card strong {
-  font-size: 1rem;
+.screen-card-media {
+  width: 100%;
+  aspect-ratio: 9 / 18;
+  object-fit: cover;
+  border-radius: 16px;
+  display: block;
+  background: #ede8de;
 }
 
 .screen-card-wide {
