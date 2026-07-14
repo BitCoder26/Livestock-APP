@@ -527,15 +527,19 @@ h2,
 
 .contact-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
-  gap: 26px;
+  width: min(100%, 1040px);
+  margin-left: auto;
+  margin-right: auto;
+  grid-template-columns: minmax(0, 1.18fr) minmax(260px, 0.82fr);
+  gap: 38px;
   align-items: start;
+  padding: 34px 38px;
   background: linear-gradient(135deg, #fff6f1 0%, #f7efe8 100%);
 }
 
 .contact-panel-copy p {
-  max-width: 38rem;
-  margin: 0 0 12px;
+  max-width: 42rem;
+  margin: 0 0 18px;
 }
 
 .contact-card-grid {
@@ -545,10 +549,11 @@ h2,
 
 .contact-actions-grid {
   align-content: start;
+  gap: 18px;
 }
 
 .button-disabled {
-  min-width: 200px;
+  min-width: 220px;
   justify-content: center;
   opacity: 0.92;
   cursor: default;
@@ -620,21 +625,27 @@ h2,
   .feature-story {
     width: min(420px, 100%);
     gap: 18px;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "copy"
+      "phone";
     justify-items: stretch;
   }
 
   .feature-story-copy {
+    grid-area: copy;
     order: 1;
     width: 100%;
     text-align: left;
-    justify-self: start;
+    justify-self: stretch;
   }
 
   .feature-story-phone {
+    grid-area: phone;
     order: 2;
     width: min(250px, 72vw);
     justify-self: start;
-    margin-top: -2px;
+    margin-top: 2px;
   }
 
   .feature-story:first-child {
@@ -667,9 +678,14 @@ h2,
 
   .feature-story-list,
   .screens-section,
-  .contact-panel,
   .legal-shell {
     padding: 22px;
+  }
+
+  .contact-panel {
+    width: 100%;
+    gap: 24px;
+    padding: 28px 24px;
   }
 
   .hero-copy h1 {
@@ -695,7 +711,7 @@ h2,
 
   .feature-story-phone {
     width: min(220px, 68vw);
-    margin-top: 0;
+    margin-top: 4px;
   }
 
   .placeholder-row {
