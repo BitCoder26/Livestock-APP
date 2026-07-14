@@ -69,8 +69,8 @@ h2,
 }
 
 .brand-logo {
-  width: 30px;
-  height: 30px;
+  width: 42px;
+  height: 42px;
   object-fit: contain;
 }
 
@@ -229,7 +229,7 @@ h2,
 }
 
 .hero-phone-live {
-  width: min(220px, 100%);
+  width: min(300px, 100%);
   transform: rotate(-4deg);
 }
 
@@ -442,7 +442,7 @@ h2,
 
   .hero-phone,
   .phone-placeholder {
-    width: min(220px, 100%);
+    width: min(280px, 100%);
   }
 
   .placeholder-row {
