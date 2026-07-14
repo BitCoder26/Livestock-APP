@@ -124,7 +124,11 @@ h2,
 
 .hero-copy h1 {
   max-width: 9.5ch;
-  font-size: clamp(2.5rem, 5.8vw, 4.6rem);
+  font-size: clamp(2.15rem, 5vw, 3.95rem);
+}
+
+.hero-wordmark {
+  color: rgba(169, 63, 58, 0.72);
 }
 
 .hero-text,
@@ -244,8 +248,29 @@ h2,
   width: auto;
 }
 
+.hero-banner-bridge {
+  position: relative;
+  width: 100%;
+  margin-top: -6px;
+  background: linear-gradient(180deg, var(--hero-red-deep) 0%, #8b2f2b 100%);
+}
+
+.hero-banner-bridge::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: clamp(60px, 10vw, 120px);
+  background: linear-gradient(180deg, var(--hero-red-deep) 0%, rgba(139, 47, 43, 0.82) 38%, rgba(139, 47, 43, 0) 100%);
+  pointer-events: none;
+}
+
+.hero-banner-bridge img {
+  width: 100%;
+  display: block;
+}
+
 .page-shell {
-  padding: 20px 0 56px;
+  padding: 0 0 56px;
 }
 
 .feature-grid,
