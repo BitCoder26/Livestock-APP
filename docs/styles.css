@@ -298,6 +298,12 @@ h2,
   gap: 20px;
 }
 
+.hero-phone-stack {
+  position: relative;
+  min-height: 620px;
+  width: min(420px, 100%);
+}
+
 .hero-phone,
 .phone-placeholder {
   width: min(270px, 100%);
@@ -310,8 +316,22 @@ h2,
 
 .hero-phone-live {
   width: min(300px, 100%);
-  transform: none;
   box-shadow: none;
+}
+
+.hero-phone-primary {
+  position: relative;
+  z-index: 1;
+  transform: rotate(-7deg) translateX(-28px);
+}
+
+.hero-phone-secondary {
+  position: absolute;
+  right: 0;
+  bottom: 28px;
+  width: min(260px, 82%);
+  z-index: 2;
+  transform: rotate(-3deg);
 }
 
 .hero-phone-live img {
