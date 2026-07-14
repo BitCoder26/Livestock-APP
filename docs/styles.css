@@ -7,6 +7,7 @@
   --muted: #6c645d;
   --accent: #395845;
   --accent-soft: #dfe8df;
+  --warm-charcoal: #4d3f39;
   --hero-red: #a93f3a;
   --hero-red-deep: #8b2f2b;
   --banner-red: #eb4a4e;
@@ -128,8 +129,9 @@ h2,
   font-size: clamp(2.15rem, 5vw, 3.95rem);
 }
 
-.hero-wordmark {
-  color: rgba(169, 63, 58, 0.72);
+.hero-wordmark,
+.hero-emphasis {
+  color: var(--warm-charcoal);
 }
 
 .hero-text,
@@ -253,6 +255,7 @@ h2,
   position: relative;
   width: 100%;
   margin-top: -6px;
+  max-height: clamp(190px, 22vw, 310px);
   background: linear-gradient(180deg, var(--banner-red) 0%, var(--banner-red) 100%);
 }
 
@@ -272,7 +275,7 @@ h2,
 .hero-banner-bridge img {
   width: 100%;
   display: block;
-  margin-top: -18px;
+  margin-top: clamp(-170px, -10vw, -72px);
 }
 
 .page-shell {
