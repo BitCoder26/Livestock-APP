@@ -195,6 +195,49 @@ h2,
   color: #fff3f1;
 }
 
+.store-badge {
+  gap: 12px;
+  padding: 10px 18px;
+  justify-content: flex-start;
+}
+
+.store-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.store-copy small {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.store-copy strong {
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.store-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.store-icon-play {
+  clip-path: polygon(18% 10%, 90% 50%, 18% 90%);
+  background: currentColor;
+}
+
+.store-icon-apple {
+  border: 1.7px solid currentColor;
+  border-radius: 9px 9px 11px 11px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
 .page-shell {
   padding: 20px 0 56px;
 }
