@@ -310,7 +310,7 @@ h2,
 
 .hero-phone-live {
   width: min(300px, 100%);
-  transform: rotate(-4deg);
+  transform: none;
   box-shadow: none;
 }
 
@@ -395,9 +395,9 @@ h2,
   min-height: 210px;
   padding: 30px 28px;
   border-radius: 26px;
-  background: #ffffff;
-  border: 1px solid rgba(33, 29, 24, 0.08);
-  box-shadow: 0 16px 36px rgba(31, 27, 23, 0.06);
+  background: var(--warm-charcoal);
+  border: 0;
+  box-shadow: 0 16px 36px rgba(31, 27, 23, 0.1);
 }
 
 .feature-card h2 {
@@ -422,7 +422,7 @@ h2,
 .feature-story-phone {
   width: min(300px, 100%);
   margin: 0;
-  transform: rotate(-4deg);
+  transform: none;
   box-shadow: none;
 }
 
@@ -445,6 +445,12 @@ h2,
 
 .feature-story-copy .eyebrow {
   margin-bottom: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.feature-story-copy h2,
+.feature-story-copy p {
+  color: #ffffff;
 }
 
 .section-copy h2,
