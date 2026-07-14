@@ -265,9 +265,14 @@ h2,
   pointer-events: none;
 }
 
+.hero-banner-bridge {
+  overflow: hidden;
+}
+
 .hero-banner-bridge img {
   width: 100%;
   display: block;
+  transform: translateY(-18px);
 }
 
 .page-shell {
@@ -306,6 +311,7 @@ h2,
 .hero-phone-live {
   width: min(300px, 100%);
   transform: rotate(-4deg);
+  box-shadow: none;
 }
 
 .hero-phone-live img {
