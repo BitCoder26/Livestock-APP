@@ -607,17 +607,19 @@ h2,
   .feature-story {
     width: min(420px, 100%);
     gap: 18px;
-    justify-items: center;
+    justify-items: stretch;
   }
 
   .feature-story-copy {
     order: 1;
     width: 100%;
+    text-align: left;
   }
 
   .feature-story-phone {
     order: 2;
     width: min(250px, 72vw);
+    justify-self: start;
   }
 
   .feature-story:first-child {
