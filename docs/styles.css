@@ -537,6 +537,10 @@ h2,
   background: linear-gradient(135deg, #fff6f1 0%, #f7efe8 100%);
 }
 
+.contact-panel-copy h2 {
+  margin-bottom: 24px;
+}
+
 .contact-panel-copy p {
   max-width: 42rem;
   margin: 0 0 18px;
