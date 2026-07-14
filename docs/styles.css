@@ -171,10 +171,25 @@ h2,
 }
 
 .hero-rating-stars {
+  position: relative;
+  display: inline-block;
   letter-spacing: 0.12em;
   font-size: 1.18rem;
-  color: #f4c542;
+  line-height: 1;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+}
+
+.hero-rating-stars-base {
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.hero-rating-stars-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 90%;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #f4c542;
 }
 
 .hero-rating-text {
@@ -336,14 +351,19 @@ h2,
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 20px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
 }
 
 .feature-card {
-  padding: 22px;
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(169, 63, 58, 0.14) 0%, rgba(139, 47, 43, 0.08) 100%);
-  border: 1px solid rgba(169, 63, 58, 0.16);
+  min-height: 210px;
+  padding: 30px 28px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, rgba(169, 63, 58, 0.18) 0%, rgba(139, 47, 43, 0.12) 100%);
+  border: 0;
 }
 
 .feature-card h2 {
