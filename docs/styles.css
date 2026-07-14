@@ -285,7 +285,7 @@ h2,
 
 .feature-story-list,
 .screens-section,
-.contact-panel,
+.facebook-section,
 .legal-shell {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -397,6 +397,7 @@ h2,
 
 .feature-story-list,
 .download-section,
+.facebook-section,
 .contact-panel {
   padding: 28px;
   margin-bottom: 18px;
@@ -525,6 +526,7 @@ h2,
   margin-top: 28px;
 }
 
+.facebook-section,
 .contact-panel {
   display: grid;
   width: min(100%, 1040px);
@@ -534,13 +536,27 @@ h2,
   gap: 38px;
   align-items: start;
   padding: 34px 38px;
-  background: linear-gradient(135deg, #fff6f1 0%, #f7efe8 100%);
 }
 
+.facebook-section {
+  background: #fff8f3;
+}
+
+.contact-panel {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.facebook-section-copy h2,
 .contact-panel-copy h2 {
   margin-bottom: 24px;
 }
 
+.facebook-section-copy p,
 .contact-panel-copy p {
   max-width: 42rem;
   margin: 0 0 18px;
@@ -639,12 +655,14 @@ h2,
 @media (max-width: 900px) {
   .hero-shell,
   .feature-story,
+  .facebook-section,
   .contact-panel {
     grid-template-columns: 1fr;
   }
 
   .feature-story {
-    width: min(420px, 100%);
+    width: 100%;
+    max-width: none;
     gap: 18px;
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -657,8 +675,10 @@ h2,
     grid-area: copy;
     order: 1;
     width: 100%;
+    min-height: 0;
     text-align: left;
     justify-self: stretch;
+    margin: 0;
   }
 
   .feature-story-phone {
@@ -667,6 +687,7 @@ h2,
     width: min(250px, 72vw);
     justify-self: start;
     margin-top: 2px;
+    margin-left: 0;
   }
 
   .feature-story:first-child {
@@ -699,14 +720,21 @@ h2,
 
   .feature-story-list,
   .screens-section,
+  .facebook-section,
   .legal-shell {
     padding: 22px;
   }
 
-  .contact-panel {
+  .contact-panel,
+  .facebook-section {
     width: 100%;
     gap: 24px;
     padding: 28px 24px;
+  }
+
+  .contact-panel {
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .hero-copy h1 {
@@ -727,6 +755,7 @@ h2,
   }
 
   .feature-card {
+    width: 100%;
     padding: 24px 22px;
   }
 
