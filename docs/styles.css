@@ -535,11 +535,24 @@ h2,
 
 .contact-panel-copy p {
   max-width: 38rem;
+  margin: 0 0 12px;
 }
 
 .contact-card-grid {
   display: grid;
   gap: 16px;
+}
+
+.contact-actions-grid {
+  align-content: start;
+}
+
+.button-disabled {
+  min-width: 200px;
+  justify-content: center;
+  opacity: 0.92;
+  cursor: default;
+  pointer-events: none;
 }
 
 .contact-card-item {
@@ -614,12 +627,14 @@ h2,
     order: 1;
     width: 100%;
     text-align: left;
+    justify-self: start;
   }
 
   .feature-story-phone {
     order: 2;
     width: min(250px, 72vw);
     justify-self: start;
+    margin-top: -2px;
   }
 
   .feature-story:first-child {
@@ -680,6 +695,7 @@ h2,
 
   .feature-story-phone {
     width: min(220px, 68vw);
+    margin-top: 0;
   }
 
   .placeholder-row {
