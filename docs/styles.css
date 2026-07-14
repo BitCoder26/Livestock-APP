@@ -488,7 +488,9 @@ h2,
 }
 
 .download-section {
-  padding: 32px 28px;
+  width: 100vw;
+  margin: 96px calc(50% - 50vw) 88px;
+  padding: 48px 28px;
   text-align: center;
   background: var(--banner-red);
   border: 0;
@@ -512,8 +514,12 @@ h2,
 }
 
 .download-actions {
+  display: flex;
+  flex-direction: row;
   justify-content: center;
-  margin-top: 24px;
+  align-items: center;
+  gap: 16px;
+  margin-top: 28px;
 }
 
 .contact-panel p {
