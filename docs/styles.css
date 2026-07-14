@@ -558,6 +558,10 @@ h2,
   color: #ffffff;
 }
 
+.button-contact-primary:hover {
+  color: #ffffff;
+}
+
 .button-contact-secondary {
   background: #ffffff;
   border-color: rgba(33, 29, 24, 0.08);
