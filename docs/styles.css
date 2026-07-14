@@ -103,7 +103,7 @@ h2,
 .hero-shell {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
-  gap: 28px;
+  gap: 44px;
   align-items: center;
 }
 
@@ -490,12 +490,24 @@ h2,
 .download-section {
   padding: 32px 28px;
   text-align: center;
+  background: var(--banner-red);
+  border: 0;
+  box-shadow: none;
+}
+
+.download-section .eyebrow,
+.download-section h2,
+.download-text {
+  color: #ffffff;
+}
+
+.download-section .eyebrow {
+  opacity: 0.8;
 }
 
 .download-text {
   max-width: 34rem;
   margin: 14px auto 0;
-  color: var(--muted);
   line-height: 1.65;
 }
 
