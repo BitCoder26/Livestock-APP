@@ -272,7 +272,7 @@ h2,
 .hero-banner-bridge img {
   width: 100%;
   display: block;
-  transform: translateY(-18px);
+  margin-top: -18px;
 }
 
 .page-shell {
