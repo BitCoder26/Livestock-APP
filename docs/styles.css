@@ -255,7 +255,7 @@ h2,
   position: relative;
   width: 100%;
   margin-top: -6px;
-  max-height: clamp(190px, 22vw, 310px);
+  max-height: clamp(220px, 25vw, 350px);
   background: linear-gradient(180deg, var(--banner-red) 0%, var(--banner-red) 100%);
 }
 
@@ -275,7 +275,7 @@ h2,
 .hero-banner-bridge img {
   width: 100%;
   display: block;
-  margin-top: clamp(-170px, -10vw, -72px);
+  margin-top: clamp(-110px, -6vw, -44px);
 }
 
 .page-shell {
