@@ -552,9 +552,22 @@ h2,
   gap: 18px;
 }
 
+.button-contact-primary {
+  background: var(--banner-red);
+  border-color: var(--banner-red);
+  color: #ffffff;
+}
+
+.button-contact-secondary {
+  background: #ffffff;
+  border-color: rgba(33, 29, 24, 0.08);
+  color: var(--warm-charcoal);
+}
+
 .button-disabled {
   min-width: 220px;
   justify-content: center;
+  border-radius: 999px;
   opacity: 0.92;
   cursor: default;
   pointer-events: none;
