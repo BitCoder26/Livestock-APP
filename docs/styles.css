@@ -117,7 +117,9 @@ h2,
 .section-heading h2,
 .contact-panel h2,
 .legal-shell h1,
-.hero-copy h1 {
+.hero-copy h1,
+.contact-card-item h3,
+.legal-shell h2 {
   margin: 0;
   letter-spacing: -0.04em;
   line-height: 0.96;
@@ -137,6 +139,7 @@ h2,
 .section-copy p,
 .feature-card p,
 .contact-panel p,
+.contact-card-item p,
 .legal-shell p,
 .legal-shell li {
   line-height: 1.65;
@@ -303,7 +306,6 @@ h2,
   width: min(360px, 100%);
   min-height: 560px;
 }
-
 
 .hero-phone,
 .phone-placeholder {
@@ -482,6 +484,7 @@ h2,
 
 .section-copy p,
 .contact-panel p,
+.contact-card-item p,
 .legal-shell p,
 .legal-shell li {
   color: var(--muted);
@@ -522,8 +525,41 @@ h2,
   margin-top: 28px;
 }
 
-.contact-panel p {
+.contact-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  gap: 26px;
+  align-items: start;
+  background: linear-gradient(135deg, #fff6f1 0%, #f7efe8 100%);
+}
+
+.contact-panel-copy p {
   max-width: 38rem;
+}
+
+.contact-card-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.contact-card-item {
+  padding: 22px;
+  border-radius: 22px;
+  background: #ffffff;
+  border: 1px solid rgba(33, 29, 24, 0.08);
+}
+
+.contact-card-item-soft {
+  background: rgba(255, 248, 246, 0.92);
+}
+
+.contact-card-item h3 {
+  font-size: 1.2rem;
+  color: var(--warm-charcoal);
+}
+
+.contact-card-item p {
+  margin: 12px 0 18px;
 }
 
 .site-footer {
@@ -563,8 +599,29 @@ h2,
 
 @media (max-width: 900px) {
   .hero-shell,
-  .feature-story {
+  .feature-story,
+  .contact-panel {
     grid-template-columns: 1fr;
+  }
+
+  .feature-story {
+    width: min(420px, 100%);
+    gap: 18px;
+    justify-items: center;
+  }
+
+  .feature-story-copy {
+    order: 1;
+    width: 100%;
+  }
+
+  .feature-story-phone {
+    order: 2;
+    width: min(250px, 72vw);
+  }
+
+  .feature-story:first-child {
+    margin-top: -72px;
   }
 
   .offset-card {
@@ -587,6 +644,10 @@ h2,
     padding: 16px 0 26px;
   }
 
+  .hero-banner-bridge img {
+    margin-top: -20px;
+  }
+
   .feature-story-list,
   .screens-section,
   .contact-panel,
@@ -601,6 +662,22 @@ h2,
   .hero-phone,
   .phone-placeholder {
     width: min(280px, 100%);
+  }
+
+  .feature-story {
+    gap: 16px;
+  }
+
+  .feature-story:first-child {
+    margin-top: -24px;
+  }
+
+  .feature-card {
+    padding: 24px 22px;
+  }
+
+  .feature-story-phone {
+    width: min(220px, 68vw);
   }
 
   .placeholder-row {
