@@ -97,6 +97,10 @@ h2,
   color: var(--muted);
 }
 
+.top-nav a {
+  color: #ffffff;
+}
+
 .hero-band {
   width: 100%;
   background: var(--banner-red);
