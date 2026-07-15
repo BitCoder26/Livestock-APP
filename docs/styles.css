@@ -539,7 +539,7 @@ h2,
 }
 
 .facebook-section {
-  background: #ffffff;
+  background: var(--warm-charcoal);
 }
 
 .facebook-section-copy {
@@ -564,6 +564,11 @@ h2,
 .facebook-section-copy h2,
 .contact-panel-copy h2 {
   margin-bottom: 24px;
+}
+
+.facebook-section-copy h2,
+.facebook-section-copy p {
+  color: #ffffff;
 }
 
 .facebook-section-copy p,
