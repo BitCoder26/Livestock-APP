@@ -324,7 +324,7 @@ h2,
 
 .hero-phone-front {
   position: relative;
-  left: -34px;
+  left: 68px;
   z-index: 2;
   transform: rotate(9deg);
 }
