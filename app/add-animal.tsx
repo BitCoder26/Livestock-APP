@@ -481,7 +481,10 @@ export function AddAnimalScreen() {
                       }}
                       style={({ pressed }) => [
                         styles.speciesModalCard,
-                        { backgroundColor: theme.tintBackground },
+                        {
+                          backgroundColor: theme.chipBackground,
+                          borderColor: theme.chipBorder,
+                        },
                         pressed && styles.speciesModalCardPressed,
                       ]}
                     >
@@ -705,6 +708,7 @@ const styles = StyleSheet.create({
     minHeight: 74,
     borderRadius: 16,
     backgroundColor: '#F5F3F7',
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
