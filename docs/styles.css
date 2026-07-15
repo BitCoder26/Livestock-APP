@@ -3,7 +3,7 @@
   --surface: #fdf9f3;
   --surface-soft: #fdf9f3;
   --line: rgba(33, 29, 24, 0.1);
-  --text: #1f1b17;
+  --text: var(--warm-charcoal);
   --muted: #6c645d;
   --accent: #395845;
   --accent-soft: #dfe8df;
@@ -375,7 +375,7 @@ h2,
   flex-direction: column;
   justify-content: flex-end;
   padding: 18px;
-  color: #2a2622;
+  color: var(--warm-charcoal);
 }
 
 .placeholder-label {
