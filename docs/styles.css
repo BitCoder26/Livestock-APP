@@ -555,16 +555,16 @@ h2,
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
+  width: 76px;
   min-height: 100%;
-  flex: 0 0 56px;
+  flex: 0 0 76px;
   align-self: stretch;
   color: #ffffff;
 }
 
 .facebook-section-icon svg {
-  width: 38px;
-  height: 38px;
+  width: 56px;
+  height: 56px;
 }
 
 .facebook-section-copy {
@@ -779,14 +779,14 @@ h2,
   }
 
   .facebook-section-icon {
-    width: 44px;
+    width: 58px;
     min-height: 100%;
-    flex-basis: 44px;
+    flex-basis: 58px;
   }
 
   .facebook-section-icon svg {
-    width: 30px;
-    height: 30px;
+    width: 42px;
+    height: 42px;
   }
 
   .facebook-section-actions {
