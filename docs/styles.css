@@ -46,7 +46,6 @@ h2,
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
 }
 
-.site-header,
 .page-shell,
 .site-footer,
 .legal-shell,
@@ -56,16 +55,21 @@ h2,
 }
 
 .site-header {
+  width: 100%;
+  margin: 0;
+}
+
+.site-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 12px 18px;
-  margin-top: 10px;
-  margin-bottom: 10px;
+  padding: 14px 24px;
+  margin-top: 0;
+  margin-bottom: 0;
   background: #ffffff;
-  border-radius: 999px;
-  box-shadow: 0 14px 32px rgba(31, 27, 23, 0.08);
+  border-radius: 0;
+  box-shadow: 0 10px 24px rgba(31, 27, 23, 0.06);
 }
 
 .brand {
