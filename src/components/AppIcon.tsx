@@ -30,10 +30,12 @@ import DuckIcon from '../../assets/icons/svg/duck.svg';
 import EditIcon from '../../assets/icons/svg/edit-outline.svg';
 import ExportIcon from '../../assets/icons/svg/export.svg';
 import ExportTabIcon from '../../assets/icons/svg/export_.svg';
+import ExportTabOutlineIcon from '../../assets/icons/svg/export-outline-tab.svg';
 import ExportFileDownloadOutlineIcon from '../../assets/icons/svg/export-file-download-outline.svg';
 import ExportFileOutlineIcon from '../../assets/icons/svg/export-file-outline.svg';
 import FilterListIcon from '../../assets/icons/svg/filter-list.svg';
 import GoatFaceIcon from '../../assets/icons/goat.svg';
+import GoatFaceOutlineIcon from '../../assets/icons/goat-outline.svg';
 import GoatIcon from '../../assets/icons/svg/goat.svg';
 import GooseIcon from '../../assets/icons/svg/goose.svg';
 import GlobeIcon from '../../assets/icons/svg/globe.svg';
@@ -53,6 +55,7 @@ import RabbitIcon from '../../assets/icons/svg/rabbit.svg';
 import RecordsBookIcon from '../../assets/icons/svg/records-book.svg';
 import RecordsIcon from '../../assets/icons/svg/records.svg';
 import RecordsTabIcon from '../../assets/icons/svg/records_.svg';
+import RecordsTabOutlineIcon from '../../assets/icons/svg/records-outline-tab.svg';
 import SearchIcon from '../../assets/icons/svg/search.svg';
 import SettingsIcon from '../../assets/icons/svg/settings.svg';
 import ShareIcon from '../../assets/icons/svg/share.svg';
@@ -60,6 +63,7 @@ import Setup4Icon from '../../assets/icons/svg/setup4.svg';
 import SetupOutlineIcon from '../../assets/icons/svg/setup-outline.svg';
 import SpannerIcon from '../../assets/icons/svg/spanner.svg';
 import SpannerTabIcon from '../../assets/icons/svg/spanner_.svg';
+import SpannerTabOutlineIcon from '../../assets/icons/svg/spanner-outline-tab.svg';
 import Spanner2Icon from '../../assets/icons/svg/spanner2.svg';
 import MailIcon from '../../assets/icons/svg/mail.svg';
 import MedalIcon from '../../assets/icons/svg/medal.svg';
@@ -111,12 +115,14 @@ const icons = {
   edit: EditIcon,
   export: ExportIcon,
   export_: ExportTabIcon,
+  'export-outline-tab': ExportTabOutlineIcon,
   'export-download-outline': ExportFileDownloadOutlineIcon,
   'export-outline': ExportFileOutlineIcon,
   'enter-arrow': EnterArrowIcon,
   female: FemaleIcon,
   filter: MenuIcon,
   'goat-face': GoatFaceIcon,
+  'goat-face-outline': GoatFaceOutlineIcon,
   goat: GoatIcon,
   goose: GooseIcon,
   globe: GlobeIcon,
@@ -140,6 +146,7 @@ const icons = {
   'records-book': RecordsBookIcon,
   records: RecordsIcon,
   records_: RecordsTabIcon,
+  'records-outline-tab': RecordsTabOutlineIcon,
   save: SaveIcon,
   search: SearchIcon,
   settings: SettingsIcon,
@@ -148,6 +155,7 @@ const icons = {
   'setup-outline': SetupOutlineIcon,
   spanner: SpannerIcon,
   spanner_: SpannerTabIcon,
+  'spanner-outline-tab': SpannerTabOutlineIcon,
   spanner2: Spanner2Icon,
   sheep: SheepIcon,
   sprout: SproutIcon,

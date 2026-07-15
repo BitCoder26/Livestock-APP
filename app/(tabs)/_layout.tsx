@@ -61,28 +61,28 @@ export default function TabsLayout() {
         name="records"
         options={{
           title: 'Records',
-          tabBarIcon: ({ color, focused }) => <TabIcon name="records_" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="records-outline-tab" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="animals"
         options={{
           title: 'Animals',
-          tabBarIcon: ({ color, focused }) => <TabIcon name="goat-face" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="goat-face-outline" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="setup"
         options={{
           title: 'Setup',
-          tabBarIcon: ({ color, focused }) => <TabIcon name="spanner_" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="spanner-outline-tab" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="export"
         options={{
           title: 'Export',
-          tabBarIcon: ({ color, focused }) => <TabIcon name="export_" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="export-outline-tab" color={color} focused={focused} />,
         }}
       />
     </Tabs>
