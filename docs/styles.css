@@ -73,7 +73,10 @@ h2,
 .brand-logo {
   width: 42px;
   height: 42px;
-  object-fit: contain;
+  border-radius: 10px;
+  object-fit: cover;
+  overflow: hidden;
+  box-shadow: 0 8px 18px rgba(31, 27, 23, 0.14);
 }
 
 .brand-text {
