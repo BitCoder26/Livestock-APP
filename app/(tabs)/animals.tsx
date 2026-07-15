@@ -187,7 +187,7 @@ export default function AnimalsScreen() {
                   </View>
                 </View>
               </View>
-              <AppIcon name="arrow-right-circle" size={24} color={tokens.colors.accent} />
+              <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
             </BouncyPressable>
           )})
         )}

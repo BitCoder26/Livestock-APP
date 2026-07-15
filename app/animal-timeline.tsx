@@ -153,7 +153,7 @@ export default function AnimalTimelineScreen() {
                       <Text style={styles.recordTitle}>{record.type}</Text>
                       <Text style={styles.recordDetails}>{details}</Text>
                     </View>
-                    <AppIcon name="arrow-right-circle" size={24} color={tokens.colors.accent} />
+                    <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
                   </Pressable>
                 </View>
               );

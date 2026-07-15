@@ -316,8 +316,9 @@ h2,
 
 .hero-phone-stack {
   position: relative;
-  width: min(360px, 100%);
-  min-height: 560px;
+  width: min(320px, 100%);
+  min-height: 500px;
+  margin-left: 0;
 }
 
 .hero-phone,
@@ -331,20 +332,20 @@ h2,
 }
 
 .hero-phone-live {
-  width: min(300px, 100%);
+  width: min(248px, 100%);
   box-shadow: none;
 }
 
 .hero-phone-front {
   position: relative;
-  left: 170px;
+  left: 108px;
   z-index: 2;
   transform: rotate(5deg);
 }
 
 .hero-phone-back {
   position: absolute;
-  inset: 34px auto auto 34px;
+  inset: 30px auto auto 12px;
   z-index: 1;
   transform: rotate(-5deg);
   opacity: 0.98;
@@ -715,13 +716,25 @@ h2,
     grid-template-columns: 1fr;
   }
 
-  .feature-story,
+  .feature-story {
+    width: min(100%, calc(100vw - 32px));
+    max-width: 420px;
+    gap: 16px;
+    grid-template-columns: minmax(148px, 212px) minmax(156px, 188px);
+    grid-template-areas: "phone copy";
+    justify-content: center;
+    justify-items: stretch;
+    align-items: center;
+    padding-bottom: 14px;
+  }
+
   .feature-story.reverse {
     width: min(100%, calc(100vw - 32px));
     max-width: 420px;
     gap: 16px;
-    grid-template-columns: minmax(148px, 228px) minmax(0, 1fr);
-    grid-template-areas: "phone copy";
+    grid-template-columns: minmax(156px, 188px) minmax(148px, 212px);
+    grid-template-areas: "copy phone";
+    justify-content: center;
     justify-items: stretch;
     align-items: center;
     padding-bottom: 14px;
@@ -731,18 +744,23 @@ h2,
     grid-area: copy;
     min-height: 0;
     width: 100%;
+    max-width: 188px;
     margin: 0;
     text-align: left;
     justify-self: start;
     align-self: center;
-    border-radius: 24px;
+    border-radius: 22px;
     position: static;
     z-index: auto;
   }
 
+  .feature-story.reverse .feature-story-copy {
+    justify-self: end;
+  }
+
   .feature-story-phone {
     grid-area: phone;
-    width: min(228px, 64vw);
+    width: min(212px, 60vw);
     justify-self: center;
     align-self: center;
     margin: 0;
@@ -827,11 +845,16 @@ h2,
     width: min(280px, 100%);
   }
 
-  .feature-story,
+  .feature-story {
+    gap: 12px;
+    max-width: 344px;
+    grid-template-columns: minmax(118px, 164px) minmax(134px, 156px);
+  }
+
   .feature-story.reverse {
     gap: 12px;
-    max-width: 360px;
-    grid-template-columns: minmax(126px, 176px) minmax(0, 1fr);
+    max-width: 344px;
+    grid-template-columns: minmax(134px, 156px) minmax(118px, 164px);
   }
 
   .feature-story:first-child {
@@ -842,11 +865,12 @@ h2,
     width: 100%;
     max-width: none;
     min-height: 0;
-    padding: 18px 16px;
+    padding: 17px 14px;
   }
 
   .feature-story-copy {
     width: 100%;
+    max-width: 156px;
   }
 
   .feature-story-copy h2 {
@@ -860,7 +884,7 @@ h2,
   }
 
   .feature-story-phone {
-    width: min(176px, 48vw);
+    width: min(164px, 46vw);
     margin-top: 0;
   }
 

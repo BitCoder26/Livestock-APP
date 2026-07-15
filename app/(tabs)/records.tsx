@@ -124,7 +124,7 @@ export default function RecordsScreen() {
                     <Text style={styles.cardMeta}>{formatAnimalCount(record)}</Text>
                   </View>
                 </View>
-                <AppIcon name="arrow-right-circle" size={24} color={tokens.colors.accent} />
+                <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
               </BouncyPressable>
             ))
           )}

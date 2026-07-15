@@ -18,6 +18,7 @@ import CheckIcon from '../../assets/icons/svg/check.svg';
 import ChickenIcon from '../../assets/icons/svg/chicken.svg';
 import ChevronDownIcon from '../../assets/icons/svg/chevron-down.svg';
 import ChevronRightIcon from '../../assets/icons/svg/chevron-right.svg';
+import ChevronRightMinimalIcon from '../../assets/icons/svg/chevron-right-minimal.svg';
 import CloseIcon from '../../assets/icons/svg/close.svg';
 import Cow3Icon from '../../assets/icons/svg/cow3.svg';
 import CowHeadIcon from '../../assets/icons/svg/cow-head.svg';
@@ -96,6 +97,7 @@ const icons = {
   chicken: ChickenIcon,
   'chevron-down': ChevronDownIcon,
   'chevron-right': ChevronRightIcon,
+  'chevron-right-minimal': ChevronRightMinimalIcon,
   close: CloseIcon,
   cow3: Cow3Icon,
   cow: CowIcon,

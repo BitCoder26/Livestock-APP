@@ -512,8 +512,8 @@ export default function AddRecordScreen() {
   };
 
   const handleAddImages = async () => {
-    if (imageUris.length >= 3) {
-      Alert.alert('Image limit reached', 'You can attach up to 3 images.');
+    if (imageUris.length >= 1) {
+      Alert.alert('Image limit reached', 'You can attach only 1 image.');
       return;
     }
 
@@ -528,15 +528,21 @@ export default function AddRecordScreen() {
       mediaTypes: ['images'],
       allowsEditing: false,
       quality: 1,
-      allowsMultipleSelection: true,
-      selectionLimit: 3 - imageUris.length,
+      allowsMultipleSelection: false,
+      selectionLimit: 1,
     });
 
     if (result.canceled) {
       return;
     }
 
-    setImageUris((current) => [...current, ...result.assets.map((asset) => asset.uri)].slice(0, 3));
+    const nextUri = result.assets[0]?.uri;
+
+    if (!nextUri) {
+      return;
+    }
+
+    setImageUris([nextUri]);
   };
 
   const handleRemoveImage = (uri: string) => {
@@ -1135,7 +1141,7 @@ export default function AddRecordScreen() {
             onChangeText={setDetails}
           />
           <Pressable
-            accessibilityLabel="Add images"
+            accessibilityLabel="Attach image"
             accessibilityRole="button"
             onPress={handleAddImages}
             style={({ pressed }) => [styles.photoButton, pressed && styles.pressed]}
@@ -1143,7 +1149,7 @@ export default function AddRecordScreen() {
             <View style={styles.photoCopy}>
               <AppIcon name="image-add" size={22} color={tokens.colors.accent} />
               <Text style={styles.photoText}>
-                {imageUris.length === 0 ? 'Attach Images' : `Attach Images ${imageUris.length}/3`}
+                {`Attach Image (${imageUris.length}/1)`}
               </Text>
             </View>
             <View style={styles.fieldChevron}>
