@@ -544,6 +544,27 @@ h2,
   margin-bottom: 42px;
 }
 
+.facebook-section-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.facebook-section-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  color: #ffffff;
+}
+
+.facebook-section-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
 .facebook-section-copy {
   text-align: left;
 }
@@ -749,6 +770,21 @@ h2,
     width: 100%;
     gap: 24px;
     padding: 28px 24px;
+  }
+
+  .facebook-section-main {
+    gap: 14px;
+  }
+
+  .facebook-section-icon {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  .facebook-section-icon svg {
+    width: 24px;
+    height: 24px;
   }
 
   .facebook-section-actions {
