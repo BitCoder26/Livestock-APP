@@ -539,7 +539,17 @@ h2,
 }
 
 .facebook-section {
-  background: #fff8f3;
+  background: #ffffff;
+}
+
+.facebook-section-copy {
+  text-align: left;
+}
+
+.facebook-section-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .contact-panel {
@@ -730,6 +740,10 @@ h2,
     width: 100%;
     gap: 24px;
     padding: 28px 24px;
+  }
+
+  .facebook-section-actions {
+    justify-content: flex-start;
   }
 
   .contact-panel {
