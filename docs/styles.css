@@ -325,14 +325,14 @@ h2,
 .hero-phone-front {
   position: relative;
   z-index: 2;
-  transform: rotate(-4deg);
+  transform: rotate(9deg);
 }
 
 .hero-phone-back {
   position: absolute;
-  inset: 22px auto auto 18px;
+  inset: 34px auto auto 34px;
   z-index: 1;
-  transform: rotate(-11deg);
+  transform: rotate(-9deg);
   opacity: 0.98;
 }
 
