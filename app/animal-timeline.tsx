@@ -146,7 +146,7 @@ export default function AnimalTimelineScreen() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`${record.type} on ${record.date}`}
-                    onPress={() => router.push({ pathname: '/add-record', params: { recordId: record.id } })}
+                    onPress={() => router.push({ pathname: '/view-record', params: { recordId: record.id } })}
                     style={({ pressed }) => [styles.recordCard, pressed && styles.cardPressed]}
                   >
                     <View style={styles.recordCopy}>

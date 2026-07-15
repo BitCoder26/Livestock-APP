@@ -1,8 +1,8 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Image, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from '../src/components/AppIcon';
@@ -33,6 +33,7 @@ type MovementPickerKey = (typeof MOVEMENT_PICKERS)[number];
 
 export default function AddRecordScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const { selectedAnimalIds, selectedMotherName, recordId, draftRecord, reveal } = useLocalSearchParams<{ selectedAnimalIds?: string; selectedMotherName?: string; recordId?: string; draftRecord?: string; reveal?: string }>();
   const { profile } = useAccount();
   const { animals, addAnimal } = useAnimals();
@@ -40,6 +41,7 @@ export default function AddRecordScreen() {
   const { farms, paddocks, groups, medicineEntities } = useSetup();
   const editingRecord = useMemo(() => (recordId ? records.find((record) => record.id === recordId) ?? null : null), [recordId, records]);
   const isEditing = Boolean(editingRecord);
+  const isEditRoute = pathname === '/edit-record';
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [recordType, setRecordType] = useState<(typeof RECORD_TYPES)[number]>('Movement');
@@ -392,6 +394,8 @@ export default function AddRecordScreen() {
 
     if (isEditing && editingRecord) {
       updateRecord(editingRecord.id, payload);
+      router.replace({ pathname: '/view-record', params: { recordId: editingRecord.id } });
+      return;
     } else {
       addRecord(payload);
     }
@@ -477,21 +481,6 @@ export default function AddRecordScreen() {
     setShowTreatmentPicker(false);
   };
 
-  const handleShareRecord = async () => {
-    if (!editingRecord) {
-      return;
-    }
-
-    try {
-      await Share.share({
-        message: formatRecordShareText(editingRecord),
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Something went wrong while opening the share sheet.';
-      Alert.alert('Share failed', message);
-    }
-  };
-
   const handleDeleteRecord = () => {
     if (!editingRecord) {
       return;
@@ -558,7 +547,7 @@ export default function AddRecordScreen() {
     <CircularRevealView active={reveal === '1'}>
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
-        title={isEditing ? 'View Record' : 'Add Record'}
+        title={isEditing ? (isEditRoute ? 'Edit Record' : 'View Record') : 'Add Record'}
         leftAction={{
           icon: 'back',
           accessibilityLabel: 'Back',
@@ -568,16 +557,10 @@ export default function AddRecordScreen() {
           isEditing
             ? [
                 {
-                  icon: 'share',
-            accessibilityLabel: 'Share record',
-            onPress: handleShareRecord,
-            size: 22,
-                },
-                {
                   icon: 'trash',
-            accessibilityLabel: 'Delete record',
-            onPress: handleDeleteRecord,
-            size: 28,
+                  accessibilityLabel: 'Delete record',
+                  onPress: handleDeleteRecord,
+                  size: 28,
                 },
               ]
             : []

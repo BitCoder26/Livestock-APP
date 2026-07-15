@@ -54,6 +54,24 @@ export default function RootLayout() {
                   }
                 />
                 <Stack.Screen
+                  name="view-record"
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 280,
+                    contentStyle: { backgroundColor: '#F7F5F6' },
+                    presentation: 'card',
+                  }}
+                />
+                <Stack.Screen
+                  name="edit-record"
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 280,
+                    contentStyle: { backgroundColor: '#F7F5F6' },
+                    presentation: 'card',
+                  }}
+                />
+                <Stack.Screen
                   name="records-filter"
                   options={{
                     animation: 'none',

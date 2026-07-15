@@ -53,6 +53,7 @@ import RecordsBookIcon from '../../assets/icons/svg/records-book.svg';
 import RecordsIcon from '../../assets/icons/svg/records.svg';
 import RecordsTabIcon from '../../assets/icons/svg/records_.svg';
 import SearchIcon from '../../assets/icons/svg/search.svg';
+import SettingsIcon from '../../assets/icons/svg/settings.svg';
 import ShareIcon from '../../assets/icons/svg/share.svg';
 import Setup4Icon from '../../assets/icons/svg/setup4.svg';
 import SetupOutlineIcon from '../../assets/icons/svg/setup-outline.svg';
@@ -139,7 +140,7 @@ const icons = {
   records_: RecordsTabIcon,
   save: SaveIcon,
   search: SearchIcon,
-  settings: Spanner2Icon,
+  settings: SettingsIcon,
   share: ShareIcon,
   setup4: Setup4Icon,
   'setup-outline': SetupOutlineIcon,

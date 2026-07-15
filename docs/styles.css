@@ -710,47 +710,44 @@ h2,
 
 @media (max-width: 900px) {
   .hero-shell,
-  .feature-story,
   .facebook-section,
   .contact-panel {
     grid-template-columns: 1fr;
   }
 
-  .feature-story {
+  .feature-story,
+  .feature-story.reverse {
     width: min(100%, calc(100vw - 32px));
-    max-width: none;
-    gap: 0;
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "stage";
-    justify-items: center;
-    align-items: start;
+    max-width: 420px;
+    gap: 16px;
+    grid-template-columns: minmax(148px, 228px) minmax(0, 1fr);
+    grid-template-areas: "phone copy";
+    justify-items: stretch;
+    align-items: center;
     padding-bottom: 14px;
   }
 
   .feature-story-copy {
-    grid-area: stage;
-    order: 2;
-    width: min(264px, calc(100vw - 56px));
+    grid-area: copy;
     min-height: 0;
+    width: 100%;
+    margin: 0;
     text-align: left;
-    justify-self: center;
-    align-self: start;
-    margin: 132px 0 0;
+    justify-self: start;
+    align-self: center;
     border-radius: 24px;
-    position: relative;
-    z-index: 2;
+    position: static;
+    z-index: auto;
   }
 
   .feature-story-phone {
-    grid-area: stage;
-    order: 1;
+    grid-area: phone;
     width: min(228px, 64vw);
     justify-self: center;
-    align-self: start;
+    align-self: center;
     margin: 0;
-    position: relative;
-    z-index: 1;
+    position: static;
+    z-index: auto;
   }
 
   .feature-story:first-child {
@@ -830,8 +827,11 @@ h2,
     width: min(280px, 100%);
   }
 
-  .feature-story {
-    gap: 0;
+  .feature-story,
+  .feature-story.reverse {
+    gap: 12px;
+    max-width: 360px;
+    grid-template-columns: minmax(126px, 176px) minmax(0, 1fr);
   }
 
   .feature-story:first-child {
@@ -839,29 +839,28 @@ h2,
   }
 
   .feature-card {
-    width: min(248px, calc(100vw - 48px));
+    width: 100%;
     max-width: none;
     min-height: 0;
-    padding: 20px 18px;
+    padding: 18px 16px;
   }
 
   .feature-story-copy {
-    width: min(248px, calc(100vw - 48px));
-    margin-top: 112px;
+    width: 100%;
   }
 
   .feature-story-copy h2 {
-    font-size: 1.2rem;
-    line-height: 1.08;
+    font-size: 1.08rem;
+    line-height: 1.12;
   }
 
   .feature-story-copy p {
-    font-size: 0.92rem;
-    line-height: 1.55;
+    font-size: 0.88rem;
+    line-height: 1.5;
   }
 
   .feature-story-phone {
-    width: min(196px, 56vw);
+    width: min(176px, 48vw);
     margin-top: 0;
   }
 

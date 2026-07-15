@@ -91,7 +91,7 @@ export default function RecordsScreen() {
               <BouncyPressable
                 key={record.id}
                 accessibilityRole="button"
-                onPress={() => router.push({ pathname: '/add-record', params: { recordId: record.id } })}
+                onPress={() => router.push({ pathname: '/view-record', params: { recordId: record.id } })}
                 style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
               >
                 <View style={styles.cardCopy}>
