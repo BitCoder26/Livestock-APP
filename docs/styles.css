@@ -540,6 +540,8 @@ h2,
 
 .facebook-section {
   background: var(--warm-charcoal);
+  margin-top: 36px;
+  margin-bottom: 42px;
 }
 
 .facebook-section-copy {
@@ -550,6 +552,8 @@ h2,
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  align-self: center;
+  height: 100%;
 }
 
 .contact-panel {
@@ -749,6 +753,8 @@ h2,
 
   .facebook-section-actions {
     justify-content: flex-start;
+    align-self: start;
+    height: auto;
   }
 
   .contact-panel {
