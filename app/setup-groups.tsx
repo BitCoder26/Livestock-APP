@@ -21,9 +21,9 @@ export default function SetupGroupsScreen() {
   const [selectedPaddocks, setSelectedPaddocks] = useState<string[]>([]);
   const [species, setSpecies] = useState('');
   const [description, setDescription] = useState('');
-  const [animals, setAnimals] = useState('');
   const [notes, setNotes] = useState('');
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
+  const [groupPendingDelete, setGroupPendingDelete] = useState<string | null>(null);
 
   const paddockOptions = useMemo(
     () => paddockEntities.filter((paddock) => !farm || paddock.farm === farm).map((paddock) => paddock.name),
@@ -37,7 +37,7 @@ export default function SetupGroupsScreen() {
       paddocks: selectedPaddocks,
       species,
       description,
-      animals,
+      animals: '',
       notes,
     });
 
@@ -50,8 +50,16 @@ export default function SetupGroupsScreen() {
     setSelectedPaddocks([]);
     setSpecies('');
     setDescription('');
-    setAnimals('');
     setNotes('');
+  };
+
+  const confirmDeleteGroup = () => {
+    if (!groupPendingDelete) {
+      return;
+    }
+
+    removeGroup(groupPendingDelete);
+    setGroupPendingDelete(null);
   };
 
   return (
@@ -62,17 +70,45 @@ export default function SetupGroupsScreen() {
           <Text style={styles.sectionLabel}>Animal groups</Text>
 
           <DesignField value={name} label="Group name *" onChangeText={setName} />
-          <SelectionField label="Farm" value={farm} emptyLabel={farms.length === 0 ? 'No farms available' : 'Select farm'} onPress={() => setActivePicker('farm')} />
+          <SelectionField
+            label="Farm"
+            value={farm}
+            emptyLabel={farms.length === 0 ? 'No farms available' : 'Select farm'}
+            onPress={() => {
+              if (farms.length === 0) {
+                router.push('/setup-farms');
+                return;
+              }
+
+              setActivePicker('farm');
+            }}
+          />
+          {farms.length === 0 ? (
+            <Pressable accessibilityRole="button" onPress={() => router.push('/setup-farms')}>
+              <Text style={styles.helperLink}>+ Add Farm</Text>
+            </Pressable>
+          ) : null}
           <SelectionField
             label="Paddock(s)"
             value={formatSelectionSummary(selectedPaddocks, paddockOptions.length === 0 ? 'No paddocks available' : 'Select paddocks')}
             emptyLabel=""
-            onPress={() => setActivePicker('paddocks')}
+            onPress={() => {
+              if (paddockOptions.length === 0) {
+                router.push('/setup-paddocks');
+                return;
+              }
+
+              setActivePicker('paddocks');
+            }}
             isPlaceholder={selectedPaddocks.length === 0}
           />
+          {paddockOptions.length === 0 ? (
+            <Pressable accessibilityRole="button" onPress={() => router.push('/setup-paddocks')}>
+              <Text style={styles.helperLink}>+ Add Paddock</Text>
+            </Pressable>
+          ) : null}
           <SelectionField label="Species" value={species} emptyLabel="Select species" onPress={() => setActivePicker('species')} />
           <DesignField value={description} label="Description / Purpose" onChangeText={setDescription} />
-          <DesignField value={animals} label="Animals" onChangeText={setAnimals} />
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
           <Pressable accessibilityRole="button" accessibilityLabel="Add group" onPress={handleAddGroup} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
@@ -100,7 +136,7 @@ export default function SetupGroupsScreen() {
                       <Text style={styles.itemSubtitle}>{group.farm || 'No farm selected'}</Text>
                     </View>
                   </View>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${group.name}`} onPress={() => removeGroup(group.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${group.name}`} onPress={() => setGroupPendingDelete(group.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
                     <AppIcon name="trash" size={17} color="#fff" />
                   </Pressable>
                 </View>
@@ -111,13 +147,36 @@ export default function SetupGroupsScreen() {
                   ))}
                 </View>
                 {group.description ? <Text style={styles.detailText}>{group.description}</Text> : null}
-                {group.animals ? <Text style={styles.detailSubtext}>Animals: {group.animals}</Text> : null}
                 {group.notes ? <Text style={styles.itemNotes}>{group.notes}</Text> : null}
               </View>
             ))}
           </View>
         )}
       </ScrollView>
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={groupPendingDelete !== null}
+        onRequestClose={() => setGroupPendingDelete(null)}
+      >
+        <Pressable style={styles.centeredModalBackdrop} onPress={() => setGroupPendingDelete(null)}>
+          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
+            <Text style={styles.deleteConfirmTitle}>Delete group?</Text>
+            <Text style={styles.deleteConfirmText}>
+              {groupPendingDelete ? `Are you sure you want to delete ${groupPendingDelete}?` : ''}
+            </Text>
+            <View style={styles.deleteConfirmActions}>
+              <Pressable accessibilityRole="button" onPress={() => setGroupPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={confirmDeleteGroup} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
+                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal transparent animationType="fade" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
@@ -251,6 +310,7 @@ const styles = StyleSheet.create({
   },
   dateValue: { color: '#2b2b2b', fontSize: 13, fontWeight: '500', flex: 1, paddingRight: 10 },
   placeholderValue: { color: '#7a7a7a' },
+  helperLink: { color: tokens.colors.accent, fontSize: 13, fontWeight: '600' },
   addButton: {
     marginTop: 4,
     minHeight: 50,
@@ -311,6 +371,72 @@ const styles = StyleSheet.create({
   detailText: { color: tokens.colors.text, fontSize: 13, fontWeight: '500', lineHeight: 18 },
   detailSubtext: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '500' },
   itemNotes: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '500', lineHeight: 17 },
+  centeredModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.46)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  deleteConfirmCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  deleteConfirmTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  deleteConfirmText: {
+    marginTop: 8,
+    color: tokens.colors.textSoft,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  deleteCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E0E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelButtonText: {
+    color: '#544F49',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.28)', justifyContent: 'flex-end' },
   modalCard: {
     borderTopLeftRadius: 28,

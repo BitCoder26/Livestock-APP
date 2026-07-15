@@ -14,7 +14,7 @@ export const RECORD_TYPES = [
 ] as const;
 
 export const SPECIES_OPTIONS: Array<{ icon: AppIconName; label: string }> = [
-  { icon: 'cow', label: 'Cattle' },
+  { icon: 'cow-copy', label: 'Cattle' },
   { icon: 'sheep', label: 'Sheep' },
   { icon: 'pig', label: 'Pig' },
   { icon: 'goat', label: 'Goat' },

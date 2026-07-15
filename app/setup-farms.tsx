@@ -151,34 +151,30 @@ export default function SetupFarmsScreen() {
       </ScrollView>
       <Modal
         transparent
-        animationType="slide"
+        animationType="fade"
         visible={farmPendingDelete !== null}
         onRequestClose={() => setFarmPendingDelete(null)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setFarmPendingDelete(null)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Delete farm?</Text>
-            <Text style={styles.modalText}>
+        <Pressable style={styles.centeredModalBackdrop} onPress={() => setFarmPendingDelete(null)}>
+          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
+            <Text style={styles.deleteConfirmTitle}>Delete farm?</Text>
+            <Text style={styles.deleteConfirmText}>
               {farmPendingDelete ? `Are you sure you want to delete ${farmPendingDelete}?` : ''}
             </Text>
-            <View style={styles.modalActions}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={confirmDeleteFarm}
-                style={({ pressed }) => [
-                  styles.modalOption,
-                  styles.modalOptionActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={[styles.modalOptionText, styles.modalOptionTextActive]}>Yes</Text>
-              </Pressable>
+            <View style={styles.deleteConfirmActions}>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setFarmPendingDelete(null)}
-                style={({ pressed }) => [styles.modalOption, styles.modalOptionIdle, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}
               >
-                <Text style={styles.modalOptionText}>No</Text>
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={confirmDeleteFarm}
+                style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -347,57 +343,70 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.accent,
     flexShrink: 0,
   },
-  modalBackdrop: {
+  centeredModalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.28)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.46)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
-  modalCard: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+  deleteConfirmCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
     backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 22,
-    paddingBottom: 28,
-    gap: 16,
+    paddingBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
   },
-  modalTitle: {
+  deleteConfirmTitle: {
     color: tokens.colors.text,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
   },
-  modalText: {
+  deleteConfirmText: {
+    marginTop: 8,
     color: tokens.colors.textSoft,
     fontSize: 14,
-    fontWeight: '500',
     lineHeight: 20,
+    fontWeight: '500',
     textAlign: 'center',
   },
-  modalActions: {
+  deleteConfirmActions: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 18,
   },
-  modalOption: {
+  deleteCancelButton: {
     flex: 1,
-    minHeight: 52,
+    minHeight: 48,
     borderRadius: 24,
+    backgroundColor: '#E5E0E7',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
   },
-  modalOptionActive: {
-    backgroundColor: '#FCE5E4',
+  deleteCancelButtonText: {
+    color: '#544F49',
+    fontSize: 15,
+    fontWeight: '700',
   },
-  modalOptionIdle: {
-    backgroundColor: '#F5F3F7',
+  deleteConfirmButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  modalOptionText: {
-    color: tokens.colors.text,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  modalOptionTextActive: {
+  deleteConfirmButtonText: {
+    color: '#fff',
+    fontSize: 15,
     fontWeight: '700',
   },
   pressed: {

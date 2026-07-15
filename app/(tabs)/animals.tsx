@@ -12,7 +12,7 @@ import type { AnimalTone } from '../../src/entities/animal';
 import { tokens } from '../../src/theme/tokens';
 
 const SPECIES_FILTER_OPTIONS = [
-  { icon: 'cow', label: 'Cattle' },
+  { icon: 'cow-copy', label: 'Cattle' },
   { icon: 'sheep', label: 'Sheep' },
   { icon: 'pig', label: 'Pig' },
   { icon: 'goat', label: 'Goat' },
@@ -56,6 +56,8 @@ export default function AnimalsScreen() {
     }).start();
   }, [sheetEntrance, showFilterSheet]);
 
+  const hasActiveFilters = searchQuery.trim().length > 0 || selectedStatus !== 'All' || selectedSpecies !== ALL_SPECIES_FILTER;
+
   const filteredAnimals = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
@@ -97,6 +99,7 @@ export default function AnimalsScreen() {
         contentContainerStyle={[styles.content, filteredAnimals.length === 0 && styles.emptyContent]}
         showsVerticalScrollIndicator={false}
       >
+        <Text style={styles.countText}>{hasActiveFilters ? `${filteredAnimals.length} of ${animals.length} animals` : `${animals.length} animals`}</Text>
         {filteredAnimals.length === 0 ? (
           <View style={styles.emptyState}>
             <AppIcon name="animal_" size={86} color="#E5E0E7" opacity={1} />
@@ -173,9 +176,6 @@ export default function AnimalsScreen() {
                     />
                     <Text style={styles.statusText}>{animal.status}</Text>
                   </View>
-                  <Text style={styles.secondaryMeta} numberOfLines={1}>
-                    {buildSecondaryMeta(animal.farm, animal.paddock, animal.group)}
-                  </Text>
                 </View>
               </View>
               <AppIcon name="arrow-right-circle" size={24} color={tokens.colors.accent} />
@@ -293,6 +293,12 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 120,
     gap: 8,
+  },
+  countText: {
+    color: '#8A7F87',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   emptyContent: {
     flexGrow: 1,
@@ -464,7 +470,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
   },
   speciesChip: {
     borderRadius: 14,
@@ -500,27 +505,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  secondaryMeta: {
-    color: '#6B676A',
-    fontSize: 12,
-    fontWeight: '500',
-  },
 });
 
 function buildPrimaryMeta(name: string, ageLabel: string) {
   return [name.trim(), abbreviateAgeLabel(ageLabel)].filter(Boolean).join(' • ');
 }
 
-function buildSecondaryMeta(farm: string, paddock: string, group: string) {
-  const parts = [farm.trim(), paddock.trim(), group.trim()].filter(Boolean);
-
-  return parts.join(' • ');
-}
-
 function getSpeciesIconName(species: string, tone: AnimalTone) {
   const normalized = species.trim().toLowerCase();
 
-  if (normalized.includes('cattle') || normalized.includes('cow')) return 'cow';
+  if (normalized.includes('cattle') || normalized.includes('cow')) return 'cow-copy';
   if (normalized.includes('sheep')) return 'sheep';
   if (normalized.includes('pig')) return 'pig';
   if (normalized.includes('goat')) return 'goat';
@@ -557,7 +551,7 @@ function getToneFallback(tone: AnimalTone) {
     case 'neutral':
       return 'animals';
     default:
-      return 'cow';
+      return 'cow-copy';
   }
 }
 

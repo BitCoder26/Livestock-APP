@@ -16,7 +16,7 @@ const SETUP_ITEMS: Array<{
   { title: 'Farms', icon: 'pin', route: '/setup-farms', collection: 'farms' },
   { title: 'Paddocks', icon: 'sprout', route: '/setup-paddocks', collection: 'paddocks' },
   { title: 'Groups', icon: 'tag', route: '/setup-groups', collection: 'groups' },
-  { title: 'Medicines', icon: 'medicine', route: '/setup-medicines', collection: 'medicines' },
+  { title: 'Medicines & Vaccines', icon: 'medicine', route: '/setup-medicines', collection: 'medicines' },
 ];
 
 export default function SetupScreen() {
@@ -64,16 +64,14 @@ export default function SetupScreen() {
           accessibilityLabel="Open settings for feedback and suggestions"
           accessibilityRole="button"
           onPress={() => router.push('/settings')}
-          style={({ pressed }) => [styles.feedbackCardFloating, pressed && styles.cardPressed]}
+          style={({ pressed }) => [styles.feedbackCard, pressed && styles.cardPressed]}
         >
-          <View style={styles.feedbackIconWrap}>
-            <AppIcon name="alert" size={24} color="#171717" />
-          </View>
+          <AppIcon name="alert" size={24} color="#171717" />
           <View style={styles.feedbackCopy}>
             <Text style={styles.feedbackTitle}>Need more setup options?</Text>
             <Text style={styles.feedbackText}>Leave a suggestion in Feedback + Suggestions in Settings.</Text>
           </View>
-          <AppIcon name="arrow-right-circle" size={24} color={tokens.colors.accent} />
+          <View style={styles.feedbackActionButton}><Text style={styles.feedbackActionButtonText}>Suggest</Text></View>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -133,50 +131,23 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   feedbackCard: {
-    minHeight: 76,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    minHeight: 84,
+    borderRadius: 18,
+    backgroundColor: 'rgba(231, 108, 102, 0.14)',
     paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 16,
     marginTop: 8,
+    marginBottom: 16,
+    width: '92%',
+    alignSelf: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowOpacity: 0.16,
+    shadowRadius: 7,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
-  },
-  feedbackCardFloating: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 16,
-    minHeight: 76,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    zIndex: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  feedbackIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: tokens.colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    alignSelf: 'stretch',
   },
   feedbackCopy: {
     flex: 1,
@@ -192,5 +163,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     lineHeight: 17,
+  },
+  feedbackActionButton: {
+    minWidth: 76,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    flexShrink: 0,
+  },
+  feedbackActionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

@@ -26,6 +26,8 @@ type RecordsContextValue = {
   setFilters: (filters: RecordFilters) => void;
   clearFilters: () => void;
   addRecord: (record: CreateRecordInput) => void;
+  updateRecord: (recordId: string, record: CreateRecordInput) => void;
+  deleteRecord: (recordId: string) => void;
   resetRecords: () => void;
 };
 
@@ -69,6 +71,23 @@ export function RecordsProvider({ children }: PropsWithChildren) {
           },
           ...current,
         ]);
+      },
+      updateRecord: (recordId, record) => {
+        setRecords((current) =>
+          current.map((entry) =>
+            entry.id === recordId
+              ? {
+                  ...entry,
+                  ...record,
+                  id: recordId,
+                  speciesTone: inferRecordSpeciesTone(record.species),
+                }
+              : entry,
+          ),
+        );
+      },
+      deleteRecord: (recordId) => {
+        setRecords((current) => current.filter((entry) => entry.id !== recordId));
       },
       resetRecords: () => {
         setRecords([]);

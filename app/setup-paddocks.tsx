@@ -22,6 +22,7 @@ export default function SetupPaddocksScreen() {
   const [areaUnit, setAreaUnit] = useState<(typeof AREA_UNITS)[number]>('hectares');
   const [notes, setNotes] = useState('');
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
+  const [paddockPendingDelete, setPaddockPendingDelete] = useState<string | null>(null);
 
   const handleAddPaddock = () => {
     addPaddock({
@@ -41,6 +42,15 @@ export default function SetupPaddocksScreen() {
     setArea('');
     setAreaUnit('hectares');
     setNotes('');
+  };
+
+  const confirmDeletePaddock = () => {
+    if (!paddockPendingDelete) {
+      return;
+    }
+
+    removePaddock(paddockPendingDelete);
+    setPaddockPendingDelete(null);
   };
 
   const pickerOptions =
@@ -102,7 +112,7 @@ export default function SetupPaddocksScreen() {
                       <Text style={styles.itemSubtitle}>{paddock.farm || 'No farm selected'}</Text>
                     </View>
                   </View>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${paddock.name}`} onPress={() => removePaddock(paddock.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${paddock.name}`} onPress={() => setPaddockPendingDelete(paddock.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
                     <AppIcon name="trash" size={17} color="#fff" />
                   </Pressable>
                 </View>
@@ -115,6 +125,30 @@ export default function SetupPaddocksScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={paddockPendingDelete !== null}
+        onRequestClose={() => setPaddockPendingDelete(null)}
+      >
+        <Pressable style={styles.centeredModalBackdrop} onPress={() => setPaddockPendingDelete(null)}>
+          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
+            <Text style={styles.deleteConfirmTitle}>Delete paddock?</Text>
+            <Text style={styles.deleteConfirmText}>
+              {paddockPendingDelete ? `Are you sure you want to delete ${paddockPendingDelete}?` : ''}
+            </Text>
+            <View style={styles.deleteConfirmActions}>
+              <Pressable accessibilityRole="button" onPress={() => setPaddockPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={confirmDeletePaddock} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
+                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal transparent animationType="fade" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
@@ -254,6 +288,72 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   itemNotes: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '500', lineHeight: 17 },
+  centeredModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.46)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  deleteConfirmCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  deleteConfirmTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  deleteConfirmText: {
+    marginTop: 8,
+    color: tokens.colors.textSoft,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  deleteCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E0E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelButtonText: {
+    color: '#544F49',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.28)', justifyContent: 'flex-end' },
   selectionCard: {
     marginHorizontal: 18,

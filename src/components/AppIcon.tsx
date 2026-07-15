@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import type { ColorValue } from 'react-native';
+import { View } from 'react-native';
 import type { SvgProps } from 'react-native-svg';
 
 import AlertIcon from '../../assets/icons/svg/alert.svg';
@@ -20,6 +21,7 @@ import ChevronRightIcon from '../../assets/icons/svg/chevron-right.svg';
 import CloseIcon from '../../assets/icons/svg/close.svg';
 import Cow3Icon from '../../assets/icons/svg/cow3.svg';
 import CowHeadIcon from '../../assets/icons/svg/cow-head.svg';
+import CowCopyIcon from '../../assets/icons/svg/cow copy.svg';
 import CowIcon from '../../assets/icons/svg/cow.svg';
 import CrownIcon from '../../assets/icons/svg/crown.svg';
 import DonkeyIcon from '../../assets/icons/svg/donkey.svg';
@@ -57,6 +59,7 @@ import SpannerIcon from '../../assets/icons/svg/spanner.svg';
 import SpannerTabIcon from '../../assets/icons/svg/spanner_.svg';
 import Spanner2Icon from '../../assets/icons/svg/spanner2.svg';
 import MailIcon from '../../assets/icons/svg/mail.svg';
+import MedalIcon from '../../assets/icons/svg/medal.svg';
 import SheepIcon from '../../assets/icons/svg/sheep.svg';
 import SproutIcon from '../../assets/icons/svg/sprout.svg';
 import TagIcon from '../../assets/icons/svg/tag.svg';
@@ -94,6 +97,7 @@ const icons = {
   close: CloseIcon,
   cow3: Cow3Icon,
   cow: CowIcon,
+  'cow-copy': CowCopyIcon,
   'cow-outline': Cow3Icon,
   'cow-head': CowHeadIcon,
   'cow-head-outline': CowHeadIcon,
@@ -116,6 +120,7 @@ const icons = {
   info: InfoIcon,
   llama: LlamaIcon,
   mail: MailIcon,
+  medal: MedalIcon,
   male: MaleIcon,
   medicine: MedicineIcon,
   notebook: NotebookIcon,
@@ -156,8 +161,15 @@ type AppIconProps = {
   color?: ColorValue;
 };
 
+const mirroredIcons = new Set<AppIconName>(['sheep']);
+
 export function AppIcon({ name, size = 22, opacity = 1, color }: AppIconProps) {
   const Icon = icons[name];
+  const icon = <Icon width={size} height={size} opacity={opacity} color={color} fill={color} />;
 
-  return <Icon width={size} height={size} opacity={opacity} color={color} fill={color} />;
+  if (mirroredIcons.has(name)) {
+    return <View style={{ transform: [{ scaleX: -1 }] }}>{icon}</View>;
+  }
+
+  return icon;
 }

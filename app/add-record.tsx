@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from '../src/components/AppIcon';
@@ -13,9 +13,10 @@ import { useAccount } from '../src/context/AccountContext';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useRecords } from '../src/context/RecordsContext';
-import { useSetup } from '../src/context/SetupContext';
+import { type MedicineEntity, useSetup } from '../src/context/SetupContext';
 import { formatCurrencyPrefix, getCurrencyCodeForCountry } from '../src/entities/account';
 import type { AnimalSex } from '../src/entities/animal';
+import type { RecordEntry } from '../src/entities/record';
 import { tokens } from '../src/theme/tokens';
 
 const DOSE_UNITS = ['ml', 'mg', 'g', 'tablet(s)', 'bolus', 'sachet', 'dose'] as const;
@@ -29,11 +30,13 @@ type MovementPickerKey = (typeof MOVEMENT_PICKERS)[number];
 
 export default function AddRecordScreen() {
   const router = useRouter();
-  const { selectedAnimalIds, selectedMotherName } = useLocalSearchParams<{ selectedAnimalIds?: string; selectedMotherName?: string }>();
+  const { selectedAnimalIds, selectedMotherName, recordId } = useLocalSearchParams<{ selectedAnimalIds?: string; selectedMotherName?: string; recordId?: string }>();
   const { profile } = useAccount();
   const { animals, addAnimal } = useAnimals();
-  const { addRecord, records } = useRecords();
-  const { farms, paddocks, groups } = useSetup();
+  const { addRecord, updateRecord, deleteRecord, records } = useRecords();
+  const { farms, paddocks, groups, medicineEntities } = useSetup();
+  const editingRecord = useMemo(() => (recordId ? records.find((record) => record.id === recordId) ?? null : null), [recordId, records]);
+  const isEditing = Boolean(editingRecord);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [recordType, setRecordType] = useState<(typeof RECORD_TYPES)[number]>('Movement');
@@ -76,10 +79,12 @@ export default function AddRecordScreen() {
   const [showBirthWeightUnitPicker, setShowBirthWeightUnitPicker] = useState(false);
   const [showHealthStatusPicker, setShowHealthStatusPicker] = useState(false);
   const [showRoutePicker, setShowRoutePicker] = useState(false);
+  const [showTreatmentPicker, setShowTreatmentPicker] = useState(false);
   const [showDisposalMethodPicker, setShowDisposalMethodPicker] = useState(false);
   const [showBirthSpeciesPicker, setShowBirthSpeciesPicker] = useState(false);
   const [activeMovementPicker, setActiveMovementPicker] = useState<MovementPickerKey | null>(null);
   const [imageUris, setImageUris] = useState<string[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const date = formatDate(selectedDate);
   const selectedAnimals = animals.filter((animal) => chosenAnimalIds.includes(animal.id));
@@ -95,24 +100,13 @@ export default function AddRecordScreen() {
   const isOtherRecord = recordType === 'Other';
   const currencyPrefix = formatCurrencyPrefix(profile.country);
   const currencyCode = getCurrencyCodeForCountry(profile.country);
-  const medicineSuggestions = useMemo(() => {
-    const seen = new Set<string>();
-    return records
-      .map((record) => record.medicine?.trim())
-      .filter((value): value is string => Boolean(value))
-      .filter((value) => {
-        const key = value.toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .filter((value) => medicine.trim().length > 0 && value.toLowerCase().includes(medicine.trim().toLowerCase()))
-      .filter((value) => value.toLowerCase() !== medicine.trim().toLowerCase())
-      .slice(0, 5);
-  }, [medicine, records]);
+  const availableTreatments = useMemo(
+    () => medicineEntities.filter((entry) => entry.treatmentType === (isVaccinationRecord ? 'vaccine' : 'medicine')),
+    [isVaccinationRecord, medicineEntities],
+  );
 
   useEffect(() => {
-    if (selectedAnimalIds) {
+    if (selectedAnimalIds !== undefined) {
       setChosenAnimalIds(selectedAnimalIds.split(',').filter(Boolean));
     }
   }, [selectedAnimalIds]);
@@ -122,6 +116,49 @@ export default function AddRecordScreen() {
       setMotherName(selectedMotherName);
     }
   }, [selectedMotherName]);
+
+  useEffect(() => {
+    if (!editingRecord) {
+      return;
+    }
+
+    const formState = buildFormStateFromRecord(editingRecord);
+    setSelectedDate(formState.selectedDate);
+    setRecordType(formState.recordType);
+    setRecordTitle(formState.recordTitle);
+    setMedicine(formState.medicine);
+    setWeight(formState.weight);
+    setWeightUnit(formState.weightUnit);
+    setCauseOfDeath(formState.causeOfDeath);
+    setDisposalMethod(formState.disposalMethod);
+    setHealthStatus(formState.healthStatus);
+    setConditionDiagnosis(formState.conditionDiagnosis);
+    setVetSeen(formState.vetSeen);
+    setBuyer(formState.buyer);
+    setSalePrice(formState.salePrice);
+    setDestination(formState.destination);
+    setSeller(formState.seller);
+    setPurchasePrice(formState.purchasePrice);
+    setSourceFarm(formState.sourceFarm);
+    setMotherName(formState.motherName);
+    setBirthTagId(formState.birthTagId);
+    setBirthSpecies(formState.birthSpecies);
+    setBirthBreed(formState.birthBreed);
+    setBirthSex(formState.birthSex);
+    setBirthWeight(formState.birthWeight);
+    setBirthWeightUnit(formState.birthWeightUnit);
+    setDose(formState.dose);
+    setDoseUnit(formState.doseUnit);
+    setRoute(formState.route);
+    setWithdrawal(formState.withdrawal);
+    setFromFarm(formState.fromFarm);
+    setFromPaddock(formState.fromPaddock);
+    setToFarm(formState.toFarm);
+    setToPaddock(formState.toPaddock);
+    setDetails(formState.details);
+    setChosenAnimalIds(formState.chosenAnimalIds);
+    setImageUris(formState.imageUris);
+  }, [editingRecord]);
 
   const showMissingRequiredFields = (fields: string[]) => {
     Alert.alert(
@@ -230,7 +267,7 @@ export default function AddRecordScreen() {
     ]
       .filter(Boolean)
       .join('\n\n');
-    addRecord({
+    const payload = {
       date: date.trim(),
       animal: isBirthRecord ? birthTagId.trim() : selectedAnimals.map((animal) => animal.name.trim()).join(', '),
       animalTag: isBirthRecord ? birthTagId.trim() : selectedAnimals.map((animal) => animal.id.trim()).join(', '),
@@ -271,9 +308,40 @@ export default function AddRecordScreen() {
       route: isMedicationRecord || isVaccinationRecord ? route : undefined,
       withdrawal: isMedicationRecord || isVaccinationRecord ? withdrawal.trim() : undefined,
       imageUris: imageUris.length > 0 ? imageUris : undefined,
-    });
+      recordTitle: recordTitle.trim() || undefined,
+      weight: isWeightRecord ? weight.trim() : undefined,
+      weightUnit: isWeightRecord ? weightUnit : undefined,
+      causeOfDeath: isDeathRecord ? causeOfDeath.trim() : undefined,
+      disposalMethod: isDeathRecord ? disposalMethod.trim() : undefined,
+      healthStatus: isHealthCheckRecord ? healthStatus : undefined,
+      conditionDiagnosis: isHealthCheckRecord ? conditionDiagnosis.trim() : undefined,
+      vetSeen: isHealthCheckRecord ? vetSeen : undefined,
+      buyer: isSaleRecord ? buyer.trim() : undefined,
+      salePrice: isSaleRecord ? salePrice.trim() : undefined,
+      destination: isSaleRecord ? destination.trim() : undefined,
+      seller: isPurchaseRecord ? seller.trim() : undefined,
+      purchasePrice: isPurchaseRecord ? purchasePrice.trim() : undefined,
+      sourceFarm: isPurchaseRecord ? sourceFarm.trim() : undefined,
+      motherName: isBirthRecord ? motherName.trim() : undefined,
+      birthTagId: isBirthRecord ? birthTagId.trim() : undefined,
+      birthSpecies: isBirthRecord ? birthSpecies.trim() : undefined,
+      birthBreed: isBirthRecord ? birthBreed.trim() : undefined,
+      birthSex: isBirthRecord ? birthSex : undefined,
+      birthWeight: isBirthRecord ? birthWeight.trim() : undefined,
+      birthWeightUnit: isBirthRecord ? birthWeightUnit : undefined,
+      fromFarm: isMovementRecord ? fromFarm.trim() : undefined,
+      fromPaddock: isMovementRecord ? fromPaddock.trim() : undefined,
+      toFarm: isMovementRecord ? toFarm.trim() : undefined,
+      toPaddock: isMovementRecord ? toPaddock.trim() : undefined,
+    };
 
-    if (isBirthRecord) {
+    if (isEditing && editingRecord) {
+      updateRecord(editingRecord.id, payload);
+    } else {
+      addRecord(payload);
+    }
+
+    if (isBirthRecord && !isEditing) {
       addAnimal({
         id: birthTagId.trim() || '#UNSET',
         species: birthSpecies.trim() || 'Unknown',
@@ -293,6 +361,59 @@ export default function AddRecordScreen() {
       });
     }
 
+    router.replace('/(tabs)/records');
+  };
+
+  const handleTreatmentSelect = (entry: MedicineEntity) => {
+    setMedicine(entry.name);
+    if (entry.defaultDose.trim()) {
+      setDose(entry.defaultDose);
+    }
+    if (entry.doseUnit.trim() && DOSE_UNITS.includes(entry.doseUnit as (typeof DOSE_UNITS)[number])) {
+      setDoseUnit(entry.doseUnit as (typeof DOSE_UNITS)[number]);
+    }
+    if (entry.defaultRoute.trim() && ROUTE_OPTIONS.includes(entry.defaultRoute as (typeof ROUTE_OPTIONS)[number])) {
+      setRoute(entry.defaultRoute as (typeof ROUTE_OPTIONS)[number]);
+    }
+
+    const defaultWithdrawal = entry.meatWithdrawalPeriod.trim() || entry.milkWithdrawalPeriod.trim();
+    if (defaultWithdrawal) {
+      setWithdrawal(defaultWithdrawal);
+    }
+
+    setShowTreatmentPicker(false);
+  };
+
+  const handleShareRecord = async () => {
+    if (!editingRecord) {
+      return;
+    }
+
+    try {
+      await Share.share({
+        message: formatRecordShareText(editingRecord),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Something went wrong while opening the share sheet.';
+      Alert.alert('Share failed', message);
+    }
+  };
+
+  const handleDeleteRecord = () => {
+    if (!editingRecord) {
+      return;
+    }
+
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteRecord = () => {
+    if (!editingRecord) {
+      return;
+    }
+
+    setShowDeleteConfirm(false);
+    deleteRecord(editingRecord.id);
     router.replace('/(tabs)/records');
   };
 
@@ -343,12 +464,30 @@ export default function AddRecordScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
-        title="Add Record"
+        title={isEditing ? 'View Record' : 'Add Record'}
         leftAction={{
           icon: 'back',
           accessibilityLabel: 'Back',
           onPress: () => router.back(),
         }}
+        actions={
+          isEditing
+            ? [
+                {
+                  icon: 'share',
+            accessibilityLabel: 'Share record',
+            onPress: handleShareRecord,
+            size: 22,
+                },
+                {
+                  icon: 'trash',
+            accessibilityLabel: 'Delete record',
+            onPress: handleDeleteRecord,
+            size: 28,
+                },
+              ]
+            : []
+        }
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.typeRow}>
@@ -395,7 +534,14 @@ export default function AddRecordScreen() {
               <Pressable
                 accessibilityLabel="Select animal"
                 accessibilityRole="button"
-                onPress={() => router.push('/select-record-animal')}
+                onPress={() =>
+                  router.push({
+                    pathname: '/select-record-animal',
+                    params: {
+                      selectedAnimalIds: chosenAnimalIds.join(','),
+                      ...(recordId ? { recordId } : {}),
+                    },
+                  })}
                 style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
               >
                 <Text
@@ -441,7 +587,11 @@ export default function AddRecordScreen() {
                 <Pressable
                   accessibilityLabel="Select mother"
                   accessibilityRole="button"
-                  onPress={() => router.push('/select-mother-animal')}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/select-mother-animal',
+                      params: recordId ? { recordId } : {},
+                    })}
                   style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
                 >
                   <Text style={[styles.dateValue, !motherName && styles.placeholderValue]}>
@@ -520,21 +670,30 @@ export default function AddRecordScreen() {
             </View>
           ) : isMedicationRecord ? (
             <>
-              <DesignField value={medicine} label="Medicine *" onChangeText={setMedicine} />
-              {medicineSuggestions.length > 0 ? (
-                <View style={styles.suggestionList}>
-                  {medicineSuggestions.map((suggestion) => (
-                    <Pressable
-                      key={suggestion}
-                      accessibilityLabel={`Use ${suggestion}`}
-                      accessibilityRole="button"
-                      onPress={() => setMedicine(suggestion)}
-                      style={({ pressed }) => [styles.suggestionRow, pressed && styles.pressed]}
-                    >
-                      <Text style={styles.suggestionText}>{suggestion}</Text>
-                    </Pressable>
-                  ))}
-                </View>
+              <View style={styles.block}>
+                <Text style={styles.label}>Medicine *</Text>
+                <Pressable
+                  accessibilityLabel="Select medicine"
+                  accessibilityRole="button"
+                  onPress={() => {
+                    if (availableTreatments.length === 0) {
+                      router.push('/setup-medicines');
+                      return;
+                    }
+                    setShowTreatmentPicker(true);
+                  }}
+                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.dateValue, !medicine && styles.placeholderValue]}>
+                    {medicine || (availableTreatments.length === 0 ? 'No medicines available' : 'Select medicine')}
+                  </Text>
+                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+                </Pressable>
+              </View>
+              {availableTreatments.length === 0 ? (
+                <Pressable accessibilityRole="button" onPress={() => router.push('/setup-medicines')}>
+                  <Text style={styles.helperLink}>+ Add Medicine</Text>
+                </Pressable>
               ) : null}
               <View style={styles.inlineRow}>
                 <View style={styles.inlineGrow}>
@@ -587,7 +746,31 @@ export default function AddRecordScreen() {
             </>
           ) : isVaccinationRecord ? (
             <>
-              <DesignField value={medicine} label="Vaccine *" onChangeText={setMedicine} />
+              <View style={styles.block}>
+                <Text style={styles.label}>Vaccine *</Text>
+                <Pressable
+                  accessibilityLabel="Select vaccine"
+                  accessibilityRole="button"
+                  onPress={() => {
+                    if (availableTreatments.length === 0) {
+                      router.push('/setup-medicines');
+                      return;
+                    }
+                    setShowTreatmentPicker(true);
+                  }}
+                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.dateValue, !medicine && styles.placeholderValue]}>
+                    {medicine || (availableTreatments.length === 0 ? 'No vaccines available' : 'Select vaccine')}
+                  </Text>
+                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+                </Pressable>
+              </View>
+              {availableTreatments.length === 0 ? (
+                <Pressable accessibilityRole="button" onPress={() => router.push('/setup-medicines')}>
+                  <Text style={styles.helperLink}>+ Add Vaccine</Text>
+                </Pressable>
+              ) : null}
               <View style={styles.inlineRow}>
                 <View style={styles.inlineGrow}>
                   <DesignField value={dose} label="Dose *" onChangeText={setDose} keyboardType="decimal-pad" />
@@ -924,7 +1107,7 @@ export default function AddRecordScreen() {
           style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
         >
           <AppIcon name="save" size={18} color="#fff" />
-          <Text style={styles.primaryButtonText}>Save Record</Text>
+          <Text style={styles.primaryButtonText}>{isEditing ? 'Save Changes' : 'Save Record'}</Text>
         </Pressable>
       </ScrollView>
 
@@ -936,6 +1119,38 @@ export default function AddRecordScreen() {
           onChange={handleDateChange}
         />
       ) : null}
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={showDeleteConfirm}
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <Pressable style={styles.centeredModalBackdrop} onPress={() => setShowDeleteConfirm(false)}>
+          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
+            <Text style={styles.deleteConfirmTitle}>Delete record?</Text>
+            <Text style={styles.deleteConfirmText}>This action cannot be undone.</Text>
+            <View style={styles.deleteConfirmActions}>
+              <Pressable
+                accessibilityLabel="Cancel delete"
+                accessibilityRole="button"
+                onPress={() => setShowDeleteConfirm(false)}
+                style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Confirm delete record"
+                accessibilityRole="button"
+                onPress={confirmDeleteRecord}
+                style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         animationType="fade"
@@ -1115,6 +1330,40 @@ export default function AddRecordScreen() {
                   {unit}
                 </Text>
                 {unit === birthWeightUnit ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+              </Pressable>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={showTreatmentPicker}
+        onRequestClose={() => setShowTreatmentPicker(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowTreatmentPicker(false)}>
+          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+            <Text style={styles.selectionTitle}>{isVaccinationRecord ? 'Select vaccine' : 'Select medicine'}</Text>
+            {availableTreatments.map((entry) => (
+              <Pressable
+                key={`${entry.treatmentType}-${entry.name}`}
+                accessibilityLabel={entry.name}
+                accessibilityRole="button"
+                onPress={() => handleTreatmentSelect(entry)}
+                style={({ pressed }) => [
+                  styles.selectionRow,
+                  entry.name === medicine && styles.selectionRowActive,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.selectionCopy}>
+                  <Text style={[styles.selectionText, entry.name === medicine && styles.selectionTextActive]}>{entry.name}</Text>
+                  <Text style={styles.selectionSubtext}>
+                    {entry.defaultDose ? `${entry.defaultDose} ${entry.doseUnit}` : entry.activeIngredient || (entry.treatmentType === 'vaccine' ? 'Vaccine' : 'Medicine')}
+                  </Text>
+                </View>
+                {entry.name === medicine ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
               </Pressable>
             ))}
           </Pressable>
@@ -1366,6 +1615,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  helperLink: {
+    color: tokens.colors.accent,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: -6,
+  },
   formCard: {
     borderRadius: 24,
     backgroundColor: '#F5F3F7',
@@ -1418,11 +1673,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     lineHeight: 18,
-  },
-  helperLink: {
-    color: tokens.colors.accent,
-    fontSize: 13,
-    fontWeight: '700',
   },
   suggestionList: {
     gap: 8,
@@ -1519,8 +1769,74 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+  },
+  centeredModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.46)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  deleteConfirmCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  deleteConfirmTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  deleteConfirmText: {
+    marginTop: 8,
+    color: tokens.colors.textSoft,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  deleteCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E0E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelButtonText: {
+    color: '#544F49',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
   modalCard: {
     borderTopLeftRadius: 28,
@@ -1573,9 +1889,19 @@ const styles = StyleSheet.create({
   selectionRowActive: {
     backgroundColor: '#FCE5E4',
   },
+  selectionCopy: {
+    flex: 1,
+    paddingRight: 10,
+    gap: 2,
+  },
   selectionText: {
     color: tokens.colors.text,
     fontSize: 14,
+    fontWeight: '500',
+  },
+  selectionSubtext: {
+    color: tokens.colors.textSoft,
+    fontSize: 11,
     fontWeight: '500',
   },
   selectionTextActive: {
@@ -1795,6 +2121,267 @@ function applyMovementSelection(
       break;
   }
 }
+
+
+type RecordFormState = {
+  selectedDate: Date;
+  recordType: (typeof RECORD_TYPES)[number];
+  recordTitle: string;
+  medicine: string;
+  weight: string;
+  weightUnit: (typeof WEIGHT_UNITS)[number];
+  causeOfDeath: string;
+  disposalMethod: string;
+  healthStatus: (typeof HEALTH_STATUSES)[number];
+  conditionDiagnosis: string;
+  vetSeen: 'Yes' | 'No';
+  buyer: string;
+  salePrice: string;
+  destination: string;
+  seller: string;
+  purchasePrice: string;
+  sourceFarm: string;
+  motherName: string;
+  birthTagId: string;
+  birthSpecies: string;
+  birthBreed: string;
+  birthSex: AnimalSex;
+  birthWeight: string;
+  birthWeightUnit: (typeof WEIGHT_UNITS)[number];
+  dose: string;
+  doseUnit: (typeof DOSE_UNITS)[number];
+  route: (typeof ROUTE_OPTIONS)[number];
+  withdrawal: string;
+  fromFarm: string;
+  fromPaddock: string;
+  toFarm: string;
+  toPaddock: string;
+  details: string;
+  chosenAnimalIds: string[];
+  imageUris: string[];
+};
+
+function buildFormStateFromRecord(record: RecordEntry): RecordFormState {
+  const recordType = isKnownRecordType(record.type) ? record.type : 'Other';
+  const detailMap = parseDetailMap(record.details);
+  const parsedMovement = parseMovementTitle(record.title);
+
+  return {
+    selectedDate: parseDisplayDate(record.date) ?? new Date(),
+    recordType,
+    recordTitle: record.recordTitle ?? stripTypePrefix(record.title, record.type),
+    medicine: record.medicine ?? detailMap['Medicine'] ?? detailMap['Vaccine'] ?? '',
+    weight: record.weight ?? (recordType === 'Weight' ? record.dose ?? extractLeadingNumber(stripTypePrefix(record.title, record.type)) ?? '' : ''),
+    weightUnit: normalizeWeightUnit(record.weightUnit ?? (recordType === 'Weight' ? record.doseUnit ?? extractTrailingWord(stripTypePrefix(record.title, record.type)) : undefined)),
+    causeOfDeath: record.causeOfDeath ?? (recordType === 'Death' ? stripTypePrefix(record.title, record.type) : ''),
+    disposalMethod: record.disposalMethod ?? detailMap['Disposal Method'] ?? '',
+    healthStatus: normalizeHealthStatus(record.healthStatus ?? (recordType === 'Health Check' ? stripTypePrefix(record.title, record.type) : undefined)),
+    conditionDiagnosis: record.conditionDiagnosis ?? detailMap['Condition / Diagnosis'] ?? '',
+    vetSeen: normalizeVetSeen(record.vetSeen ?? detailMap['Vet Seen']),
+    buyer: record.buyer ?? detailMap['Buyer'] ?? (recordType === 'Sale' ? stripTypePrefix(record.title, record.type) : ''),
+    salePrice: record.salePrice ?? extractNumericValue(detailMap['Sale Price']) ?? '',
+    destination: record.destination ?? detailMap['Destination'] ?? '',
+    seller: record.seller ?? detailMap['Seller'] ?? (recordType === 'Purchase' ? stripTypePrefix(record.title, record.type) : ''),
+    purchasePrice: record.purchasePrice ?? extractNumericValue(detailMap['Purchase Price']) ?? '',
+    sourceFarm: record.sourceFarm ?? detailMap['Source'] ?? '',
+    motherName: record.motherName ?? detailMap['Mother'] ?? '',
+    birthTagId: record.birthTagId ?? detailMap['Tag / ID'] ?? (recordType === 'Birth' ? stripTypePrefix(record.title, record.type) : ''),
+    birthSpecies: record.birthSpecies ?? detailMap['Species'] ?? (recordType === 'Birth' ? record.species : ''),
+    birthBreed: record.birthBreed ?? detailMap['Breed'] ?? '',
+    birthSex: normalizeBirthSex(record.birthSex ?? detailMap['Sex']),
+    birthWeight: record.birthWeight ?? extractLeadingNumber(detailMap['Weight']) ?? '',
+    birthWeightUnit: normalizeWeightUnit(record.birthWeightUnit ?? extractTrailingWord(detailMap['Weight'])),
+    dose: recordType === 'Weight' ? record.weight ?? record.dose ?? '' : record.dose ?? '',
+    doseUnit: normalizeDoseUnit(recordType === 'Weight' ? undefined : record.doseUnit),
+    route: normalizeRoute(record.route),
+    withdrawal: record.withdrawal ?? '0',
+    fromFarm: record.fromFarm ?? parsedMovement.fromFarm,
+    fromPaddock: record.fromPaddock ?? parsedMovement.fromPaddock,
+    toFarm: record.toFarm ?? parsedMovement.toFarm,
+    toPaddock: record.toPaddock ?? parsedMovement.toPaddock,
+    details: extractRecordNotes(record, detailMap),
+    chosenAnimalIds: record.animalIds ?? [],
+    imageUris: record.imageUris ?? [],
+  };
+}
+
+function formatRecordShareText(record: RecordEntry) {
+  const lines = [
+    'LivestockBook Record',
+    `${record.type} • ${record.date}`,
+    `Animal: ${record.animal || record.animalTag}`,
+    `Species: ${record.species}`,
+  ];
+
+  if (record.details.trim()) {
+    lines.push('', record.details.trim());
+  }
+
+  return lines.join('\n');
+}
+
+function isKnownRecordType(value: string): value is (typeof RECORD_TYPES)[number] {
+  return RECORD_TYPES.includes(value as (typeof RECORD_TYPES)[number]);
+}
+
+function parseDisplayDate(value: string) {
+  const [dayPart, monthPart, yearPart] = value.trim().split(/\s+/);
+
+  if (!dayPart || !monthPart || !yearPart) {
+    return null;
+  }
+
+  const day = Number(dayPart);
+  const month = MONTH_INDEX[monthPart.toLowerCase()];
+  const year = Number(yearPart);
+
+  if (!Number.isFinite(day) || !Number.isFinite(year) || month === undefined) {
+    return null;
+  }
+
+  return new Date(year, month, day);
+}
+
+function stripTypePrefix(title: string, type: string) {
+  const prefix = `${type}:`;
+  return title.startsWith(prefix) ? title.slice(prefix.length).trim() : title.trim();
+}
+
+function parseDetailMap(details: string) {
+  return details
+    .split(/\n\n+/)
+    .map((section) => section.trim())
+    .filter(Boolean)
+    .reduce<Record<string, string>>((accumulator, section) => {
+      const separatorIndex = section.indexOf(':');
+
+      if (separatorIndex === -1) {
+        return accumulator;
+      }
+
+      const key = section.slice(0, separatorIndex).trim();
+      const value = section.slice(separatorIndex + 1).trim();
+
+      if (key) {
+        accumulator[key] = value;
+      }
+
+      return accumulator;
+    }, {});
+}
+
+function extractRecordNotes(record: RecordEntry, detailMap: Record<string, string>) {
+  if (record.recordTitle !== undefined || record.weight !== undefined || record.causeOfDeath !== undefined || record.healthStatus !== undefined || record.buyer !== undefined || record.seller !== undefined || record.birthTagId !== undefined || record.fromFarm !== undefined) {
+    return record.details;
+  }
+
+  const labelsToStrip = getStructuredDetailLabels(record.type, detailMap);
+  if (labelsToStrip.length === 0) {
+    return record.details;
+  }
+
+  return record
+    .details
+    .split(/\n\n+/)
+    .map((section) => section.trim())
+    .filter(Boolean)
+    .filter((section) => !labelsToStrip.some((label) => section.startsWith(`${label}:`)))
+    .join('\n\n');
+}
+
+function getStructuredDetailLabels(type: string, detailMap: Record<string, string>) {
+  if (type === 'Birth') {
+    return ['Mother', 'Tag / ID', 'Species', 'Breed', 'Sex', 'Weight'];
+  }
+
+  if (type === 'Death') {
+    return ['Disposal Method'];
+  }
+
+  if (type === 'Health Check') {
+    return ['Condition / Diagnosis', 'Vet Seen'];
+  }
+
+  if (type === 'Sale') {
+    return ['Buyer', 'Sale Price', 'Destination'];
+  }
+
+  if (type === 'Purchase') {
+    return ['Seller', 'Purchase Price', 'Source'];
+  }
+
+  return Object.keys(detailMap).length === 0 ? [] : [];
+}
+
+function parseMovementTitle(title: string) {
+  const movement = stripTypePrefix(title, 'Movement');
+  const [fromPlace = '', toPlace = ''] = movement.split(/\s+to\s+/i);
+  const [fromFarm = '', fromPaddock = ''] = fromPlace.split(' / ').map((value) => value.trim());
+  const [toFarm = '', toPaddock = ''] = toPlace.split(' / ').map((value) => value.trim());
+
+  return { fromFarm, fromPaddock, toFarm, toPaddock };
+}
+
+function extractLeadingNumber(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const match = value.match(/-?\d+(?:\.\d+)?/);
+  return match ? match[0] : undefined;
+}
+
+function extractTrailingWord(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const match = value.trim().match(/([A-Za-z]+)$/);
+  return match ? match[1] : undefined;
+}
+
+function extractNumericValue(value?: string) {
+  return extractLeadingNumber(value);
+}
+
+function normalizeWeightUnit(value?: string): (typeof WEIGHT_UNITS)[number] {
+  return value === 'lb' ? 'lb' : 'kg';
+}
+
+function normalizeDoseUnit(value?: string): (typeof DOSE_UNITS)[number] {
+  return DOSE_UNITS.includes(value as (typeof DOSE_UNITS)[number]) ? (value as (typeof DOSE_UNITS)[number]) : 'ml';
+}
+
+function normalizeRoute(value?: string): (typeof ROUTE_OPTIONS)[number] {
+  return ROUTE_OPTIONS.includes(value as (typeof ROUTE_OPTIONS)[number]) ? (value as (typeof ROUTE_OPTIONS)[number]) : 'Injection';
+}
+
+function normalizeHealthStatus(value?: string): (typeof HEALTH_STATUSES)[number] {
+  return HEALTH_STATUSES.includes(value as (typeof HEALTH_STATUSES)[number]) ? (value as (typeof HEALTH_STATUSES)[number]) : 'Healthy';
+}
+
+function normalizeVetSeen(value?: string): 'Yes' | 'No' {
+  return value === 'Yes' ? 'Yes' : 'No';
+}
+
+function normalizeBirthSex(value?: string): AnimalSex {
+  return value?.toLowerCase() === 'male' ? 'male' : 'female';
+}
+
+const MONTH_INDEX: Record<string, number> = {
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  may: 4,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11,
+};
 
 type SexOptionProps = {
   label: string;

@@ -9,13 +9,14 @@ type AnimalsContextValue = {
   animals: Animal[];
   addAnimal: (animal: CreateAnimalInput) => void;
   updateAnimal: (originalId: string, animal: CreateAnimalInput) => void;
+  deleteAnimal: (animalId: string) => void;
   resetAnimals: () => void;
 };
 
 const AnimalsContext = createContext<AnimalsContextValue | null>(null);
 
 export function AnimalsProvider({ children }: PropsWithChildren) {
-  const [animals, setAnimals] = useState<Animal[]>([]);
+  const [animals, setAnimals] = useState<Animal[]>([createSeedAnimal()]);
 
   const value = useMemo<AnimalsContextValue>(
     () => ({
@@ -42,6 +43,9 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
               : entry,
           ),
         );
+      },
+      deleteAnimal: (animalId) => {
+        setAnimals((current) => current.filter((entry) => entry.id !== animalId));
       },
       resetAnimals: () => {
         setAnimals([]);
@@ -71,6 +75,28 @@ function formatAgeLabel(value: string, unit: Animal['ageUnit']) {
   }
 
   return `${trimmedValue} ${unit}`.trim();
+}
+
+function createSeedAnimal(): Animal {
+  return {
+    id: 'LB-001',
+    species: 'Cattle',
+    sex: 'female',
+    name: 'Daisy',
+    ageValue: '2',
+    ageUnit: 'years old',
+    ageLabel: formatAgeLabel('2', 'years old'),
+    breed: 'Angus',
+    dateOfBirth: '12 Mar 2024',
+    weight: '480',
+    weightUnit: 'kg',
+    status: 'Active',
+    farm: 'Home Farm',
+    paddock: 'North Paddock',
+    group: 'Breeding Herd',
+    notes: '',
+    tone: inferAnimalTone('Cattle'),
+  };
 }
 
 function inferAnimalTone(species: string): AnimalTone {

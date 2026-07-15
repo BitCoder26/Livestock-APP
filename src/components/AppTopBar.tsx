@@ -9,6 +9,7 @@ type Action = {
   accessibilityLabel: string;
   onPress?: () => void;
   color?: string;
+  size?: number;
 };
 
 type AppTopBarProps = {
@@ -47,7 +48,7 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
             >
               <AppIcon
                 name={action.icon}
-                size={action.icon === 'filter' ? 28 : 24}
+                size={action.size ?? (action.icon === 'filter' ? 28 : 24)}
                 color={action.color ?? '#fff'}
               />
             </Pressable>

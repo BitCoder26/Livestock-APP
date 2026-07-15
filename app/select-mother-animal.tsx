@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,6 +9,7 @@ import { tokens } from '../src/theme/tokens';
 
 export default function SelectMotherAnimalScreen() {
   const router = useRouter();
+  const { recordId } = useLocalSearchParams<{ recordId?: string }>();
   const { animals } = useAnimals();
 
   return (
@@ -45,7 +46,10 @@ export default function SelectMotherAnimalScreen() {
               onPress={() =>
                 router.replace({
                   pathname: '/add-record',
-                  params: { selectedMotherName: animal.name },
+                  params: {
+                    selectedMotherName: animal.name,
+                    ...(recordId ? { recordId } : {}),
+                  },
                 })
               }
               style={({ pressed }) => [styles.card, pressed && styles.pressed]}

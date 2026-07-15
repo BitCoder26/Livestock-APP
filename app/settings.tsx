@@ -1,17 +1,16 @@
-import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { tokens } from '../src/theme/tokens';
 
-const WEBSITE_URL = 'https://bitcoder26.github.io/Livestock-APP/';
+const WEBSITE_URL = 'https://livestockbook.app';
 const USERJOT_URL = 'https://your-userjot-url.com';
-const FACEBOOK_GROUP_URL = 'https://your-facebook-group-url.com';
-const CONTACT_EMAIL = 'support@your-app.com';
+const FACEBOOK_GROUP_URL = 'https://www.facebook.com/groups/1353099223626390/';
+const CONTACT_EMAIL = 'contact@livestockbook.app';
 
 type SettingsAction =
   | 'account'
@@ -32,7 +31,7 @@ const ITEMS: Array<{
 }> = [
   { label: 'Account', icon: 'profile', action: 'account' },
   { label: 'Web Portal', icon: 'web_portal', action: 'website' },
-  { label: 'Contact Us', icon: 'mail', action: 'contact' },
+  { label: 'Contact', icon: 'mail', action: 'contact' },
   { label: 'Feedback & Suggestions', icon: 'alert', action: 'feedback' },
   { label: 'Facebook Group', icon: 'group', action: 'facebook' },
   { label: "What's New", icon: 'notebook', action: 'whats-new' },
@@ -85,7 +84,7 @@ export default function SettingsScreen() {
     }
 
     if (action === 'contact') {
-      return Linking.openURL(`mailto:${CONTACT_EMAIL}`);
+      return router.push('/contact');
     }
 
     if (action === 'account') {
@@ -127,16 +126,12 @@ export default function SettingsScreen() {
             onPress={() => handleAction('upgrade')}
             style={({ pressed }) => [styles.upgradeRow, pressed && styles.itemPressed]}
           >
-            <View style={styles.upgradeLeft}>
-              <View style={styles.upgradeIconWrap}>
-                <AppIcon name="crown" size={20} color={tokens.colors.accent} />
-              </View>
-              <View style={styles.upgradeTextWrap}>
-                <Text style={styles.upgradeTitle}>Upgrade to Pro</Text>
-                <Text style={styles.upgradeSubtitle}>Unlock more features</Text>
-              </View>
+            <AppIcon name="medal" size={30} color="#171717" />
+            <View style={styles.upgradeTextWrap}>
+              <Text style={styles.upgradeTitle}>Upgrade to Pro</Text>
+              <Text style={styles.upgradeSubtitle}>Unlock all features</Text>
             </View>
-            <AppIcon name="chevron-right" size={18} color={tokens.colors.muted} />
+            <View style={styles.upgradeActionButton}><Text style={styles.upgradeActionButtonText}>Upgrade</Text></View>
           </Pressable>
 
           {ITEM_GROUPS.map((group, groupIndex) => (
@@ -208,13 +203,25 @@ export default function SettingsScreen() {
   );
 }
 
-function openExternalTarget(url: string, label: string) {
+async function openExternalTarget(url: string, label: string) {
   if (url.includes('your-')) {
     Alert.alert(label, `Replace the placeholder ${label.toUpperCase()} link in settings.tsx.`);
     return;
   }
 
-  Linking.openURL(url);
+  try {
+    const supported = await Linking.canOpenURL(url);
+
+    if (!supported) {
+      Alert.alert(label, `Unable to open ${label} right now.`);
+      return;
+    }
+
+    await Linking.openURL(url);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : `Unable to open ${label} right now.`;
+    Alert.alert(label, message);
+  }
 }
 
 const styles = StyleSheet.create({
@@ -227,39 +234,25 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   content: {
-    paddingHorizontal: 28,
+    paddingHorizontal: 26,
     paddingTop: 18,
     paddingBottom: 120,
   },
   upgradeRow: {
-    minHeight: 68,
+    minHeight: 84,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 20,
-    backgroundColor: tokens.colors.surface,
-    shadowColor: tokens.colors.shadow,
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    paddingVertical: 11,
+    borderRadius: 18,
+    backgroundColor: 'rgba(231, 108, 102, 0.14)',
+    gap: 16,
     marginBottom: 18,
-  },
-  upgradeLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  upgradeIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: tokens.colors.accentSoft,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   upgradeTextWrap: {
     gap: 2,
@@ -271,9 +264,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   upgradeSubtitle: {
-    color: tokens.colors.accentDeep,
+    color: tokens.colors.textSoft,
     fontSize: 12,
     fontWeight: '500',
+  },
+  upgradeActionButton: {
+    minWidth: 82,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    flexShrink: 0,
+  },
+  upgradeActionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   itemRow: {
     minHeight: 38,

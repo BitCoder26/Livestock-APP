@@ -9,6 +9,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -38,7 +39,7 @@ type PickerKey = 'status' | 'weightUnit' | 'farm' | 'paddock' | 'group';
 export function AddAnimalScreen() {
   const router = useRouter();
   const { species, animalId: selectedAnimalId } = useLocalSearchParams<{ species?: string; animalId?: string }>();
-  const { animals, addAnimal, updateAnimal } = useAnimals();
+  const { animals, addAnimal, updateAnimal, deleteAnimal } = useAnimals();
   const { farms, paddocks, groups } = useSetup();
   const existingAnimal = selectedAnimalId
     ? animals.find((animal) => animal.id === selectedAnimalId)
@@ -63,6 +64,7 @@ export function AddAnimalScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showSpeciesPicker, setShowSpeciesPicker] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerKey | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const parsedDateOfBirth = useMemo(() => parseDateValue(dateOfBirth), [dateOfBirth]);
   const derivedAge = useMemo(() => {
@@ -168,17 +170,78 @@ export function AddAnimalScreen() {
 
   const pickerOptions = getPickerOptions(activePicker, farms, paddocks, groups);
 
+  const handleShareAnimal = async () => {
+    if (!existingAnimal) {
+      return;
+    }
+
+    try {
+      await Share.share({
+        message: formatAnimalShareText(existingAnimal),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Something went wrong while opening the share sheet.';
+      Alert.alert('Share failed', message);
+    }
+  };
+
+  const handleDeleteAnimal = () => {
+    if (!existingAnimal) {
+      return;
+    }
+
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteAnimal = () => {
+    if (!existingAnimal) {
+      return;
+    }
+
+    setShowDeleteConfirm(false);
+    deleteAnimal(existingAnimal.id);
+    router.replace('/(tabs)/animals');
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
-        title="Add Animal"
+        title={existingAnimal ? "View Animal" : "Add Animal"}
         leftAction={{
           icon: 'back',
           accessibilityLabel: 'Back',
           onPress: () => router.back(),
         }}
+        actions={existingAnimal ? [
+          {
+            icon: 'share',
+            accessibilityLabel: 'Share animal',
+            onPress: handleShareAnimal,
+            size: 22,
+          },
+          {
+            icon: 'trash',
+            accessibilityLabel: 'Delete animal',
+            onPress: handleDeleteAnimal,
+            size: 28,
+          },
+        ] : []}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {existingAnimal ? (
+          <Pressable
+            accessibilityLabel="View animal timeline"
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/animal-timeline', params: { animalId: existingAnimal.id } })}
+            style={({ pressed }) => [styles.timelineCard, pressed && styles.pressed]}
+          >
+            <View style={styles.timelineCardCopy}>
+              <Text style={styles.timelineCardTitle}>View Animal Timeline</Text>
+              <Text style={styles.timelineCardText}>Open the full history for this animal.</Text>
+            </View>
+            <AppIcon name="arrow-right-circle" size={24} color={tokens.colors.accent} />
+          </Pressable>
+        ) : null}
         <View style={styles.formCard}>
           <View style={styles.block}>
             <Text style={styles.label}>Selected Species *</Text>
@@ -385,6 +448,38 @@ export function AddAnimalScreen() {
       <Modal
         animationType="fade"
         transparent
+        visible={showDeleteConfirm}
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <Pressable style={styles.centeredModalBackdrop} onPress={() => setShowDeleteConfirm(false)}>
+          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
+            <Text style={styles.deleteConfirmTitle}>Delete animal?</Text>
+            <Text style={styles.deleteConfirmText}>This action cannot be undone.</Text>
+            <View style={styles.deleteConfirmActions}>
+              <Pressable
+                accessibilityLabel="Cancel delete"
+                accessibilityRole="button"
+                onPress={() => setShowDeleteConfirm(false)}
+                style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Confirm delete animal"
+                accessibilityRole="button"
+                onPress={confirmDeleteAnimal}
+                style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent
         visible={showSpeciesPicker}
         onRequestClose={() => setShowSpeciesPicker(false)}
       >
@@ -510,6 +605,38 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F3F7',
     padding: 16,
     gap: 14,
+  },
+  timelineCard: {
+    backgroundColor: 'rgba(231, 108, 102, 0.14)',
+    borderRadius: 20,
+    minHeight: 96,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(28, 28, 28, 0.06)',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  timelineCardCopy: {
+    flex: 1,
+    gap: 4,
+    paddingRight: 10,
+  },
+  timelineCardTitle: {
+    color: tokens.colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  timelineCardText: {
+    color: tokens.colors.textSoft,
+    fontSize: 12,
+    fontWeight: '500',
   },
   block: {
     gap: 8,
@@ -700,6 +827,72 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.28)',
     justifyContent: 'flex-end',
   },
+  centeredModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.46)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  deleteConfirmCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  deleteConfirmTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  deleteConfirmText: {
+    marginTop: 8,
+    color: tokens.colors.textSoft,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  deleteCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E0E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelButtonText: {
+    color: '#544F49',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   modalCard: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -827,6 +1020,36 @@ function SelectionField({ label, value, emptyLabel, onPress }: SelectionFieldPro
       </Pressable>
     </View>
   );
+}
+
+function formatAnimalShareText(animal: {
+  id: string;
+  species: string;
+  name: string;
+  sex: AnimalSex;
+  dateOfBirth: string;
+  breed: string;
+  weight: string;
+  weightUnit: AnimalWeightUnit;
+  status: AnimalStatus;
+  farm: string;
+  paddock: string;
+  group: string;
+  notes: string;
+}) {
+  return [
+    animal.name.trim() ? `${animal.name.trim()} (${animal.id.trim()})` : animal.id.trim(),
+    `Species: ${animal.species.trim()}`,
+    `Sex: ${animal.sex === 'female' ? 'Female' : 'Male'}`,
+    animal.dateOfBirth.trim() ? `Date of Birth: ${animal.dateOfBirth.trim()}` : '',
+    animal.breed.trim() ? `Breed: ${animal.breed.trim()}` : '',
+    animal.weight.trim() ? `Weight: ${animal.weight.trim()} ${animal.weightUnit}` : '',
+    `Status: ${animal.status}`,
+    animal.farm.trim() ? `Farm: ${animal.farm.trim()}` : '',
+    animal.paddock.trim() ? `Paddock: ${animal.paddock.trim()}` : '',
+    animal.group.trim() ? `Group: ${animal.group.trim()}` : '',
+    animal.notes.trim() ? `Notes: ${animal.notes.trim()}` : '',
+  ].filter(Boolean).join('\n');
 }
 
 function getDerivedAge(dateOfBirth: Date, now: Date) {

@@ -11,6 +11,11 @@ export const MEASUREMENT_UNIT_OPTIONS = [
   'Imperial',
 ] as const;
 
+export const PLAN_OPTIONS = [
+  'Basic',
+  'Pro',
+] as const;
+
 export const COUNTRY_OPTIONS = [
   'United Kingdom',
   'United States',
@@ -211,12 +216,15 @@ export const COUNTRY_OPTIONS = [
 
 export type IndustryOption = typeof INDUSTRY_OPTIONS[number];
 export type MeasurementUnitOption = typeof MEASUREMENT_UNIT_OPTIONS[number];
+export type PlanOption = typeof PLAN_OPTIONS[number];
 export type CountryOption = typeof COUNTRY_OPTIONS[number];
 export type IndustryValue = IndustryOption | '';
+export type PlanValue = PlanOption | '';
 
 export type AccountProfile = {
   name: string;
   email: string;
+  plan: PlanValue;
   country: string;
   industry: IndustryValue;
   measurementUnits: MeasurementUnitOption;
@@ -225,6 +233,7 @@ export type AccountProfile = {
 export const DEFAULT_ACCOUNT_PROFILE: AccountProfile = {
   name: '',
   email: '',
+  plan: 'Basic',
   country: '',
   industry: '',
   measurementUnits: 'Metric',

@@ -8,6 +8,11 @@ import { FloatingActionButton } from '../../src/components/FloatingActionButton'
 import { useRecords } from '../../src/context/RecordsContext';
 import { tokens } from '../../src/theme/tokens';
 
+function formatAnimalCount(record: { animalIds?: string[]; animalTag: string }) {
+  const count = record.animalIds?.length ?? record.animalTag.split(',').map((value) => value.trim()).filter(Boolean).length;
+  return `${count} ${count === 1 ? 'animal' : 'animals'}`;
+}
+
 export default function RecordsScreen() {
   const router = useRouter();
   const { records, filteredRecords, filters } = useRecords();
@@ -15,6 +20,7 @@ export default function RecordsScreen() {
     Array.isArray(value) ? value.length > 0 : Boolean(value),
   );
   const shouldShowFacebookCard = records.length <= 1;
+  const shouldFloatFacebookCard = shouldShowFacebookCard && filteredRecords.length === 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -34,27 +40,26 @@ export default function RecordsScreen() {
         ]}
       />
       <View style={styles.body}>
-        {shouldShowFacebookCard ? (
-          <Pressable
-            accessibilityLabel="Open Facebook group in settings"
-            accessibilityRole="button"
-            onPress={() => router.push('/settings')}
-            style={({ pressed }) => [styles.facebookCardFloating, pressed && styles.cardPressed]}
-          >
-            <View style={styles.facebookIconWrap}>
-              <AppIcon name="group" size={24} color="#171717" />
-            </View>
-            <View style={styles.facebookCopy}>
-              <Text style={styles.facebookTitle}>Join the Facebook group</Text>
-              <Text style={styles.facebookText}>Users share tips, discuss the app, and offer support there.</Text>
-            </View>
-            <AppIcon name="arrow-right-circle" size={24} color={tokens.colors.accent} />
-          </Pressable>
-        ) : null}
         <ScrollView
           contentContainerStyle={[styles.content, filteredRecords.length === 0 && styles.emptyContent]}
           showsVerticalScrollIndicator={false}
         >
+          <Text style={styles.countText}>{hasActiveFilters ? `${filteredRecords.length} of ${records.length} records` : `${records.length} records`}</Text>
+          {shouldShowFacebookCard ? (
+            <Pressable
+              accessibilityLabel="Open Facebook group in settings"
+              accessibilityRole="button"
+              onPress={() => router.push('/settings')}
+              style={({ pressed }) => [shouldFloatFacebookCard ? styles.facebookCardFloating : styles.facebookCard, pressed && styles.cardPressed]}
+            >
+              <AppIcon name="group" size={24} color="#171717" />
+              <View style={styles.facebookCopy}>
+                <Text style={styles.facebookTitle}>Join the Facebook group</Text>
+                <Text style={styles.facebookText}>Users share tips, discuss the app, and offer support there.</Text>
+              </View>
+              <View style={styles.facebookJoinButton}><Text style={styles.facebookJoinButtonText}>Join</Text></View>
+            </Pressable>
+          ) : null}
           {filteredRecords.length === 0 ? (
             <View style={styles.emptyState}>
               <AppIcon name="records_" size={86} color="#E5E0E7" opacity={1} />
@@ -66,13 +71,13 @@ export default function RecordsScreen() {
               <Pressable
                 key={record.id}
                 accessibilityRole="button"
-                onPress={() => router.push('/add-record')}
+                onPress={() => router.push({ pathname: '/add-record', params: { recordId: record.id } })}
                 style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
               >
                 <View style={styles.cardCopy}>
                   <Text style={styles.cardDate}>{record.date}</Text>
-                  <Text style={styles.cardTitle}>{record.title}</Text>
-                  <View style={styles.metaRow}>
+                  <Text style={styles.cardType}>{record.type}</Text>
+                  <View style={styles.cardFooterRow}>
                     <View
                       style={[
                         styles.speciesChip,
@@ -96,7 +101,7 @@ export default function RecordsScreen() {
                         {record.species}
                       </Text>
                     </View>
-                    <Text style={styles.tagText}>{record.animalTag}</Text>
+                    <Text style={styles.cardMeta}>{formatAnimalCount(record)}</Text>
                   </View>
                 </View>
                 <AppIcon name="arrow-right-circle" size={24} color={tokens.colors.accent} />
@@ -125,7 +130,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 18,
     paddingBottom: 120,
-    gap: 8,
+    gap: 12,
+  },
+  countText: {
+    color: '#8A7F87',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   emptyContent: {
     flexGrow: 1,
@@ -152,47 +163,58 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   card: {
-    backgroundColor: tokens.colors.surface,
-    borderRadius: 18,
-    minHeight: 103,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    minHeight: 96,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(28, 28, 28, 0.06)',
     shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 7,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    elevation: 3,
   },
   cardPressed: {
     opacity: 0.92,
   },
   cardCopy: {
+    flex: 1,
     gap: 4,
+    paddingRight: 10,
   },
   cardDate: {
     color: tokens.colors.text,
-    fontSize: 19,
+    fontSize: 16,
     fontWeight: '700',
   },
-  cardTitle: {
-    color: '#2c2c2c',
-    fontSize: 16,
+  cardType: {
+    color: tokens.colors.textSoft,
+    fontSize: 12,
     fontWeight: '500',
   },
-  metaRow: {
-    marginTop: 4,
+  cardFooterRow: {
+    marginTop: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+  },
+  cardMeta: {
+    color: '#544F49',
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
   },
   speciesChip: {
-    borderRadius: 14,
-    paddingHorizontal: 16,
+    borderRadius: 999,
+    paddingHorizontal: 10,
     paddingVertical: 5,
     borderWidth: 1,
+    flexShrink: 0,
   },
   cowChip: {
     backgroundColor: '#FCE5E4',
@@ -207,8 +229,8 @@ const styles = StyleSheet.create({
     borderColor: '#90B9DE',
   },
   speciesChipText: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 10,
+    fontWeight: '700',
   },
   cowChipText: {
     color: '#5b4747',
@@ -219,23 +241,19 @@ const styles = StyleSheet.create({
   pigChipText: {
     color: '#4b6483',
   },
-  tagText: {
-    color: '#3e3e3e',
-    fontSize: 13,
-    fontWeight: '500',
-  },
   facebookCard: {
-    minHeight: 76,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    minHeight: 84,
+    borderRadius: 18,
+    backgroundColor: 'rgba(231, 108, 102, 0.14)',
     paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 16,
+    marginBottom: 8,
     shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowOpacity: 0.16,
+    shadowRadius: 7,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
@@ -244,30 +262,20 @@ const styles = StyleSheet.create({
     top: 18,
     left: 16,
     right: 16,
-    minHeight: 76,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    zIndex: 2,
+    minHeight: 84,
+    borderRadius: 18,
+    backgroundColor: 'rgba(231, 108, 102, 0.14)',
     paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    zIndex: 2,
+    gap: 16,
     shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowOpacity: 0.16,
+    shadowRadius: 7,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
-  },
-  facebookIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: tokens.colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    alignSelf: 'stretch',
   },
   facebookCopy: {
     flex: 1,
@@ -283,5 +291,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     lineHeight: 17,
+  },
+  facebookJoinButton: {
+    minWidth: 62,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    flexShrink: 0,
+  },
+  facebookJoinButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

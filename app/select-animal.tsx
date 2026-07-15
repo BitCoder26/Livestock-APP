@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon } from '../src/components/AppIcon';
 
 const SPECIES: Array<{ icon: AppIconName; label: string }> = [
-  { icon: 'cow', label: 'Cattle' },
+  { icon: 'cow-copy', label: 'Cattle' },
   { icon: 'sheep', label: 'Sheep' },
   { icon: 'pig', label: 'Pig' },
   { icon: 'goat', label: 'Goat' },

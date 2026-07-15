@@ -25,7 +25,10 @@ export type GroupEntity = {
   animals: string;
   notes: string;
 };
+export type TreatmentKind = 'medicine' | 'vaccine';
+
 export type MedicineEntity = {
+  treatmentType: TreatmentKind;
   name: string;
   activeIngredient: string;
   defaultDose: string;
@@ -150,6 +153,7 @@ export function SetupProvider({ children }: PropsWithChildren) {
       },
       addMedicine: (rawMedicine) => {
         const medicine = {
+          treatmentType: rawMedicine.treatmentType,
           name: rawMedicine.name.trim(),
           activeIngredient: rawMedicine.activeIngredient.trim(),
           defaultDose: rawMedicine.defaultDose.trim(),
@@ -215,6 +219,7 @@ export function SetupProvider({ children }: PropsWithChildren) {
               : [
                   ...current,
                   {
+                    treatmentType: 'medicine',
                     name: value,
                     activeIngredient: '',
                     defaultDose: '',

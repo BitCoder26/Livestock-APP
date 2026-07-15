@@ -10,7 +10,7 @@ import { tokens } from '../src/theme/tokens';
 
 export default function SelectRecordAnimalScreen() {
   const router = useRouter();
-  const { selectedAnimalIds } = useLocalSearchParams<{ selectedAnimalIds?: string }>();
+  const { selectedAnimalIds, recordId } = useLocalSearchParams<{ selectedAnimalIds?: string; recordId?: string }>();
   const { animals } = useAnimals();
   const initialIds = useMemo(
     () => (selectedAnimalIds ? selectedAnimalIds.split(',').filter(Boolean) : []),
@@ -44,7 +44,10 @@ export default function SelectRecordAnimalScreen() {
                   onPress: () =>
                     router.replace({
                       pathname: '/add-record',
-                      params: { selectedAnimalIds: draftIds.join(',') },
+                      params: {
+                        selectedAnimalIds: draftIds.join(','),
+                        ...(recordId ? { recordId } : {}),
+                      },
                     }),
                 },
               ]
@@ -86,11 +89,6 @@ export default function SelectRecordAnimalScreen() {
                   {animal.id} • {animal.species}
                 </Text>
               </View>
-              {draftIds.includes(animal.id) ? (
-                <AppIcon name="check" size={18} color={tokens.colors.accent} />
-              ) : (
-                <AppIcon name="chevron-right" size={18} color="#8A8A8A" />
-              )}
             </Pressable>
           ))
         )}
@@ -156,6 +154,7 @@ const styles = StyleSheet.create({
     borderColor: '#E79D99',
   },
   cardCopy: {
+    flex: 1,
     gap: 5,
   },
   cardTitle: {

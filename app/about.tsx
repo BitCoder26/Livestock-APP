@@ -1,13 +1,36 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 
 import { AppTopBar } from '../src/components/AppTopBar';
 import { tokens } from '../src/theme/tokens';
 
+const APP_LOGO = require('../assets/icons/app_logo.png');
 const APP_VERSION = '1.0.0';
-const BUY_ME_A_COFFEE_URL = 'https://buymeacoffee.com/thomaskoukouris';
+const BUY_ME_A_COFFEE_URL = 'https://buymeacoffee.com/livestockbook';
+
+function CoffeeCupIcon() {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 8h11a1 1 0 0 1 1 1v3a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9a1 1 0 0 1 1-1Zm12 1h1.5a2.5 2.5 0 1 1 0 5H16"
+        stroke="#fff"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M8 4c0 1-.6 1.5-1.1 2S5.8 7 5.8 8M12 4c0 1-.6 1.5-1.1 2S9.8 7 9.8 8"
+        stroke="#fff"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 export default function AboutScreen() {
   const router = useRouter();
@@ -23,11 +46,17 @@ export default function AboutScreen() {
         }}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.appName}>Livestock Tracker</Text>
-        <Text style={styles.version}>Version {APP_VERSION}</Text>
+        <View style={styles.brandBlock}>
+          <View style={styles.logoPlate}>
+            <Image source={APP_LOGO} style={styles.logoImage} resizeMode="contain" />
+          </View>
+          <Text style={styles.appName}>LivestockBook</Text>
+        </View>
+        <View style={styles.textSection}>
+          <Text style={styles.version}>Version {APP_VERSION}</Text>
         <Text style={styles.description}>
-          Livestock Tracker helps you keep your animals, records, setup data, and exports organized in one place so
-          daily farm management is easier to track and review.
+          LivestockBook helps you keep your animals, records, setup data, and exports organized in one place so daily
+          farm management is easier to track and review.
         </Text>
         <Text style={styles.author}>Developed by: Thomas Koukouris</Text>
         <Text style={styles.location}>Based in the UK</Text>
@@ -40,21 +69,17 @@ export default function AboutScreen() {
         </Text>
         <View style={styles.buttonStack}>
           <Pressable
-            accessibilityLabel="Upgrade to Pro"
-            accessibilityRole="button"
-            onPress={() => router.push('/settings')}
-            style={({ pressed }) => [styles.linkButton, pressed && styles.linkPressed]}
-          >
-            <Text style={styles.linkText}>Upgrade to Pro</Text>
-          </Pressable>
-          <Pressable
             accessibilityLabel="Buy me a coffee"
             accessibilityRole="button"
             onPress={() => Linking.openURL(BUY_ME_A_COFFEE_URL)}
             style={({ pressed }) => [styles.linkButton, pressed && styles.linkPressed]}
           >
-            <Text style={styles.linkText}>☕ Buy me a coffee</Text>
+            <View style={styles.linkContent}>
+              <CoffeeCupIcon />
+              <Text style={styles.linkText}>Buy me a coffee</Text>
+            </View>
           </Pressable>
+        </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -72,10 +97,32 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
     gap: 14,
   },
+  brandBlock: {
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 10,
+    paddingTop: 8,
+  },
+  textSection: {
+    gap: 14,
+  },
+  logoPlate: {
+    width: 96,
+    height: 96,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoImage: {
+    width: 88,
+    height: 88,
+  },
   appName: {
     color: tokens.colors.text,
-    fontSize: 18,
-    fontWeight: '500',
+    fontSize: 28,
+    fontWeight: '700',
+    marginTop: 8,
   },
   version: {
     color: tokens.colors.accentDeep,
@@ -107,13 +154,20 @@ const styles = StyleSheet.create({
   },
   buttonStack: {
     gap: 12,
-    alignSelf: 'flex-start',
+    width: '100%',
   },
   linkButton: {
+    width: '100%',
     backgroundColor: tokens.colors.accent,
     borderRadius: 999,
     paddingHorizontal: 24,
     paddingVertical: 14,
+  },
+  linkContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
   linkPressed: {
     opacity: 0.9,

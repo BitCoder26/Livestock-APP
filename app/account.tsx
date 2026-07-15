@@ -20,7 +20,7 @@ import { COUNTRY_OPTIONS, INDUSTRY_OPTIONS, MEASUREMENT_UNIT_OPTIONS } from '../
 import { useAccount } from '../src/context/AccountContext';
 import { tokens } from '../src/theme/tokens';
 
-const ACCOUNT_SURFACE_GREY = '#FFFFFF';
+const ACCOUNT_SURFACE_GREY = '#F1EFF3';
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -164,6 +164,17 @@ export default function AccountScreen() {
             onChangeText={(value) => updateField('email', value)}
             fieldStyle={styles.formField}
           />
+          <View style={styles.block}>
+            <Text style={styles.optionLabel}>Plan</Text>
+            <Pressable
+              accessibilityLabel="Open upgrade to pro page"
+              accessibilityRole="button"
+              onPress={() => router.push('/upgrade-to-pro')}
+              style={({ pressed }) => [styles.selectField, pressed && styles.pressed]}
+            >
+              <Text style={styles.selectValue}>{profile.plan || 'Basic'}</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.section}>

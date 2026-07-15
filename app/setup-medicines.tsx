@@ -1,23 +1,28 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { DesignField } from '../src/components/DesignField';
-import { useSetup } from '../src/context/SetupContext';
+import { type TreatmentKind, useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
 
 const DOSE_UNITS = ['ml', 'mg', 'g', 'tablet(s)', 'bolus', 'sachet', 'dose'] as const;
 const ROUTE_OPTIONS = ['Injection', 'Oral', 'Pour-on', 'Drench', 'Topical', 'Feed', 'Water', 'Other'] as const;
 
 type PickerKey = 'doseUnit' | 'route' | null;
+const TREATMENT_TYPES: Array<{ label: string; value: TreatmentKind }> = [
+  { label: 'Medicine', value: 'medicine' },
+  { label: 'Vaccine', value: 'vaccine' },
+];
 
 export default function SetupMedicinesScreen() {
   const router = useRouter();
   const { medicineEntities, addMedicine, removeMedicine } = useSetup();
+  const [treatmentType, setTreatmentType] = useState<TreatmentKind>('medicine');
   const [name, setName] = useState('');
   const [activeIngredient, setActiveIngredient] = useState('');
   const [defaultDose, setDefaultDose] = useState('');
@@ -31,9 +36,16 @@ export default function SetupMedicinesScreen() {
   const [notes, setNotes] = useState('');
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [treatmentPendingDelete, setTreatmentPendingDelete] = useState<string | null>(null);
+
+  const groupedTreatments = useMemo(() => ({
+    medicines: medicineEntities.filter((entry) => entry.treatmentType === 'medicine'),
+    vaccines: medicineEntities.filter((entry) => entry.treatmentType === 'vaccine'),
+  }), [medicineEntities]);
 
   const handleAddMedicine = () => {
     addMedicine({
+      treatmentType,
       name,
       activeIngredient,
       defaultDose,
@@ -51,6 +63,7 @@ export default function SetupMedicinesScreen() {
       return;
     }
 
+    setTreatmentType('medicine');
     setName('');
     setActiveIngredient('');
     setDefaultDose('');
@@ -84,16 +97,41 @@ export default function SetupMedicinesScreen() {
     setShowDatePicker(false);
   };
 
+  const confirmDeleteTreatment = () => {
+    if (!treatmentPendingDelete) {
+      return;
+    }
+
+    removeMedicine(treatmentPendingDelete);
+    setTreatmentPendingDelete(null);
+  };
+
   const pickerOptions = activePicker === 'doseUnit' ? [...DOSE_UNITS] : activePicker === 'route' ? [...ROUTE_OPTIONS] : [];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-      <AppTopBar title="Medicines" leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: () => router.back() }} />
+      <AppTopBar title="Medicines & Vaccines" leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: () => router.back() }} />
       <ScrollView contentContainerStyle={[styles.content, medicineEntities.length === 0 && styles.emptyContent]} showsVerticalScrollIndicator={false}>
         <View style={styles.editorCard}>
-          <Text style={styles.sectionLabel}>Medicines</Text>
+          <Text style={styles.sectionLabel}>Medicines & Vaccines</Text>
 
-          <DesignField value={name} label="Medicine name *" onChangeText={setName} />
+          <View style={styles.block}>
+            <Text style={styles.label}>Type</Text>
+            <View style={styles.typeRow}>
+              {TREATMENT_TYPES.map((option) => (
+                <Pressable
+                  key={option.value}
+                  accessibilityRole="button"
+                  onPress={() => setTreatmentType(option.value)}
+                  style={({ pressed }) => [styles.typeChip, treatmentType === option.value && styles.typeChipActive, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.typeChipText, treatmentType === option.value && styles.typeChipTextActive]}>{option.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <DesignField value={name} label={treatmentType === 'medicine' ? "Medicine name *" : "Vaccine name *"} onChangeText={setName} />
           <DesignField value={activeIngredient} label="Active ingredient" onChangeText={setActiveIngredient} />
           <View style={styles.inlineRow}>
             <View style={styles.inlineGrow}>
@@ -111,9 +149,9 @@ export default function SetupMedicinesScreen() {
           <SelectionField label="Expiry date" value={expiryDate} emptyLabel="Select expiry date" onPress={() => setShowDatePicker(true)} />
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
-          <Pressable accessibilityRole="button" accessibilityLabel="Add medicine" onPress={handleAddMedicine} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Add treatment" onPress={handleAddMedicine} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
             <AppIcon name="plus" size={16} color="#fff" />
-            <Text style={styles.addButtonText}>Add Medicine</Text>
+            <Text style={styles.addButtonText}>{treatmentType === 'medicine' ? 'Add Medicine' : 'Add Vaccine'}</Text>
           </Pressable>
         </View>
 
@@ -124,8 +162,11 @@ export default function SetupMedicinesScreen() {
           </View>
         ) : (
           <View style={styles.list}>
-            {medicineEntities.map((medicine) => (
-              <View key={medicine.name} style={styles.itemCard}>
+            {[
+              ...groupedTreatments.medicines,
+              ...groupedTreatments.vaccines,
+            ].map((medicine) => (
+              <View key={`${medicine.treatmentType}-${medicine.name}`} style={styles.itemCard}>
                 <View style={styles.itemHeader}>
                   <View style={styles.itemTitleRow}>
                     <View style={styles.itemIconBadge}>
@@ -133,10 +174,10 @@ export default function SetupMedicinesScreen() {
                     </View>
                     <View style={styles.itemHeadingCopy}>
                       <Text style={styles.itemTitle}>{medicine.name}</Text>
-                      <Text style={styles.itemSubtitle}>{medicine.activeIngredient || 'No active ingredient'}</Text>
+                      <Text style={styles.itemSubtitle}>{medicine.treatmentType === 'medicine' ? 'Medicine' : 'Vaccine'}{medicine.activeIngredient ? ` · ${medicine.activeIngredient}` : ''}</Text>
                     </View>
                   </View>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${medicine.name}`} onPress={() => removeMedicine(medicine.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${medicine.name}`} onPress={() => setTreatmentPendingDelete(medicine.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
                     <AppIcon name="trash" size={17} color="#fff" />
                   </Pressable>
                 </View>
@@ -152,6 +193,30 @@ export default function SetupMedicinesScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={treatmentPendingDelete !== null}
+        onRequestClose={() => setTreatmentPendingDelete(null)}
+      >
+        <Pressable style={styles.centeredModalBackdrop} onPress={() => setTreatmentPendingDelete(null)}>
+          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
+            <Text style={styles.deleteConfirmTitle}>Delete treatment?</Text>
+            <Text style={styles.deleteConfirmText}>
+              {treatmentPendingDelete ? `Are you sure you want to delete ${treatmentPendingDelete}?` : ''}
+            </Text>
+            <View style={styles.deleteConfirmActions}>
+              <Pressable accessibilityRole="button" onPress={() => setTreatmentPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={confirmDeleteTreatment} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
+                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal transparent animationType="fade" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
@@ -251,6 +316,11 @@ function parseDate(value: string) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#fff' },
   content: { paddingHorizontal: 16, paddingTop: 22, paddingBottom: 120, gap: 16 },
+  typeRow: { flexDirection: 'row', gap: 10 },
+  typeChip: { borderRadius: 999, paddingHorizontal: 18, paddingVertical: 10, backgroundColor: '#FFFFFF' },
+  typeChipActive: { backgroundColor: '#FCE5E4' },
+  typeChipText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
+  typeChipTextActive: { color: '#74423F', fontWeight: '700' },
   emptyContent: { flexGrow: 1, justifyContent: 'center' },
   editorCard: { borderRadius: 24, backgroundColor: '#F5F3F7', padding: 16, gap: 14 },
   sectionLabel: { color: tokens.colors.text, fontSize: 16, fontWeight: '700' },
@@ -329,6 +399,72 @@ const styles = StyleSheet.create({
   },
   detailText: { color: tokens.colors.text, fontSize: 13, fontWeight: '500', lineHeight: 18 },
   itemNotes: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '500', lineHeight: 17 },
+  centeredModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.46)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  deleteConfirmCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  deleteConfirmTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  deleteConfirmText: {
+    marginTop: 8,
+    color: tokens.colors.textSoft,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  deleteCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E0E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelButtonText: {
+    color: '#544F49',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.28)', justifyContent: 'flex-end' },
   selectionCard: {
     marginHorizontal: 18,
