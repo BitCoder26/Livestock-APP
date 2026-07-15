@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppIcon } from './AppIcon';
 import { tokens } from '../theme/tokens';
@@ -13,22 +13,30 @@ export function FloatingActionButton({
   onPress,
 }: FloatingActionButtonProps) {
   return (
-    <Pressable
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-    >
-      <AppIcon name="plus" size={24} color="#fff" />
-    </Pressable>
+    <View style={styles.positioner}>
+      <Pressable
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+      >
+        <AppIcon name="plus" size={24} color="#fff" />
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  button: {
+  positioner: {
     position: 'absolute',
     right: 24,
     bottom: 24,
+    width: 68,
+    height: 68,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  button: {
     width: 68,
     height: 68,
     borderRadius: 34,

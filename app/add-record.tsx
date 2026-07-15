@@ -7,6 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
+import { BouncyPressable } from '../src/components/BouncyPressable';
+import { CircularRevealView } from '../src/components/CircularRevealView';
 import { DesignField } from '../src/components/DesignField';
 import { RECORD_TYPES, SPECIES_OPTIONS } from '../src/constants/records';
 import { useAccount } from '../src/context/AccountContext';
@@ -30,7 +33,7 @@ type MovementPickerKey = (typeof MOVEMENT_PICKERS)[number];
 
 export default function AddRecordScreen() {
   const router = useRouter();
-  const { selectedAnimalIds, selectedMotherName, recordId } = useLocalSearchParams<{ selectedAnimalIds?: string; selectedMotherName?: string; recordId?: string }>();
+  const { selectedAnimalIds, selectedMotherName, recordId, draftRecord, reveal } = useLocalSearchParams<{ selectedAnimalIds?: string; selectedMotherName?: string; recordId?: string; draftRecord?: string; reveal?: string }>();
   const { profile } = useAccount();
   const { animals, addAnimal } = useAnimals();
   const { addRecord, updateRecord, deleteRecord, records } = useRecords();
@@ -118,7 +121,59 @@ export default function AddRecordScreen() {
   }, [selectedMotherName]);
 
   useEffect(() => {
-    if (!editingRecord) {
+    if (!draftRecord) {
+      return;
+    }
+
+    const draft = parseDraftRecordState(draftRecord);
+
+    if (!draft) {
+      return;
+    }
+
+    setSelectedDate(new Date(draft.selectedDateIso));
+    setRecordType(draft.recordType);
+    setRecordTitle(draft.recordTitle);
+    setMedicine(draft.medicine);
+    setWeight(draft.weight);
+    setWeightUnit(draft.weightUnit);
+    setCauseOfDeath(draft.causeOfDeath);
+    setDisposalMethod(draft.disposalMethod);
+    setHealthStatus(draft.healthStatus);
+    setConditionDiagnosis(draft.conditionDiagnosis);
+    setVetSeen(draft.vetSeen);
+    setBuyer(draft.buyer);
+    setSalePrice(draft.salePrice);
+    setDestination(draft.destination);
+    setSeller(draft.seller);
+    setPurchasePrice(draft.purchasePrice);
+    setSourceFarm(draft.sourceFarm);
+    setMotherName(selectedMotherName ?? draft.motherName);
+    setBirthTagId(draft.birthTagId);
+    setBirthSpecies(draft.birthSpecies);
+    setBirthBreed(draft.birthBreed);
+    setBirthSex(draft.birthSex);
+    setBirthWeight(draft.birthWeight);
+    setBirthWeightUnit(draft.birthWeightUnit);
+    setDose(draft.dose);
+    setDoseUnit(draft.doseUnit);
+    setRoute(draft.route);
+    setWithdrawal(draft.withdrawal);
+    setFromFarm(draft.fromFarm);
+    setFromPaddock(draft.fromPaddock);
+    setToFarm(draft.toFarm);
+    setToPaddock(draft.toPaddock);
+    setDetails(draft.details);
+    setChosenAnimalIds(
+      selectedAnimalIds !== undefined
+        ? selectedAnimalIds.split(',').filter(Boolean)
+        : draft.chosenAnimalIds,
+    );
+    setImageUris(draft.imageUris);
+  }, [draftRecord, selectedAnimalIds, selectedMotherName]);
+
+  useEffect(() => {
+    if (!editingRecord || draftRecord) {
       return;
     }
 
@@ -158,7 +213,7 @@ export default function AddRecordScreen() {
     setDetails(formState.details);
     setChosenAnimalIds(formState.chosenAnimalIds);
     setImageUris(formState.imageUris);
-  }, [editingRecord]);
+  }, [draftRecord, editingRecord]);
 
   const showMissingRequiredFields = (fields: string[]) => {
     Alert.alert(
@@ -364,6 +419,44 @@ export default function AddRecordScreen() {
     router.replace('/(tabs)/records');
   };
 
+  const draftRecordState = serializeDraftRecordState({
+    selectedDateIso: selectedDate.toISOString(),
+    recordType,
+    recordTitle,
+    medicine,
+    weight,
+    weightUnit,
+    causeOfDeath,
+    disposalMethod,
+    healthStatus,
+    conditionDiagnosis,
+    vetSeen,
+    buyer,
+    salePrice,
+    destination,
+    seller,
+    purchasePrice,
+    sourceFarm,
+    motherName,
+    birthTagId,
+    birthSpecies,
+    birthBreed,
+    birthSex,
+    birthWeight,
+    birthWeightUnit,
+    dose,
+    doseUnit,
+    route,
+    withdrawal,
+    fromFarm,
+    fromPaddock,
+    toFarm,
+    toPaddock,
+    details,
+    chosenAnimalIds,
+    imageUris,
+  });
+
   const handleTreatmentSelect = (entry: MedicineEntity) => {
     setMedicine(entry.name);
     if (entry.defaultDose.trim()) {
@@ -462,7 +555,8 @@ export default function AddRecordScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+    <CircularRevealView active={reveal === '1'}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
         title={isEditing ? 'View Record' : 'Add Record'}
         leftAction={{
@@ -540,6 +634,7 @@ export default function AddRecordScreen() {
                     params: {
                       selectedAnimalIds: chosenAnimalIds.join(','),
                       ...(recordId ? { recordId } : {}),
+                      draftRecord: draftRecordState,
                     },
                   })}
                 style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
@@ -590,7 +685,10 @@ export default function AddRecordScreen() {
                   onPress={() =>
                     router.push({
                       pathname: '/select-mother-animal',
-                      params: recordId ? { recordId } : {},
+                      params: {
+                        ...(recordId ? { recordId } : {}),
+                        draftRecord: draftRecordState,
+                      },
                     })}
                   style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
                 >
@@ -690,11 +788,9 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              {availableTreatments.length === 0 ? (
-                <Pressable accessibilityRole="button" onPress={() => router.push('/setup-medicines')}>
-                  <Text style={styles.helperLink}>+ Add Medicine</Text>
-                </Pressable>
-              ) : null}
+              <Pressable accessibilityRole="button" onPress={() => router.push('/setup-medicines')}>
+                <Text style={styles.helperLink}>+ Add Medicine</Text>
+              </Pressable>
               <View style={styles.inlineRow}>
                 <View style={styles.inlineGrow}>
                   <DesignField value={dose} label="Dose *" onChangeText={setDose} keyboardType="decimal-pad" />
@@ -766,11 +862,9 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              {availableTreatments.length === 0 ? (
-                <Pressable accessibilityRole="button" onPress={() => router.push('/setup-medicines')}>
-                  <Text style={styles.helperLink}>+ Add Vaccine</Text>
-                </Pressable>
-              ) : null}
+              <Pressable accessibilityRole="button" onPress={() => router.push('/setup-medicines')}>
+                <Text style={styles.helperLink}>+ Add Vaccine</Text>
+              </Pressable>
               <View style={styles.inlineRow}>
                 <View style={styles.inlineGrow}>
                   <DesignField value={dose} label="Dose *" onChangeText={setDose} keyboardType="decimal-pad" />
@@ -891,17 +985,15 @@ export default function AddRecordScreen() {
                   </Text>
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
-                {farms.length === 0 ? (
-                  <View style={styles.helperRowCompact}>
-                    <Pressable
-                      accessibilityLabel="Add farm"
-                      accessibilityRole="button"
-                      onPress={() => router.push('/setup-farms')}
-                    >
-                      <Text style={styles.helperLink}>+ Add Farm</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
+                <View style={styles.helperRowCompact}>
+                  <Pressable
+                    accessibilityLabel="Add farm"
+                    accessibilityRole="button"
+                    onPress={() => router.push('/setup-farms')}
+                  >
+                    <Text style={styles.helperLink}>+ Add Farm</Text>
+                  </Pressable>
+                </View>
               </View>
               <View style={styles.block}>
                 <Text style={styles.label}>From Paddock</Text>
@@ -925,17 +1017,15 @@ export default function AddRecordScreen() {
                   </Text>
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
-                {paddocks.length === 0 ? (
-                  <View style={styles.helperRowCompact}>
-                    <Pressable
-                      accessibilityLabel="Add paddock"
-                      accessibilityRole="button"
-                      onPress={() => router.push('/setup-paddocks')}
-                    >
-                      <Text style={styles.helperLink}>+ Add Paddock</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
+                <View style={styles.helperRowCompact}>
+                  <Pressable
+                    accessibilityLabel="Add paddock"
+                    accessibilityRole="button"
+                    onPress={() => router.push('/setup-paddocks')}
+                  >
+                    <Text style={styles.helperLink}>+ Add Paddock</Text>
+                  </Pressable>
+                </View>
               </View>
               <View style={styles.block}>
                 <Text style={styles.label}>To Farm *</Text>
@@ -959,17 +1049,15 @@ export default function AddRecordScreen() {
                   </Text>
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
-                {farms.length === 0 ? (
-                  <View style={styles.helperRowCompact}>
-                    <Pressable
-                      accessibilityLabel="Add farm"
-                      accessibilityRole="button"
-                      onPress={() => router.push('/setup-farms')}
-                    >
-                      <Text style={styles.helperLink}>+ Add Farm</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
+                <View style={styles.helperRowCompact}>
+                  <Pressable
+                    accessibilityLabel="Add farm"
+                    accessibilityRole="button"
+                    onPress={() => router.push('/setup-farms')}
+                  >
+                    <Text style={styles.helperLink}>+ Add Farm</Text>
+                  </Pressable>
+                </View>
               </View>
               <View style={styles.block}>
                 <Text style={styles.label}>To Paddock</Text>
@@ -993,17 +1081,15 @@ export default function AddRecordScreen() {
                   </Text>
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
-                {paddocks.length === 0 ? (
-                  <View style={styles.helperRowCompact}>
-                    <Pressable
-                      accessibilityLabel="Add paddock"
-                      accessibilityRole="button"
-                      onPress={() => router.push('/setup-paddocks')}
-                    >
-                      <Text style={styles.helperLink}>+ Add Paddock</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
+                <View style={styles.helperRowCompact}>
+                  <Pressable
+                    accessibilityLabel="Add paddock"
+                    accessibilityRole="button"
+                    onPress={() => router.push('/setup-paddocks')}
+                  >
+                    <Text style={styles.helperLink}>+ Add Paddock</Text>
+                  </Pressable>
+                </View>
               </View>
             </>
           ) : isWeightRecord ? (
@@ -1100,7 +1186,7 @@ export default function AddRecordScreen() {
           ) : null}
         </View>
 
-        <Pressable
+        <BouncyPressable
           accessibilityLabel="Save record"
           accessibilityRole="button"
           onPress={handleSave}
@@ -1108,7 +1194,7 @@ export default function AddRecordScreen() {
         >
           <AppIcon name="save" size={18} color="#fff" />
           <Text style={styles.primaryButtonText}>{isEditing ? 'Save Changes' : 'Save Record'}</Text>
-        </Pressable>
+        </BouncyPressable>
       </ScrollView>
 
       {showDatePicker && Platform.OS === 'android' ? (
@@ -1131,22 +1217,24 @@ export default function AddRecordScreen() {
             <Text style={styles.deleteConfirmTitle}>Delete record?</Text>
             <Text style={styles.deleteConfirmText}>This action cannot be undone.</Text>
             <View style={styles.deleteConfirmActions}>
-              <Pressable
+              <BouncyPressable
                 accessibilityLabel="Cancel delete"
                 accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
                 onPress={() => setShowDeleteConfirm(false)}
                 style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}
               >
                 <Text style={styles.deleteCancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable
+              </BouncyPressable>
+              <BouncyPressable
                 accessibilityLabel="Confirm delete record"
                 accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
                 onPress={confirmDeleteRecord}
                 style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}
               >
                 <Text style={styles.deleteConfirmButtonText}>Delete</Text>
-              </Pressable>
+              </BouncyPressable>
             </View>
           </Pressable>
         </Pressable>
@@ -1159,7 +1247,7 @@ export default function AddRecordScreen() {
         onRequestClose={() => setShowDatePicker(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setShowDatePicker(false)}>
-          <Pressable style={styles.modalCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showDatePicker && Platform.OS === 'ios'} style={styles.modalCard} onPress={() => undefined}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select date</Text>
               <Pressable
@@ -1176,7 +1264,7 @@ export default function AddRecordScreen() {
               value={selectedDate}
               onChange={handleDateChange}
             />
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -1187,7 +1275,7 @@ export default function AddRecordScreen() {
         onRequestClose={() => setShowDoseUnitPicker(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setShowDoseUnitPicker(false)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showDoseUnitPicker} style={styles.selectionCard} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>Select quantity</Text>
             {DOSE_UNITS.map((unit) => (
               <Pressable
@@ -1215,7 +1303,7 @@ export default function AddRecordScreen() {
                 {unit === doseUnit ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
               </Pressable>
             ))}
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -1226,7 +1314,7 @@ export default function AddRecordScreen() {
         onRequestClose={() => setShowHealthStatusPicker(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setShowHealthStatusPicker(false)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showHealthStatusPicker} style={styles.selectionCard} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>Select health status</Text>
             {HEALTH_STATUSES.map((status) => (
               <Pressable
@@ -1254,7 +1342,7 @@ export default function AddRecordScreen() {
                 {status === healthStatus ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
               </Pressable>
             ))}
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -1265,7 +1353,7 @@ export default function AddRecordScreen() {
         onRequestClose={() => setShowWeightUnitPicker(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setShowWeightUnitPicker(false)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showWeightUnitPicker} style={styles.selectionCard} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>Select unit</Text>
             {WEIGHT_UNITS.map((unit) => (
               <Pressable
@@ -1293,7 +1381,7 @@ export default function AddRecordScreen() {
                 {unit === weightUnit ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
               </Pressable>
             ))}
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -1304,7 +1392,7 @@ export default function AddRecordScreen() {
         onRequestClose={() => setShowBirthWeightUnitPicker(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setShowBirthWeightUnitPicker(false)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showBirthWeightUnitPicker} style={styles.selectionCard} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>Select unit</Text>
             {WEIGHT_UNITS.map((unit) => (
               <Pressable
@@ -1332,7 +1420,7 @@ export default function AddRecordScreen() {
                 {unit === birthWeightUnit ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
               </Pressable>
             ))}
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -1343,7 +1431,7 @@ export default function AddRecordScreen() {
         onRequestClose={() => setShowTreatmentPicker(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setShowTreatmentPicker(false)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showTreatmentPicker} style={styles.selectionCard} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>{isVaccinationRecord ? 'Select vaccine' : 'Select medicine'}</Text>
             {availableTreatments.map((entry) => (
               <Pressable
@@ -1366,7 +1454,7 @@ export default function AddRecordScreen() {
                 {entry.name === medicine ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
               </Pressable>
             ))}
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -1377,7 +1465,7 @@ export default function AddRecordScreen() {
         onRequestClose={() => setShowRoutePicker(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setShowRoutePicker(false)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showRoutePicker} style={styles.selectionCard} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>Select route</Text>
             {ROUTE_OPTIONS.map((option) => (
               <Pressable
@@ -1405,7 +1493,7 @@ export default function AddRecordScreen() {
                 {option === route ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
               </Pressable>
             ))}
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -1416,7 +1504,7 @@ export default function AddRecordScreen() {
         onRequestClose={() => setShowDisposalMethodPicker(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setShowDisposalMethodPicker(false)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showDisposalMethodPicker} style={styles.selectionCard} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>Select disposal method</Text>
             {DISPOSAL_METHOD_OPTIONS.map((option) => (
               <Pressable
@@ -1444,7 +1532,7 @@ export default function AddRecordScreen() {
                 {option === disposalMethod ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
               </Pressable>
             ))}
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -1455,7 +1543,7 @@ export default function AddRecordScreen() {
         onRequestClose={() => setShowBirthSpeciesPicker(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setShowBirthSpeciesPicker(false)}>
-          <Pressable style={styles.modalCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showBirthSpeciesPicker} style={styles.modalCard} onPress={() => undefined}>
             <View style={styles.speciesModalHeader}>
               <Text style={styles.speciesModalTitle}>Select Species</Text>
             </View>
@@ -1488,7 +1576,7 @@ export default function AddRecordScreen() {
                 })()
               ))}
             </ScrollView>
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -1499,7 +1587,7 @@ export default function AddRecordScreen() {
         onRequestClose={() => setActiveMovementPicker(null)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setActiveMovementPicker(null)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={activeMovementPicker !== null} style={styles.selectionCard} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>{getMovementPickerTitle(activeMovementPicker)}</Text>
             {getMovementPickerOptions(activeMovementPicker, farms, paddocks).map((option) => {
               const activeValue = getMovementPickerValue(
@@ -1544,10 +1632,11 @@ export default function AddRecordScreen() {
                 </Pressable>
               );
             })}
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </CircularRevealView>
   );
 }
 
@@ -2122,6 +2211,56 @@ function applyMovementSelection(
   }
 }
 
+
+type DraftRecordState = {
+  selectedDateIso: string;
+  recordType: (typeof RECORD_TYPES)[number];
+  recordTitle: string;
+  medicine: string;
+  weight: string;
+  weightUnit: (typeof WEIGHT_UNITS)[number];
+  causeOfDeath: string;
+  disposalMethod: string;
+  healthStatus: (typeof HEALTH_STATUSES)[number];
+  conditionDiagnosis: string;
+  vetSeen: 'Yes' | 'No';
+  buyer: string;
+  salePrice: string;
+  destination: string;
+  seller: string;
+  purchasePrice: string;
+  sourceFarm: string;
+  motherName: string;
+  birthTagId: string;
+  birthSpecies: string;
+  birthBreed: string;
+  birthSex: AnimalSex;
+  birthWeight: string;
+  birthWeightUnit: (typeof WEIGHT_UNITS)[number];
+  dose: string;
+  doseUnit: (typeof DOSE_UNITS)[number];
+  route: (typeof ROUTE_OPTIONS)[number];
+  withdrawal: string;
+  fromFarm: string;
+  fromPaddock: string;
+  toFarm: string;
+  toPaddock: string;
+  details: string;
+  chosenAnimalIds: string[];
+  imageUris: string[];
+};
+
+function serializeDraftRecordState(draft: DraftRecordState) {
+  return encodeURIComponent(JSON.stringify(draft));
+}
+
+function parseDraftRecordState(value: string): DraftRecordState | null {
+  try {
+    return JSON.parse(decodeURIComponent(value)) as DraftRecordState;
+  } catch {
+    return null;
+  }
+}
 
 type RecordFormState = {
   selectedDate: Date;

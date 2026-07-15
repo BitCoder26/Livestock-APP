@@ -1,7 +1,7 @@
 import type { AppIconName } from '../src/components/AppIcon';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
@@ -32,7 +32,8 @@ export default function SelectAnimalScreen() {
   useEffect(() => {
     Animated.timing(entrance, {
       toValue: 1,
-      duration: 260,
+      duration: 380,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, [entrance]);
@@ -55,17 +56,30 @@ export default function SelectAnimalScreen() {
         </View>
       </View>
 
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.entranceBackdrop, { opacity: entrance }]}
+      />
       <Pressable style={styles.overlay} onPress={() => router.back()}>
         <Animated.View
           style={[
             styles.sheet,
             {
-              opacity: entrance,
+              opacity: entrance.interpolate({
+                inputRange: [0, 0.28, 1],
+                outputRange: [0, 1, 1],
+              }),
               transform: [
                 {
                   translateY: entrance.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [72, 0],
+                    outputRange: [140, 0],
+                  }),
+                },
+                {
+                  scale: entrance.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.985, 1],
                   }),
                 },
               ],
@@ -109,10 +123,18 @@ export default function SelectAnimalScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: '#FFFFFF',
   },
   dimmedHeader: {
-    opacity: 0.55,
+    opacity: 1,
+  },
+  entranceBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   topBar: {
     height: 146,

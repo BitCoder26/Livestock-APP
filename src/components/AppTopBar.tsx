@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from './AppIcon';
+import { BouncyPressable } from './BouncyPressable';
 import { tokens } from '../theme/tokens';
 
 type Action = {
@@ -26,33 +27,37 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
       <View style={styles.row}>
         <View style={styles.leftGroup}>
           {leftAction ? (
-            <Pressable
+            <BouncyPressable
               accessibilityLabel={leftAction.accessibilityLabel}
               accessibilityRole="button"
               onPress={leftAction.onPress}
               style={styles.iconButton}
             >
               <AppIcon name={leftAction.icon} size={24} />
-            </Pressable>
+            </BouncyPressable>
           ) : null}
           <Text style={styles.title}>{title}</Text>
         </View>
         <View style={styles.actions}>
-          {actions.map((action) => (
-            <Pressable
-              key={action.accessibilityLabel}
-              accessibilityLabel={action.accessibilityLabel}
-              accessibilityRole="button"
-              onPress={action.onPress}
-              style={styles.iconButton}
-            >
-              <AppIcon
-                name={action.icon}
-                size={action.size ?? (action.icon === 'filter' ? 28 : 24)}
-                color={action.color ?? '#fff'}
-              />
-            </Pressable>
-          ))}
+          {actions.map((action) => {
+            const ActionButton = action.icon === 'filter' || action.icon === 'settings' ? BouncyPressable : Pressable;
+
+            return (
+              <ActionButton
+                key={action.accessibilityLabel}
+                accessibilityLabel={action.accessibilityLabel}
+                accessibilityRole="button"
+                onPress={action.onPress}
+                style={styles.iconButton}
+              >
+                <AppIcon
+                  name={action.icon}
+                  size={action.size ?? (action.icon === 'filter' ? 28 : 24)}
+                  color={action.color ?? '#fff'}
+                />
+              </ActionButton>
+            );
+          })}
         </View>
       </View>
     </View>

@@ -9,6 +9,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../src/components/AppIcon';
 import { AppTopBar } from '../../src/components/AppTopBar';
+import { AnimatedPopupCard } from '../../src/components/AnimatedPopupCard';
+import { BouncyPressable } from '../../src/components/BouncyPressable';
+import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { DesignField } from '../../src/components/DesignField';
 import { RECORD_TYPES, SPECIES_OPTIONS } from '../../src/constants/records';
 import { useAnimals } from '../../src/context/AnimalsContext';
@@ -211,7 +214,8 @@ export default function ExportScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-      <AppTopBar
+      <TabSwipeView>
+        <AppTopBar
         title="Export"
         actions={[
           {
@@ -406,7 +410,7 @@ export default function ExportScreen() {
         onRequestClose={() => setActiveDateField(null)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setActiveDateField(null)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={activeDateField !== null && Platform.OS === 'ios'} style={styles.selectionCard} onPress={() => undefined}>
             <View style={styles.modalHeader}>
               <Text style={styles.selectionTitle}>
                 {activeDateField === 'startDate' ? 'Select start date' : 'Select end date'}
@@ -421,7 +425,7 @@ export default function ExportScreen() {
               value={selectedDate}
               onChange={handleDateChange}
             />
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -432,7 +436,7 @@ export default function ExportScreen() {
         onRequestClose={() => setActiveMultiSelect(null)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setActiveMultiSelect(null)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={activeMultiSelect !== null} style={styles.selectionCard} onPress={() => undefined}>
             <View style={styles.modalHeader}>
               <Text style={styles.selectionTitle}>{getSelectionTitle(activeMultiSelect)}</Text>
               <Pressable accessibilityLabel="Done" accessibilityRole="button" onPress={() => setActiveMultiSelect(null)}>
@@ -492,9 +496,10 @@ export default function ExportScreen() {
                 )}
               </View>
             </ScrollView>
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
+      </TabSwipeView>
     </SafeAreaView>
   );
 }
@@ -555,7 +560,7 @@ function ExportActionButton({
   onPress: () => void;
 }) {
   return (
-    <Pressable
+    <BouncyPressable
       accessibilityRole="button"
       disabled={busy}
       onPress={onPress}
@@ -563,7 +568,7 @@ function ExportActionButton({
     >
       <AppIcon name="export_" size={18} color="#fff" />
       <Text style={styles.exportLabel}>{busy ? 'Preparing export...' : label}</Text>
-    </Pressable>
+    </BouncyPressable>
   );
 }
 
@@ -1145,7 +1150,7 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
   },
   segmentTextIdle: {
-    color: tokens.colors.text,
+    color: '#8A7F87',
   },
   card: {
     borderRadius: 22,
@@ -1220,7 +1225,7 @@ const styles = StyleSheet.create({
   fieldButton: {
     minHeight: 48,
     borderRadius: 24,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',

@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
 import { useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
@@ -87,10 +89,10 @@ export default function SetupPaddocksScreen() {
           </View>
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
-          <Pressable accessibilityRole="button" accessibilityLabel="Add paddock" onPress={handleAddPaddock} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
+          <BouncyPressable accessibilityRole="button" accessibilityLabel="Add paddock" onPress={handleAddPaddock} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
             <AppIcon name="plus" size={16} color="#fff" />
             <Text style={styles.addButtonText}>Add Paddock</Text>
-          </Pressable>
+          </BouncyPressable>
         </View>
 
         {paddockEntities.length === 0 ? (
@@ -112,9 +114,9 @@ export default function SetupPaddocksScreen() {
                       <Text style={styles.itemSubtitle}>{paddock.farm || 'No farm selected'}</Text>
                     </View>
                   </View>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${paddock.name}`} onPress={() => setPaddockPendingDelete(paddock.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
-                    <AppIcon name="trash" size={17} color="#fff" />
-                  </Pressable>
+                  <BouncyPressable accessibilityRole="button" accessibilityLabel={`Delete ${paddock.name}`} onPress={() => setPaddockPendingDelete(paddock.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                    <AppIcon name="trash" size={28} color="#fff" />
+                  </BouncyPressable>
                 </View>
                 <View style={styles.metaRow}>
                   {paddock.area ? <Text style={styles.metaPill}>{`${paddock.area} ${paddock.areaUnit}`}</Text> : null}
@@ -139,12 +141,12 @@ export default function SetupPaddocksScreen() {
               {paddockPendingDelete ? `Are you sure you want to delete ${paddockPendingDelete}?` : ''}
             </Text>
             <View style={styles.deleteConfirmActions}>
-              <Pressable accessibilityRole="button" onPress={() => setPaddockPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
+              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={() => setPaddockPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
                 <Text style={styles.deleteCancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" onPress={confirmDeletePaddock} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
+              </BouncyPressable>
+              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={confirmDeletePaddock} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
                 <Text style={styles.deleteConfirmButtonText}>Delete</Text>
-              </Pressable>
+              </BouncyPressable>
             </View>
           </Pressable>
         </Pressable>
@@ -152,7 +154,7 @@ export default function SetupPaddocksScreen() {
 
       <Modal transparent animationType="fade" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
-          <Pressable style={styles.selectionCard} onPress={() => {}}>
+          <AnimatedPopupCard visible={activePicker !== null} style={styles.selectionCard} onPress={() => {}}>
             <Text style={styles.selectionTitle}>
               {activePicker === 'farm' ? 'Select farm' : 'Select area unit'}
             </Text>
@@ -179,7 +181,7 @@ export default function SetupPaddocksScreen() {
                 })}
               </View>
             </ScrollView>
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
     </SafeAreaView>

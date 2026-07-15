@@ -1,13 +1,14 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { AppTopBar } from '../src/components/AppTopBar';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { tokens } from '../src/theme/tokens';
 
-const APP_LOGO = require('../assets/icons/app_logo.png');
+const APP_LOGO = require('../assets/icons/new_logo.png');
 const APP_VERSION = '1.0.0';
 const BUY_ME_A_COFFEE_URL = 'https://buymeacoffee.com/livestockbook';
 
@@ -68,7 +69,7 @@ export default function AboutScreen() {
           new features, improvements, and ongoing maintenance.
         </Text>
         <View style={styles.buttonStack}>
-          <Pressable
+          <BouncyPressable
             accessibilityLabel="Buy me a coffee"
             accessibilityRole="button"
             onPress={() => Linking.openURL(BUY_ME_A_COFFEE_URL)}
@@ -78,7 +79,7 @@ export default function AboutScreen() {
               <CoffeeCupIcon />
               <Text style={styles.linkText}>Buy me a coffee</Text>
             </View>
-          </Pressable>
+          </BouncyPressable>
         </View>
         </View>
       </ScrollView>
@@ -109,14 +110,16 @@ const styles = StyleSheet.create({
   logoPlate: {
     width: 96,
     height: 96,
-    borderRadius: 24,
+    borderRadius: 22,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   logoImage: {
-    width: 88,
-    height: 88,
+    width: 96,
+    height: 96,
+    borderRadius: 22,
   },
   appName: {
     color: tokens.colors.text,

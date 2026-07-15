@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
 import { SPECIES_OPTIONS } from '../src/constants/records';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
@@ -83,11 +85,9 @@ export default function SetupGroupsScreen() {
               setActivePicker('farm');
             }}
           />
-          {farms.length === 0 ? (
-            <Pressable accessibilityRole="button" onPress={() => router.push('/setup-farms')}>
-              <Text style={styles.helperLink}>+ Add Farm</Text>
-            </Pressable>
-          ) : null}
+          <Pressable accessibilityRole="button" onPress={() => router.push('/setup-farms')}>
+            <Text style={styles.helperLink}>+ Add Farm</Text>
+          </Pressable>
           <SelectionField
             label="Paddock(s)"
             value={formatSelectionSummary(selectedPaddocks, paddockOptions.length === 0 ? 'No paddocks available' : 'Select paddocks')}
@@ -102,19 +102,17 @@ export default function SetupGroupsScreen() {
             }}
             isPlaceholder={selectedPaddocks.length === 0}
           />
-          {paddockOptions.length === 0 ? (
-            <Pressable accessibilityRole="button" onPress={() => router.push('/setup-paddocks')}>
-              <Text style={styles.helperLink}>+ Add Paddock</Text>
-            </Pressable>
-          ) : null}
+          <Pressable accessibilityRole="button" onPress={() => router.push('/setup-paddocks')}>
+            <Text style={styles.helperLink}>+ Add Paddock</Text>
+          </Pressable>
           <SelectionField label="Species" value={species} emptyLabel="Select species" onPress={() => setActivePicker('species')} />
           <DesignField value={description} label="Description / Purpose" onChangeText={setDescription} />
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
-          <Pressable accessibilityRole="button" accessibilityLabel="Add group" onPress={handleAddGroup} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
+          <BouncyPressable accessibilityRole="button" accessibilityLabel="Add group" onPress={handleAddGroup} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
             <AppIcon name="plus" size={16} color="#fff" />
             <Text style={styles.addButtonText}>Add Group</Text>
-          </Pressable>
+          </BouncyPressable>
         </View>
 
         {groupEntities.length === 0 ? (
@@ -136,9 +134,9 @@ export default function SetupGroupsScreen() {
                       <Text style={styles.itemSubtitle}>{group.farm || 'No farm selected'}</Text>
                     </View>
                   </View>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${group.name}`} onPress={() => setGroupPendingDelete(group.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
-                    <AppIcon name="trash" size={17} color="#fff" />
-                  </Pressable>
+                  <BouncyPressable accessibilityRole="button" accessibilityLabel={`Delete ${group.name}`} onPress={() => setGroupPendingDelete(group.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                    <AppIcon name="trash" size={28} color="#fff" />
+                  </BouncyPressable>
                 </View>
                 <View style={styles.metaRow}>
                   {group.species ? <Text style={styles.metaPill}>{group.species}</Text> : null}
@@ -167,12 +165,12 @@ export default function SetupGroupsScreen() {
               {groupPendingDelete ? `Are you sure you want to delete ${groupPendingDelete}?` : ''}
             </Text>
             <View style={styles.deleteConfirmActions}>
-              <Pressable accessibilityRole="button" onPress={() => setGroupPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
+              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={() => setGroupPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
                 <Text style={styles.deleteCancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" onPress={confirmDeleteGroup} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
+              </BouncyPressable>
+              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={confirmDeleteGroup} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
                 <Text style={styles.deleteConfirmButtonText}>Delete</Text>
-              </Pressable>
+              </BouncyPressable>
             </View>
           </Pressable>
         </Pressable>
@@ -180,7 +178,7 @@ export default function SetupGroupsScreen() {
 
       <Modal transparent animationType="fade" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
-          <Pressable style={activePicker === 'species' ? styles.modalCard : styles.selectionCard} onPress={() => {}}>
+          <AnimatedPopupCard visible={activePicker !== null} style={activePicker === 'species' ? styles.modalCard : styles.selectionCard} onPress={() => {}}>
             {activePicker === 'species' ? (
               <>
                 <View style={styles.speciesModalHeader}>
@@ -250,11 +248,11 @@ export default function SetupGroupsScreen() {
               </>
             )}
             {activePicker === 'paddocks' ? (
-              <Pressable accessibilityRole="button" onPress={() => setActivePicker(null)} style={({ pressed }) => [styles.doneButton, pressed && styles.pressed]}>
+              <BouncyPressable accessibilityRole="button" onPress={() => setActivePicker(null)} style={({ pressed }) => [styles.doneButton, pressed && styles.pressed]}>
                 <Text style={styles.doneButtonText}>Done</Text>
-              </Pressable>
+              </BouncyPressable>
             ) : null}
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
     </SafeAreaView>

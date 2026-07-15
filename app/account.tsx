@@ -15,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
 import { COUNTRY_OPTIONS, INDUSTRY_OPTIONS, MEASUREMENT_UNIT_OPTIONS } from '../src/entities/account';
 import { useAccount } from '../src/context/AccountContext';
@@ -269,7 +271,7 @@ export default function AccountScreen() {
 
       <Modal transparent animationType="fade" visible={showPasswordModal} onRequestClose={() => setShowPasswordModal(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowPasswordModal(false)}>
-          <Pressable style={styles.sheet} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showPasswordModal} style={styles.sheet} onPress={() => undefined}>
             <Text style={styles.sheetTitle}>Change password</Text>
             <Text style={styles.sheetBody}>
               This UI is ready. Once you connect a real auth backend, this action can update the password for the account everywhere.
@@ -302,13 +304,13 @@ export default function AccountScreen() {
                 disabled={!canSubmitPassword || isSubmitting}
               />
             </View>
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
       <Modal transparent animationType="fade" visible={showCountryModal} onRequestClose={() => setShowCountryModal(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowCountryModal(false)}>
-          <Pressable style={styles.selectionSheet} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showCountryModal} style={styles.selectionSheet} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>Select country</Text>
             <ScrollView
               style={styles.selectionScroll}
@@ -341,13 +343,13 @@ export default function AccountScreen() {
                 </Pressable>
               ))}
             </ScrollView>
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
       <Modal transparent animationType="fade" visible={showIndustryModal} onRequestClose={() => setShowIndustryModal(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowIndustryModal(false)}>
-          <Pressable style={styles.selectionSheet} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showIndustryModal} style={styles.selectionSheet} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>Select industry</Text>
             <ScrollView
               style={styles.selectionScroll}
@@ -380,13 +382,13 @@ export default function AccountScreen() {
                 </Pressable>
               ))}
             </ScrollView>
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
       <Modal transparent animationType="fade" visible={showResetModal} onRequestClose={() => setShowResetModal(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowResetModal(false)}>
-          <Pressable style={styles.sheet} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showResetModal} style={styles.sheet} onPress={() => undefined}>
             <Text style={styles.sheetTitle}>Reset app data</Text>
             <Text style={styles.sheetBody}>
               This will remove your animals, records, setup items, and filters from this device. Your account details will stay in place.
@@ -400,13 +402,13 @@ export default function AccountScreen() {
                 disabled={isSubmitting}
               />
             </View>
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
       <Modal transparent animationType="fade" visible={showDeleteModal} onRequestClose={() => setShowDeleteModal(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowDeleteModal(false)}>
-          <Pressable style={styles.sheet} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showDeleteModal} style={styles.sheet} onPress={() => undefined}>
             <Text style={styles.sheetTitle}>Delete account</Text>
             <Text style={styles.deleteWarning}>
               This is permanent. Deleting the account will clear local livestock data on this device, remove your saved account details, and should permanently erase the account from your backend once one is connected.
@@ -427,7 +429,7 @@ export default function AccountScreen() {
                 disabled={deleteConfirmation.trim() !== 'DELETE' || isSubmitting}
               />
             </View>
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
     </SafeAreaView>
@@ -446,7 +448,7 @@ function ActionButton({ label, onPress, variant = 'default', textVariant = 'defa
   const isSubtle = textVariant === 'subtle';
 
   return (
-    <Pressable
+    <BouncyPressable
       accessibilityLabel={label}
       accessibilityRole="button"
       onPress={onPress}
@@ -470,7 +472,7 @@ function ActionButton({ label, onPress, variant = 'default', textVariant = 'defa
           <AppIcon name="chevron-right" size={12} color={isDanger ? '#FFFFFF' : '#EFEFEF'} />
         </View>
       </>
-    </Pressable>
+    </BouncyPressable>
   );
 }
 
@@ -483,9 +485,10 @@ type SheetButtonProps = {
 
 function SheetButton({ label, onPress, disabled = false, variant = 'default' }: SheetButtonProps) {
   return (
-    <Pressable
+    <BouncyPressable
       accessibilityLabel={label}
       accessibilityRole="button"
+      containerStyle={{ flex: 1 }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -504,7 +507,7 @@ function SheetButton({ label, onPress, disabled = false, variant = 'default' }: 
       >
         {label}
       </Text>
-    </Pressable>
+    </BouncyPressable>
   );
 }
 

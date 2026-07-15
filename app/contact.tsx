@@ -1,15 +1,35 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppTopBar } from '../src/components/AppTopBar';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { tokens } from '../src/theme/tokens';
 
 const CONTACT_EMAIL = 'contact@livestockbook.app';
 
 export default function ContactScreen() {
   const router = useRouter();
+
+  const handleEmailPress = async () => {
+    const emailUrl = `mailto:${CONTACT_EMAIL}`;
+
+    try {
+      const canOpenEmail = await Linking.canOpenURL(emailUrl);
+
+      if (!canOpenEmail) {
+        throw new Error('No email app is available.');
+      }
+
+      await Linking.openURL(emailUrl);
+    } catch {
+      Alert.alert(
+        'Email app unavailable',
+        `Please email us directly at ${CONTACT_EMAIL}.`,
+      );
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -28,14 +48,14 @@ export default function ContactScreen() {
         </Text>
         <Text style={styles.email}>{CONTACT_EMAIL}</Text>
 
-        <Pressable
+        <BouncyPressable
           accessibilityLabel="Email LivestockBook"
           accessibilityRole="button"
-          onPress={() => Linking.openURL(`mailto:${CONTACT_EMAIL}`)}
+          onPress={() => void handleEmailPress()}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
         >
           <Text style={styles.buttonText}>Email us</Text>
-        </Pressable>
+        </BouncyPressable>
       </ScrollView>
     </SafeAreaView>
   );

@@ -26,11 +26,13 @@ import CowIcon from '../../assets/icons/svg/cow.svg';
 import CrownIcon from '../../assets/icons/svg/crown.svg';
 import DonkeyIcon from '../../assets/icons/svg/donkey.svg';
 import DuckIcon from '../../assets/icons/svg/duck.svg';
+import EditIcon from '../../assets/icons/svg/edit-outline.svg';
 import ExportIcon from '../../assets/icons/svg/export.svg';
 import ExportTabIcon from '../../assets/icons/svg/export_.svg';
 import ExportFileDownloadOutlineIcon from '../../assets/icons/svg/export-file-download-outline.svg';
 import ExportFileOutlineIcon from '../../assets/icons/svg/export-file-outline.svg';
 import FilterListIcon from '../../assets/icons/svg/filter-list.svg';
+import GoatFaceIcon from '../../assets/icons/goat.svg';
 import GoatIcon from '../../assets/icons/svg/goat.svg';
 import GooseIcon from '../../assets/icons/svg/goose.svg';
 import GlobeIcon from '../../assets/icons/svg/globe.svg';
@@ -51,7 +53,6 @@ import RecordsBookIcon from '../../assets/icons/svg/records-book.svg';
 import RecordsIcon from '../../assets/icons/svg/records.svg';
 import RecordsTabIcon from '../../assets/icons/svg/records_.svg';
 import SearchIcon from '../../assets/icons/svg/search.svg';
-import SettingsIcon from '../../assets/icons/svg/settings.svg';
 import ShareIcon from '../../assets/icons/svg/share.svg';
 import Setup4Icon from '../../assets/icons/svg/setup4.svg';
 import SetupOutlineIcon from '../../assets/icons/svg/setup-outline.svg';
@@ -104,6 +105,7 @@ const icons = {
   crown: CrownIcon,
   donkey: DonkeyIcon,
   duck: DuckIcon,
+  edit: EditIcon,
   export: ExportIcon,
   export_: ExportTabIcon,
   'export-download-outline': ExportFileDownloadOutlineIcon,
@@ -111,6 +113,7 @@ const icons = {
   'enter-arrow': EnterArrowIcon,
   female: FemaleIcon,
   filter: MenuIcon,
+  'goat-face': GoatFaceIcon,
   goat: GoatIcon,
   goose: GooseIcon,
   globe: GlobeIcon,
@@ -136,7 +139,7 @@ const icons = {
   records_: RecordsTabIcon,
   save: SaveIcon,
   search: SearchIcon,
-  settings: SettingsIcon,
+  settings: Spanner2Icon,
   share: ShareIcon,
   setup4: Setup4Icon,
   'setup-outline': SetupOutlineIcon,

@@ -719,31 +719,38 @@ h2,
   .feature-story {
     width: min(100%, calc(100vw - 32px));
     max-width: none;
-    gap: 18px;
+    gap: 0;
     grid-template-columns: 1fr;
     grid-template-areas:
-      "copy"
-      "phone";
-    justify-items: stretch;
+      "stage";
+    justify-items: center;
+    align-items: start;
+    padding-bottom: 14px;
   }
 
   .feature-story-copy {
-    grid-area: copy;
-    order: 1;
-    width: 100%;
+    grid-area: stage;
+    order: 2;
+    width: min(264px, calc(100vw - 56px));
     min-height: 0;
     text-align: left;
-    justify-self: stretch;
-    margin: 0;
+    justify-self: center;
+    align-self: start;
+    margin: 132px 0 0;
+    border-radius: 24px;
+    position: relative;
+    z-index: 2;
   }
 
   .feature-story-phone {
-    grid-area: phone;
-    order: 2;
-    width: min(220px, 62vw);
+    grid-area: stage;
+    order: 1;
+    width: min(228px, 64vw);
     justify-self: center;
-    margin-top: 6px;
-    margin-left: 0;
+    align-self: start;
+    margin: 0;
+    position: relative;
+    z-index: 1;
   }
 
   .feature-story:first-child {
@@ -824,7 +831,7 @@ h2,
   }
 
   .feature-story {
-    gap: 16px;
+    gap: 0;
   }
 
   .feature-story:first-child {
@@ -832,10 +839,15 @@ h2,
   }
 
   .feature-card {
-    width: 100%;
-    max-width: 100%;
+    width: min(248px, calc(100vw - 48px));
+    max-width: none;
     min-height: 0;
-    padding: 22px 18px;
+    padding: 20px 18px;
+  }
+
+  .feature-story-copy {
+    width: min(248px, calc(100vw - 48px));
+    margin-top: 112px;
   }
 
   .feature-story-copy h2 {
@@ -850,7 +862,7 @@ h2,
 
   .feature-story-phone {
     width: min(196px, 56vw);
-    margin-top: 8px;
+    margin-top: 0;
   }
 
   .placeholder-row {

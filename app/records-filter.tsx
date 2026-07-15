@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   Modal,
   Platform,
   Pressable,
@@ -15,7 +16,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
-import { AppTopBar } from '../src/components/AppTopBar';
+import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { RECORD_TYPES, SPECIES_OPTIONS } from '../src/constants/records';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { DEFAULT_RECORD_FILTERS, type RecordFilters, useRecords } from '../src/context/RecordsContext';
@@ -41,7 +43,8 @@ export default function RecordsFilterScreen() {
   useEffect(() => {
     Animated.timing(entrance, {
       toValue: 1,
-      duration: 260,
+      duration: 380,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, [entrance]);
@@ -152,26 +155,31 @@ export default function RecordsFilterScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-      <View style={styles.dimmedHeader}>
-        <AppTopBar
-          title="Records"
-          actions={[
-            { icon: 'filter', accessibilityLabel: 'Filter records' },
-          ]}
-        />
-      </View>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.entranceBackdrop, { opacity: entrance }]}
+      />
       <Pressable style={styles.overlay} onPress={() => router.back()}>
         <Animated.View
           style={[
             styles.sheet,
             {
               paddingBottom: Math.max(insets.bottom, 0) + 26,
-              opacity: entrance,
+              opacity: entrance.interpolate({
+                inputRange: [0, 0.28, 1],
+                outputRange: [0, 1, 1],
+              }),
               transform: [
                 {
                   translateY: entrance.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [72, 0],
+                    outputRange: [140, 0],
+                  }),
+                },
+                {
+                  scale: entrance.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.985, 1],
                   }),
                 },
               ],
@@ -321,7 +329,7 @@ export default function RecordsFilterScreen() {
               </Pressable>
             </View>
 
-            <Pressable
+            <BouncyPressable
               accessibilityLabel="Apply filter"
               accessibilityRole="button"
               onPress={applyFilters}
@@ -329,7 +337,7 @@ export default function RecordsFilterScreen() {
             >
               <AppIcon name="check" size={20} color="#fff" />
               <Text style={styles.applyText}>Apply</Text>
-            </Pressable>
+            </BouncyPressable>
           </ScrollView>
           </Pressable>
         </Animated.View>
@@ -351,7 +359,7 @@ export default function RecordsFilterScreen() {
         onRequestClose={() => setActiveDateField(null)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setActiveDateField(null)}>
-          <Pressable style={styles.modalCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={activeDateField !== null && Platform.OS === 'ios'} style={styles.modalCard} onPress={() => undefined}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {activeDateField === 'startDate' ? 'Select start date' : 'Select end date'}
@@ -370,7 +378,7 @@ export default function RecordsFilterScreen() {
               value={activeDateValue}
               onChange={handleDateChange}
             />
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -381,7 +389,7 @@ export default function RecordsFilterScreen() {
         onRequestClose={() => setActiveMultiSelect(null)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setActiveMultiSelect(null)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={activeMultiSelect !== null} style={styles.selectionCard} onPress={() => undefined}>
             <View style={styles.selectionHeader}>
               <Text style={styles.selectionTitle}>
                 {activeMultiSelect === 'species'
@@ -430,7 +438,7 @@ export default function RecordsFilterScreen() {
                 );
               })}
             </ScrollView>
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
     </SafeAreaView>
@@ -438,8 +446,15 @@ export default function RecordsFilterScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.55)' },
-  dimmedHeader: { opacity: 0.55 },
+  safeArea: { flex: 1, backgroundColor: 'transparent' },
+  entranceBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
   overlay: {
     position: 'absolute',
     inset: 0,

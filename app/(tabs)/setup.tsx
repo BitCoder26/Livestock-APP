@@ -1,11 +1,15 @@
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from '../../src/components/AppIcon';
 import { AppTopBar } from '../../src/components/AppTopBar';
+import { BouncyPressable } from '../../src/components/BouncyPressable';
+import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { useSetup } from '../../src/context/SetupContext';
 import { tokens } from '../../src/theme/tokens';
+
+const USERJOT_URL = 'https://livestockbook.userjot.com/?cursor=1&order=top&limit=10';
 
 const SETUP_ITEMS: Array<{
   title: string;
@@ -26,7 +30,8 @@ export default function SetupScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-      <AppTopBar
+      <TabSwipeView>
+        <AppTopBar
         title="Setup"
         actions={[
           {
@@ -42,7 +47,7 @@ export default function SetupScreen() {
           showsVerticalScrollIndicator={false}
         >
           {SETUP_ITEMS.map((item) => (
-            <Pressable
+            <BouncyPressable
               key={item.title}
               accessibilityLabel={item.title}
               accessibilityRole="button"
@@ -57,23 +62,24 @@ export default function SetupScreen() {
                 <Text style={styles.count}>{counts[item.collection]}</Text>
                 <AppIcon name="arrow-right-circle" size={24} color={tokens.colors.accent} />
               </View>
-            </Pressable>
+            </BouncyPressable>
           ))}
         </ScrollView>
-        <Pressable
-          accessibilityLabel="Open settings for feedback and suggestions"
+        <BouncyPressable
+          accessibilityLabel="Open feedback and suggestions"
           accessibilityRole="button"
-          onPress={() => router.push('/settings')}
+          onPress={() => Linking.openURL(USERJOT_URL)}
           style={({ pressed }) => [styles.feedbackCard, pressed && styles.cardPressed]}
         >
           <AppIcon name="alert" size={24} color="#171717" />
           <View style={styles.feedbackCopy}>
             <Text style={styles.feedbackTitle}>Need more setup options?</Text>
-            <Text style={styles.feedbackText}>Leave a suggestion in Feedback + Suggestions in Settings.</Text>
+            <Text style={styles.feedbackText}>Leave a suggestion on our feedback board.</Text>
           </View>
           <View style={styles.feedbackActionButton}><Text style={styles.feedbackActionButtonText}>Suggest</Text></View>
-        </Pressable>
+        </BouncyPressable>
       </View>
+      </TabSwipeView>
     </SafeAreaView>
   );
 }

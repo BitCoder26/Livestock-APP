@@ -1,10 +1,12 @@
 import { useRouter } from 'expo-router';
-import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../src/components/AppIcon';
 import { AppTopBar } from '../../src/components/AppTopBar';
+import { BouncyPressable } from '../../src/components/BouncyPressable';
+import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { getSpeciesThemeByTone } from '../../src/constants/speciesTheme';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton';
 import { useAnimals } from '../../src/context/AnimalsContext';
@@ -51,7 +53,8 @@ export default function AnimalsScreen() {
 
     Animated.timing(sheetEntrance, {
       toValue: 1,
-      duration: 260,
+      duration: 380,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, [sheetEntrance, showFilterSheet]);
@@ -80,7 +83,8 @@ export default function AnimalsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-      <AppTopBar
+      <TabSwipeView>
+        <AppTopBar
         title="Animals"
         actions={[
           {
@@ -102,7 +106,7 @@ export default function AnimalsScreen() {
         <Text style={styles.countText}>{hasActiveFilters ? `${filteredAnimals.length} of ${animals.length} animals` : `${animals.length} animals`}</Text>
         {filteredAnimals.length === 0 ? (
           <View style={styles.emptyState}>
-            <AppIcon name="animal_" size={86} color="#E5E0E7" opacity={1} />
+            <AppIcon name="goat-face" size={78} color="#E5E0E7" opacity={1} />
             <Text style={styles.emptyTitle}>Empty</Text>
             <Text style={styles.emptyText}>{animals.length === 0 ? 'Add below' : 'No animals match your filters'}</Text>
           </View>
@@ -111,12 +115,12 @@ export default function AnimalsScreen() {
             const theme = getSpeciesThemeByTone(animal.tone);
 
             return (
-            <Pressable
+            <BouncyPressable
               key={animal.id}
               accessibilityRole="button"
               onPress={() =>
                 router.push({
-                  pathname: '/add-animal',
+                  pathname: '/animal-timeline',
                   params: { animalId: animal.id },
                 })
               }
@@ -157,7 +161,12 @@ export default function AnimalsScreen() {
                       {animal.species}
                     </Text>
                   </View>
-                  <AppIcon name={animal.sex} size={14} />
+                  <AppIcon
+                    key={`${animal.id}-${animal.sex}`}
+                    name={getAnimalSexIcon(animal.sex)}
+                    size={14}
+                    color={tokens.colors.text}
+                  />
                   <Text style={styles.metaText} numberOfLines={1}>
                     {buildPrimaryMeta(animal.name, animal.ageLabel)}
                   </Text>
@@ -179,26 +188,39 @@ export default function AnimalsScreen() {
                 </View>
               </View>
               <AppIcon name="arrow-right-circle" size={24} color={tokens.colors.accent} />
-            </Pressable>
+            </BouncyPressable>
           )})
         )}
       </ScrollView>
       <FloatingActionButton
         accessibilityLabel="Add animal"
-        onPress={() => router.push('/add-animal')}
+        onPress={() => router.push({ pathname: '/add-animal', params: { reveal: '1' } })}
       />
-      <Modal transparent animationType="fade" visible={showFilterSheet} onRequestClose={() => setShowFilterSheet(false)}>
+      <Modal transparent animationType="none" visible={showFilterSheet} onRequestClose={() => setShowFilterSheet(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowFilterSheet(false)}>
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.modalBackdrop, { opacity: sheetEntrance }]}
+          />
           <Animated.View
             style={[
               styles.sheet,
               {
-                opacity: sheetEntrance,
+                opacity: sheetEntrance.interpolate({
+                  inputRange: [0, 0.28, 1],
+                  outputRange: [0, 1, 1],
+                }),
                 transform: [
                   {
                     translateY: sheetEntrance.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [72, 0],
+                      outputRange: [140, 0],
+                    }),
+                  },
+                  {
+                    scale: sheetEntrance.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.985, 1],
                     }),
                   },
                 ],
@@ -274,11 +296,21 @@ export default function AnimalsScreen() {
                   })}
                 </View>
               </View>
+              <BouncyPressable
+                accessibilityLabel="Apply filter"
+                accessibilityRole="button"
+                onPress={() => setShowFilterSheet(false)}
+                style={styles.applyButton}
+              >
+                <AppIcon name="check" size={20} color="#fff" />
+                <Text style={styles.applyText}>Apply</Text>
+              </BouncyPressable>
             </ScrollView>
           </Pressable>
           </Animated.View>
         </Pressable>
       </Modal>
+      </TabSwipeView>
     </SafeAreaView>
   );
 }
@@ -344,8 +376,15 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   sheet: {
     backgroundColor: '#fff',
@@ -428,6 +467,26 @@ const styles = StyleSheet.create({
   filterChipTextActive: {
     color: '#74423F',
     fontWeight: '700',
+  },
+  applyButton: {
+    marginTop: 8,
+    minHeight: 52,
+    borderRadius: 26,
+    backgroundColor: tokens.colors.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  applyText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   speciesIconBadge: {
     width: 54,
@@ -532,6 +591,10 @@ function getSpeciesIconName(species: string, tone: AnimalTone) {
   if (normalized.includes('ostrich')) return 'ostrich';
 
   return getToneFallback(tone);
+}
+
+function getAnimalSexIcon(sex: unknown): 'female' | 'male' {
+  return sex === 'male' ? 'male' : 'female';
 }
 
 function getToneFallback(tone: AnimalTone) {

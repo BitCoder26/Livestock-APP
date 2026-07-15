@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
 import { useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
@@ -77,7 +78,7 @@ export default function SetupFarmsScreen() {
           <DesignField value={country} label="Country" onChangeText={setCountry} />
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
-          <Pressable
+          <BouncyPressable
             accessibilityLabel="Add farm"
             accessibilityRole="button"
             onPress={handleAddFarm}
@@ -85,7 +86,7 @@ export default function SetupFarmsScreen() {
           >
             <AppIcon name="plus" size={16} color="#fff" />
             <Text style={styles.addButtonText}>Add Farm</Text>
-          </Pressable>
+          </BouncyPressable>
         </View>
 
         {farmEntities.length === 0 ? (
@@ -107,14 +108,14 @@ export default function SetupFarmsScreen() {
                       <Text style={styles.itemSubtitle}>Livestock holding</Text>
                     </View>
                   </View>
-                  <Pressable
+                  <BouncyPressable
                     accessibilityLabel={`Delete ${farm.name}`}
                     accessibilityRole="button"
                     onPress={() => setFarmPendingDelete(farm.name)}
                     style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
                   >
-                    <AppIcon name="trash" size={18} color="#fff" />
-                  </Pressable>
+                    <AppIcon name="trash" size={28} color="#fff" />
+                  </BouncyPressable>
                 </View>
 
                 <View style={styles.itemBody}>
@@ -162,20 +163,22 @@ export default function SetupFarmsScreen() {
               {farmPendingDelete ? `Are you sure you want to delete ${farmPendingDelete}?` : ''}
             </Text>
             <View style={styles.deleteConfirmActions}>
-              <Pressable
+              <BouncyPressable
                 accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
                 onPress={() => setFarmPendingDelete(null)}
                 style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}
               >
                 <Text style={styles.deleteCancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable
+              </BouncyPressable>
+              <BouncyPressable
                 accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
                 onPress={confirmDeleteFarm}
                 style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}
               >
                 <Text style={styles.deleteConfirmButtonText}>Delete</Text>
-              </Pressable>
+              </BouncyPressable>
             </View>
           </Pressable>
         </Pressable>

@@ -1,14 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Easing, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { tokens } from '../src/theme/tokens';
 
 const WEBSITE_URL = 'https://livestockbook.app';
-const USERJOT_URL = 'https://your-userjot-url.com';
+const USERJOT_URL = 'https://livestockbook.userjot.com/?cursor=1&order=top&limit=10';
 const FACEBOOK_GROUP_URL = 'https://www.facebook.com/groups/1353099223626390/';
 const CONTACT_EMAIL = 'contact@livestockbook.app';
 
@@ -28,6 +29,8 @@ const ITEMS: Array<{
   icon: AppIconName;
   action: Exclude<SettingsAction, 'upgrade'>;
   accent?: 'danger';
+  statusLabel?: string;
+  disabled?: boolean;
 }> = [
   { label: 'Account', icon: 'profile', action: 'account' },
   { label: 'Web Portal', icon: 'web_portal', action: 'website' },
@@ -65,7 +68,8 @@ export default function SettingsScreen() {
 
     Animated.timing(whatsNewEntrance, {
       toValue: 1,
-      duration: 260,
+      duration: 380,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, [showWhatsNew, whatsNewEntrance]);
@@ -110,7 +114,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-      <View style={showWhatsNew ? styles.dimmedContent : undefined}>
+      <View style={styles.contentWrap}>
         <AppTopBar
           title="Settings"
           leftAction={{
@@ -120,7 +124,7 @@ export default function SettingsScreen() {
           }}
         />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Pressable
+          <BouncyPressable
             accessibilityLabel="Upgrade to Pro"
             accessibilityRole="button"
             onPress={() => handleAction('upgrade')}
@@ -132,7 +136,7 @@ export default function SettingsScreen() {
               <Text style={styles.upgradeSubtitle}>Unlock all features</Text>
             </View>
             <View style={styles.upgradeActionButton}><Text style={styles.upgradeActionButtonText}>Upgrade</Text></View>
-          </Pressable>
+          </BouncyPressable>
 
           {ITEM_GROUPS.map((group, groupIndex) => (
             <View key={`group-${groupIndex}`}>
@@ -142,7 +146,8 @@ export default function SettingsScreen() {
                     key={item.label}
                     accessibilityLabel={item.label}
                     accessibilityRole="button"
-                    onPress={() => handleAction(item.action)}
+                    accessibilityState={item.disabled ? { disabled: true } : undefined}
+                    onPress={item.disabled ? undefined : () => handleAction(item.action)}
                     style={({ pressed }) => [styles.itemRow, pressed && styles.itemPressed]}
                   >
                     <View style={styles.leftGroup}>
@@ -156,6 +161,7 @@ export default function SettingsScreen() {
                         {item.label}
                       </Text>
                     </View>
+                    {item.statusLabel ? <Text style={styles.itemStatusText}>{item.statusLabel}</Text> : null}
                   </Pressable>
                 ))}
               </View>
@@ -165,18 +171,31 @@ export default function SettingsScreen() {
         </ScrollView>
       </View>
 
-      <Modal transparent animationType="fade" visible={showWhatsNew} onRequestClose={() => setShowWhatsNew(false)}>
+      <Modal transparent animationType="none" visible={showWhatsNew} onRequestClose={() => setShowWhatsNew(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowWhatsNew(false)}>
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.modalBackdrop, { opacity: whatsNewEntrance }]}
+          />
           <Animated.View
             style={[
               styles.sheet,
               {
-                opacity: whatsNewEntrance,
+                opacity: whatsNewEntrance.interpolate({
+                  inputRange: [0, 0.28, 1],
+                  outputRange: [0, 1, 1],
+                }),
                 transform: [
                   {
                     translateY: whatsNewEntrance.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [72, 0],
+                      outputRange: [140, 0],
+                    }),
+                  },
+                  {
+                    scale: whatsNewEntrance.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.985, 1],
                     }),
                   },
                 ],
@@ -229,9 +248,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.colors.background,
   },
-  dimmedContent: {
+  contentWrap: {
     flex: 1,
-    opacity: 0.55,
   },
   content: {
     paddingHorizontal: 26,
@@ -287,6 +305,7 @@ const styles = StyleSheet.create({
     minHeight: 38,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   groupBlock: {
     gap: 10,
@@ -310,14 +329,26 @@ const styles = StyleSheet.create({
   itemTextDanger: {
     color: tokens.colors.danger,
   },
+  itemStatusText: {
+    color: 'rgba(38, 38, 38, 0.45)',
+    fontSize: 11,
+    fontWeight: '500',
+  },
   itemPressed: {
     opacity: 0.86,
   },
   overlay: {
     position: 'absolute',
     inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.28)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   sheet: {
     backgroundColor: '#fff',

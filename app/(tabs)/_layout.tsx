@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
+import { useRef } from 'react';
 
 import { Tabs } from 'expo-router';
 import type { ColorValue, GestureResponderEvent } from 'react-native';
-import { Pressable, View } from 'react-native';
+import { Animated, Pressable, useWindowDimensions } from 'react-native';
 
 import { AppIcon, AppIconName } from '../../src/components/AppIcon';
 import { TAB_BAR_STYLE, tokens } from '../../src/theme/tokens';
@@ -10,14 +11,41 @@ import { TAB_BAR_STYLE, tokens } from '../../src/theme/tokens';
 const TAB_ICON_COLOR = tokens.colors.muted;
 const TAB_ICON_ACTIVE_COLOR = tokens.colors.accent;
 const TAB_ICON_SIZE = 24;
-const ANIMAL_TAB_ICON_SIZE = 28;
+const ANIMAL_TAB_ICON_SIZE = 25;
 
 export default function TabsLayout() {
+  const { width } = useWindowDimensions();
+
   return (
     <Tabs
+      detachInactiveScreens={false}
       initialRouteName="records"
       screenOptions={{
+        animation: 'shift',
+        freezeOnBlur: false,
         headerShown: false,
+        lazy: false,
+        sceneStyle: {
+          backgroundColor: tokens.colors.background,
+        },
+        sceneStyleInterpolator: ({ current }) => ({
+          sceneStyle: {
+            transform: [
+              {
+                translateX: current.progress.interpolate({
+                  inputRange: [-1, 0, 1],
+                  outputRange: [-width, 0, width],
+                }),
+              },
+            ],
+          },
+        }),
+        transitionSpec: {
+          animation: 'timing',
+          config: {
+            duration: 260,
+          },
+        },
         tabBarActiveTintColor: TAB_ICON_ACTIVE_COLOR,
         tabBarInactiveTintColor: TAB_ICON_COLOR,
         tabBarButton: (props) => <TabButton {...props} />,
@@ -40,7 +68,7 @@ export default function TabsLayout() {
         name="animals"
         options={{
           title: 'Animals',
-          tabBarIcon: ({ color, focused }) => <TabIcon name="animal_" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="goat-face" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -72,7 +100,7 @@ function TabIcon({
   return (
     <AppIcon
       name={name}
-      size={name === 'animal_' ? ANIMAL_TAB_ICON_SIZE : TAB_ICON_SIZE}
+      size={name === 'goat-face' ? ANIMAL_TAB_ICON_SIZE : TAB_ICON_SIZE}
       color={color}
       opacity={1}
     />
@@ -98,13 +126,33 @@ function TabButton({
   onPress,
   testID,
 }: TabButtonProps) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePress = (event: GestureResponderEvent) => {
+    scale.stopAnimation();
+    Animated.sequence([
+      Animated.timing(scale, {
+        toValue: 0.84,
+        duration: 70,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        speed: 24,
+        bounciness: 10,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    onPress?.(event);
+  };
+
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       accessibilityState={accessibilityState}
       onLongPress={onLongPress}
-      onPress={onPress}
+      onPress={handlePress}
       style={{
         flex: 1,
         alignItems: 'center',
@@ -114,16 +162,16 @@ function TabButton({
       }}
       testID={testID}
     >
-      <View
+      <Animated.View
         style={{
           alignItems: 'center',
           justifyContent: 'flex-start',
-          transform: [{ translateY: -8 }],
+          transform: [{ translateY: -8 }, { scale }],
           gap: 2,
         }}
       >
         {children}
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }

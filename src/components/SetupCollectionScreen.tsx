@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from './AppIcon';
 import { AppTopBar } from './AppTopBar';
+import { BouncyPressable } from './BouncyPressable';
 import { SetupCollectionKey, useSetup } from '../context/SetupContext';
 import { tokens } from '../theme/tokens';
 
@@ -51,7 +52,7 @@ export function SetupCollectionScreen({ title, icon, collection }: SetupCollecti
               }}
               returnKeyType="done"
             />
-            <Pressable
+            <BouncyPressable
               accessibilityLabel={`Add ${title}`}
               accessibilityRole="button"
               onPress={() => {
@@ -62,7 +63,7 @@ export function SetupCollectionScreen({ title, icon, collection }: SetupCollecti
             >
               <AppIcon name="plus" size={16} color="#fff" />
               <Text style={styles.addButtonText}>Add</Text>
-            </Pressable>
+            </BouncyPressable>
           </View>
         </View>
         {items.length === 0 ? (
@@ -78,14 +79,14 @@ export function SetupCollectionScreen({ title, icon, collection }: SetupCollecti
                   <AppIcon name={icon} size={18} color={tokens.colors.accent} />
                   <Text style={styles.itemText}>{item}</Text>
                 </View>
-                <Pressable
+                <BouncyPressable
                   accessibilityLabel={`Remove ${item}`}
                   accessibilityRole="button"
                   onPress={() => removeItem(collection, item)}
                   style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}
                 >
-                  <AppIcon name="close" size={14} color={tokens.colors.text} />
-                </Pressable>
+                  <AppIcon name="trash" size={28} color="#fff" />
+                </BouncyPressable>
               </View>
             ))}
           </View>
@@ -189,12 +190,12 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   removeButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F5F3F7',
+    backgroundColor: tokens.colors.accent,
   },
   pressed: {
     opacity: 0.92,

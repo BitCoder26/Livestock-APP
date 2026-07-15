@@ -1,5 +1,6 @@
+import AsyncStorage from 'expo-sqlite/kv-store';
 import type { PropsWithChildren } from 'react';
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import { useAnimals } from './AnimalsContext';
 import type { Animal } from '../entities/animal';
@@ -32,6 +33,7 @@ type RecordsContextValue = {
 };
 
 const RecordsContext = createContext<RecordsContextValue | null>(null);
+const RECORDS_STORAGE_KEY = 'livestockbook.records.v1';
 
 export const DEFAULT_RECORD_FILTERS: RecordFilters = {
   searchQuery: '',
@@ -47,8 +49,47 @@ export const DEFAULT_RECORD_FILTERS: RecordFilters = {
 
 export function RecordsProvider({ children }: PropsWithChildren) {
   const { animals } = useAnimals();
-  const [records, setRecords] = useState<RecordEntry[]>([]);
+  const [records, setRecords] = useState<RecordEntry[]>(createRecoveredRecords);
   const [filters, setFilters] = useState<RecordFilters>(DEFAULT_RECORD_FILTERS);
+  const [hasLoadedStoredRecords, setHasLoadedStoredRecords] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const restoreRecords = async () => {
+      try {
+        const storedRecords = await AsyncStorage.getItem(RECORDS_STORAGE_KEY);
+
+        if (storedRecords && isActive) {
+          const parsedRecords: unknown = JSON.parse(storedRecords);
+
+          if (Array.isArray(parsedRecords)) {
+            setRecords(parsedRecords.filter(isStoredRecord));
+          }
+        }
+      } catch {
+        // Keep the recovered records if local storage cannot be read.
+      } finally {
+        if (isActive) {
+          setHasLoadedStoredRecords(true);
+        }
+      }
+    };
+
+    void restoreRecords();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedStoredRecords) {
+      return;
+    }
+
+    void AsyncStorage.setItem(RECORDS_STORAGE_KEY, JSON.stringify(records));
+  }, [hasLoadedStoredRecords, records]);
 
   const filteredRecords = useMemo(
     () => records.filter((record) => recordMatchesFilters(record, filters, animals)),
@@ -108,6 +149,57 @@ export function useRecords() {
   }
 
   return context;
+}
+
+function createRecoveredRecords(): RecordEntry[] {
+  return [
+    {
+      id: '15 Jul 2026-Movement-LB-001-restored',
+      date: '15 Jul 2026',
+      animal: 'Daisy',
+      animalTag: 'LB-001',
+      animalIds: ['LB-001'],
+      species: 'Cattle',
+      speciesTone: 'cow',
+      type: 'Movement',
+      title: "Movement: Tom's farm / Tom's paddock to George's farm / George's paddock",
+      details: '',
+      fromFarm: "Tom's farm",
+      fromPaddock: "Tom's paddock",
+      toFarm: "George's farm",
+      toPaddock: "George's paddock",
+    },
+    {
+      id: '13 Jul 2026-Weight-LB-001-restored',
+      date: '13 Jul 2026',
+      animal: 'Daisy',
+      animalTag: 'LB-001',
+      animalIds: ['LB-001'],
+      species: 'Cattle',
+      speciesTone: 'cow',
+      type: 'Weight',
+      title: 'Weight: 480 kg',
+      details: '',
+      weight: '480',
+      weightUnit: 'kg',
+      dose: '480',
+      doseUnit: 'kg',
+    },
+  ];
+}
+
+function isStoredRecord(value: unknown): value is RecordEntry {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const record = value as Partial<RecordEntry>;
+  return (
+    typeof record.id === 'string' &&
+    typeof record.date === 'string' &&
+    typeof record.type === 'string' &&
+    typeof record.animalTag === 'string'
+  );
 }
 
 function inferRecordSpeciesTone(species: string): RecordSpeciesTone {

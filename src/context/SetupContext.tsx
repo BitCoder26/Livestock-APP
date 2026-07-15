@@ -1,5 +1,6 @@
+import AsyncStorage from 'expo-sqlite/kv-store';
 import type { PropsWithChildren } from 'react';
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 export type SetupCollectionKey = 'farms' | 'paddocks' | 'groups' | 'medicines';
 export type FarmEntity = {
@@ -65,12 +66,50 @@ type SetupContextValue = {
 };
 
 const DEFAULT_SETUP = {
+  farms: [
+    {
+      name: "Tom's farm",
+      holdingId: '',
+      address: '',
+      country: '',
+      notes: '',
+    },
+    {
+      name: "George's farm",
+      holdingId: '',
+      address: '',
+      country: '',
+      notes: '',
+    },
+  ] as FarmEntity[],
+  paddocks: [
+    {
+      name: "Tom's paddock",
+      farm: "Tom's farm",
+      area: '',
+      areaUnit: '',
+      notes: '',
+    },
+    {
+      name: "George's paddock",
+      farm: "George's farm",
+      area: '',
+      areaUnit: '',
+      notes: '',
+    },
+  ] as PaddockEntity[],
+  groups: [] as GroupEntity[],
+  medicines: [] as MedicineEntity[],
+};
+
+const EMPTY_SETUP = {
   farms: [] as FarmEntity[],
   paddocks: [] as PaddockEntity[],
   groups: [] as GroupEntity[],
   medicines: [] as MedicineEntity[],
 };
 
+const SETUP_STORAGE_KEY = 'livestockbook.setup.v1';
 const SetupContext = createContext<SetupContextValue | null>(null);
 
 export function SetupProvider({ children }: PropsWithChildren) {
@@ -78,6 +117,56 @@ export function SetupProvider({ children }: PropsWithChildren) {
   const [paddockEntities, setPaddockEntities] = useState<PaddockEntity[]>(DEFAULT_SETUP.paddocks);
   const [groupEntities, setGroupEntities] = useState<GroupEntity[]>(DEFAULT_SETUP.groups);
   const [medicineEntities, setMedicineEntities] = useState<MedicineEntity[]>(DEFAULT_SETUP.medicines);
+  const [hasLoadedStoredSetup, setHasLoadedStoredSetup] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const restoreSetup = async () => {
+      try {
+        const storedSetup = await AsyncStorage.getItem(SETUP_STORAGE_KEY);
+
+        if (storedSetup && isActive) {
+          const parsedSetup: unknown = JSON.parse(storedSetup);
+
+          if (isStoredSetup(parsedSetup)) {
+            setFarmEntities(parsedSetup.farms);
+            setPaddockEntities(parsedSetup.paddocks);
+            setGroupEntities(parsedSetup.groups);
+            setMedicineEntities(parsedSetup.medicines);
+          }
+        }
+      } catch {
+        // Keep the recovered setup entities if local storage cannot be read.
+      } finally {
+        if (isActive) {
+          setHasLoadedStoredSetup(true);
+        }
+      }
+    };
+
+    void restoreSetup();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedStoredSetup) {
+      return;
+    }
+
+    void AsyncStorage.setItem(
+      SETUP_STORAGE_KEY,
+      JSON.stringify({
+        farms: farmEntities,
+        paddocks: paddockEntities,
+        groups: groupEntities,
+        medicines: medicineEntities,
+      }),
+    );
+  }, [farmEntities, groupEntities, hasLoadedStoredSetup, medicineEntities, paddockEntities]);
 
   const value = useMemo<SetupContextValue>(
     () => ({
@@ -261,16 +350,30 @@ export function SetupProvider({ children }: PropsWithChildren) {
 
       },
       resetSetup: () => {
-        setFarmEntities(DEFAULT_SETUP.farms);
-        setPaddockEntities(DEFAULT_SETUP.paddocks);
-        setGroupEntities(DEFAULT_SETUP.groups);
-        setMedicineEntities(DEFAULT_SETUP.medicines);
+        setFarmEntities(EMPTY_SETUP.farms);
+        setPaddockEntities(EMPTY_SETUP.paddocks);
+        setGroupEntities(EMPTY_SETUP.groups);
+        setMedicineEntities(EMPTY_SETUP.medicines);
       },
     }),
     [farmEntities, paddockEntities, groupEntities, medicineEntities],
   );
 
   return <SetupContext.Provider value={value}>{children}</SetupContext.Provider>;
+}
+
+function isStoredSetup(value: unknown): value is typeof DEFAULT_SETUP {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const setup = value as Partial<typeof DEFAULT_SETUP>;
+  return (
+    Array.isArray(setup.farms) &&
+    Array.isArray(setup.paddocks) &&
+    Array.isArray(setup.groups) &&
+    Array.isArray(setup.medicines)
+  );
 }
 
 export function useSetup() {

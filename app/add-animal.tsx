@@ -9,7 +9,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -19,6 +18,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
+import { BouncyPressable } from '../src/components/BouncyPressable';
+import { CircularRevealView } from '../src/components/CircularRevealView';
 import { DesignField } from '../src/components/DesignField';
 import { SPECIES_OPTIONS } from '../src/constants/records';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
@@ -38,7 +40,7 @@ type PickerKey = 'status' | 'weightUnit' | 'farm' | 'paddock' | 'group';
 
 export function AddAnimalScreen() {
   const router = useRouter();
-  const { species, animalId: selectedAnimalId } = useLocalSearchParams<{ species?: string; animalId?: string }>();
+  const { species, animalId: selectedAnimalId, reveal } = useLocalSearchParams<{ species?: string; animalId?: string; reveal?: string }>();
   const { animals, addAnimal, updateAnimal, deleteAnimal } = useAnimals();
   const { farms, paddocks, groups } = useSetup();
   const existingAnimal = selectedAnimalId
@@ -50,7 +52,7 @@ export function AddAnimalScreen() {
   const speciesIcon = SPECIES_ICONS[activeSpecies] ?? 'cow';
   const [animalId, setAnimalId] = useState(existingAnimal?.id ?? '');
   const [name, setName] = useState(existingAnimal?.name ?? '');
-  const [selectedSex, setSelectedSex] = useState<AnimalSex>(existingAnimal?.sex ?? 'female');
+  const [selectedSex, setSelectedSex] = useState<AnimalSex>(normalizeAnimalSex(existingAnimal?.sex));
   const [dateOfBirth, setDateOfBirth] = useState(existingAnimal?.dateOfBirth ?? '');
   const [breed, setBreed] = useState(existingAnimal?.breed ?? '');
   const [status, setStatus] = useState<AnimalStatus>(existingAnimal?.status ?? 'Active');
@@ -60,7 +62,7 @@ export function AddAnimalScreen() {
   const [paddock, setPaddock] = useState(existingAnimal?.paddock ?? '');
   const [group, setGroup] = useState(existingAnimal?.group ?? '');
   const [notes, setNotes] = useState(existingAnimal?.notes ?? '');
-  const [imageUris, setImageUris] = useState<string[]>(existingAnimal?.imageUris ?? []);
+  const [imageUris, setImageUris] = useState<string[]>(existingAnimal?.imageUris?.slice(0, 1) ?? []);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showSpeciesPicker, setShowSpeciesPicker] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerKey | null>(null);
@@ -109,11 +111,14 @@ export function AddAnimalScreen() {
 
     if (existingAnimal) {
       updateAnimal(existingAnimal.id, payload);
+      router.dismissTo({
+        pathname: '/animal-timeline',
+        params: { animalId: payload.id },
+      });
     } else {
       addAnimal(payload);
+      router.replace('/(tabs)/animals');
     }
-
-    router.replace('/(tabs)/animals');
   };
 
   const handleDateChange = (event: DateTimePickerEvent, nextDate?: Date) => {
@@ -137,8 +142,8 @@ export function AddAnimalScreen() {
   };
 
   const handleAddImages = async () => {
-    if (imageUris.length >= 3) {
-      Alert.alert('Image limit reached', 'You can attach up to 3 images.');
+    if (imageUris.length >= 1) {
+      Alert.alert('Image limit reached', 'You can attach only 1 profile picture.');
       return;
     }
 
@@ -153,15 +158,21 @@ export function AddAnimalScreen() {
       mediaTypes: ['images'],
       allowsEditing: false,
       quality: 1,
-      allowsMultipleSelection: true,
-      selectionLimit: 3 - imageUris.length,
+      allowsMultipleSelection: false,
+      selectionLimit: 1,
     });
 
     if (result.canceled) {
       return;
     }
 
-    setImageUris((current) => [...current, ...result.assets.map((asset) => asset.uri)].slice(0, 3));
+    const nextUri = result.assets[0]?.uri;
+
+    if (!nextUri) {
+      return;
+    }
+
+    setImageUris([nextUri]);
   };
 
   const handleRemoveImage = (uri: string) => {
@@ -169,21 +180,6 @@ export function AddAnimalScreen() {
   };
 
   const pickerOptions = getPickerOptions(activePicker, farms, paddocks, groups);
-
-  const handleShareAnimal = async () => {
-    if (!existingAnimal) {
-      return;
-    }
-
-    try {
-      await Share.share({
-        message: formatAnimalShareText(existingAnimal),
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Something went wrong while opening the share sheet.';
-      Alert.alert('Share failed', message);
-    }
-  };
 
   const handleDeleteAnimal = () => {
     if (!existingAnimal) {
@@ -204,44 +200,29 @@ export function AddAnimalScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+    <CircularRevealView active={reveal === '1'}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
-        title={existingAnimal ? "View Animal" : "Add Animal"}
+        title={existingAnimal ? 'Edit Animal' : 'Add Animal'}
         leftAction={{
           icon: 'back',
           accessibilityLabel: 'Back',
           onPress: () => router.back(),
         }}
-        actions={existingAnimal ? [
-          {
-            icon: 'share',
-            accessibilityLabel: 'Share animal',
-            onPress: handleShareAnimal,
-            size: 22,
-          },
-          {
-            icon: 'trash',
-            accessibilityLabel: 'Delete animal',
-            onPress: handleDeleteAnimal,
-            size: 28,
-          },
-        ] : []}
+        actions={
+          existingAnimal
+            ? [
+                {
+                  icon: 'trash',
+                  accessibilityLabel: 'Delete animal',
+                  onPress: handleDeleteAnimal,
+                  size: 28,
+                },
+              ]
+            : []
+        }
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {existingAnimal ? (
-          <Pressable
-            accessibilityLabel="View animal timeline"
-            accessibilityRole="button"
-            onPress={() => router.push({ pathname: '/animal-timeline', params: { animalId: existingAnimal.id } })}
-            style={({ pressed }) => [styles.timelineCard, pressed && styles.pressed]}
-          >
-            <View style={styles.timelineCardCopy}>
-              <Text style={styles.timelineCardTitle}>View Animal Timeline</Text>
-              <Text style={styles.timelineCardText}>Open the full history for this animal.</Text>
-            </View>
-            <AppIcon name="arrow-right-circle" size={24} color={tokens.colors.accent} />
-          </Pressable>
-        ) : null}
         <View style={styles.formCard}>
           <View style={styles.block}>
             <Text style={styles.label}>Selected Species *</Text>
@@ -344,11 +325,9 @@ export function AddAnimalScreen() {
               setActivePicker('farm');
             }}
           />
-          {farms.length === 0 ? (
-            <Pressable accessibilityRole="button" onPress={() => router.push('/setup-farms')}>
-              <Text style={styles.helperLink}>+ Add Farm</Text>
-            </Pressable>
-          ) : null}
+          <Pressable accessibilityRole="button" onPress={() => router.push('/setup-farms')}>
+            <Text style={styles.helperLink}>+ Add Farm</Text>
+          </Pressable>
 
           <SelectionField
             label="Paddock"
@@ -363,11 +342,9 @@ export function AddAnimalScreen() {
               setActivePicker('paddock');
             }}
           />
-          {paddocks.length === 0 ? (
-            <Pressable accessibilityRole="button" onPress={() => router.push('/setup-paddocks')}>
-              <Text style={styles.helperLink}>+ Add Paddock</Text>
-            </Pressable>
-          ) : null}
+          <Pressable accessibilityRole="button" onPress={() => router.push('/setup-paddocks')}>
+            <Text style={styles.helperLink}>+ Add Paddock</Text>
+          </Pressable>
 
           <SelectionField
             label="Group"
@@ -382,16 +359,14 @@ export function AddAnimalScreen() {
               setActivePicker('group');
             }}
           />
-          {groups.length === 0 ? (
-            <Pressable accessibilityRole="button" onPress={() => router.push('/setup-groups')}>
-              <Text style={styles.helperLink}>+ Add Group</Text>
-            </Pressable>
-          ) : null}
+          <Pressable accessibilityRole="button" onPress={() => router.push('/setup-groups')}>
+            <Text style={styles.helperLink}>+ Add Group</Text>
+          </Pressable>
 
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
           <Pressable
-            accessibilityLabel="Add images"
+            accessibilityLabel="Add profile picture"
             accessibilityRole="button"
             onPress={handleAddImages}
             style={({ pressed }) => [styles.photoButton, pressed && styles.pressed]}
@@ -399,7 +374,7 @@ export function AddAnimalScreen() {
             <View style={styles.photoCopy}>
               <AppIcon name="image-add" size={22} color={tokens.colors.accent} />
               <Text style={styles.photoText}>
-                {imageUris.length === 0 ? 'Images' : `Images ${imageUris.length}/3`}
+                {imageUris.length === 0 ? 'Profile picture' : 'Profile picture 1/1'}
               </Text>
             </View>
             <View style={styles.fieldChevron}>
@@ -425,7 +400,7 @@ export function AddAnimalScreen() {
           ) : null}
         </View>
 
-        <Pressable
+        <BouncyPressable
           accessibilityLabel="Save animal"
           accessibilityRole="button"
           onPress={handleSave}
@@ -433,7 +408,7 @@ export function AddAnimalScreen() {
         >
           <AppIcon name="save" size={18} color="#fff" />
           <Text style={styles.primaryButtonText}>Save Animal</Text>
-        </Pressable>
+        </BouncyPressable>
       </ScrollView>
 
       {showDatePicker && Platform.OS === 'android' ? (
@@ -456,22 +431,24 @@ export function AddAnimalScreen() {
             <Text style={styles.deleteConfirmTitle}>Delete animal?</Text>
             <Text style={styles.deleteConfirmText}>This action cannot be undone.</Text>
             <View style={styles.deleteConfirmActions}>
-              <Pressable
+              <BouncyPressable
                 accessibilityLabel="Cancel delete"
                 accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
                 onPress={() => setShowDeleteConfirm(false)}
                 style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}
               >
                 <Text style={styles.deleteCancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable
+              </BouncyPressable>
+              <BouncyPressable
                 accessibilityLabel="Confirm delete animal"
                 accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
                 onPress={confirmDeleteAnimal}
                 style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}
               >
                 <Text style={styles.deleteConfirmButtonText}>Delete</Text>
-              </Pressable>
+              </BouncyPressable>
             </View>
           </Pressable>
         </Pressable>
@@ -484,7 +461,7 @@ export function AddAnimalScreen() {
         onRequestClose={() => setShowSpeciesPicker(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setShowSpeciesPicker(false)}>
-          <Pressable style={styles.modalCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showSpeciesPicker} style={styles.modalCard} onPress={() => undefined}>
             <View style={styles.speciesModalHeader}>
               <Text style={styles.speciesModalTitle}>Select Species</Text>
             </View>
@@ -515,7 +492,7 @@ export function AddAnimalScreen() {
                 })()
               ))}
             </ScrollView>
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -526,7 +503,7 @@ export function AddAnimalScreen() {
         onRequestClose={() => setShowDatePicker(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setShowDatePicker(false)}>
-          <Pressable style={styles.modalCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showDatePicker && Platform.OS === 'ios'} style={styles.modalCard} onPress={() => undefined}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select date of birth</Text>
               <Pressable
@@ -543,7 +520,7 @@ export function AddAnimalScreen() {
               value={parsedDateOfBirth ?? new Date()}
               onChange={handleDateChange}
             />
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -554,7 +531,7 @@ export function AddAnimalScreen() {
         onRequestClose={() => setActivePicker(null)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={activePicker !== null} style={styles.selectionCard} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>{getPickerTitle(activePicker)}</Text>
             {pickerOptions.map((option) => {
               const activeValue = getPickerValue(activePicker, status, weightUnit, farm, paddock, group);
@@ -581,10 +558,11 @@ export function AddAnimalScreen() {
                 </Pressable>
               );
             })}
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </CircularRevealView>
   );
 }
 
@@ -605,38 +583,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F3F7',
     padding: 16,
     gap: 14,
-  },
-  timelineCard: {
-    backgroundColor: 'rgba(231, 108, 102, 0.14)',
-    borderRadius: 20,
-    minHeight: 96,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: 'rgba(28, 28, 28, 0.06)',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
-  timelineCardCopy: {
-    flex: 1,
-    gap: 4,
-    paddingRight: 10,
-  },
-  timelineCardTitle: {
-    color: tokens.colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  timelineCardText: {
-    color: tokens.colors.textSoft,
-    fontSize: 12,
-    fontWeight: '500',
   },
   block: {
     gap: 8,
@@ -1022,36 +968,6 @@ function SelectionField({ label, value, emptyLabel, onPress }: SelectionFieldPro
   );
 }
 
-function formatAnimalShareText(animal: {
-  id: string;
-  species: string;
-  name: string;
-  sex: AnimalSex;
-  dateOfBirth: string;
-  breed: string;
-  weight: string;
-  weightUnit: AnimalWeightUnit;
-  status: AnimalStatus;
-  farm: string;
-  paddock: string;
-  group: string;
-  notes: string;
-}) {
-  return [
-    animal.name.trim() ? `${animal.name.trim()} (${animal.id.trim()})` : animal.id.trim(),
-    `Species: ${animal.species.trim()}`,
-    `Sex: ${animal.sex === 'female' ? 'Female' : 'Male'}`,
-    animal.dateOfBirth.trim() ? `Date of Birth: ${animal.dateOfBirth.trim()}` : '',
-    animal.breed.trim() ? `Breed: ${animal.breed.trim()}` : '',
-    animal.weight.trim() ? `Weight: ${animal.weight.trim()} ${animal.weightUnit}` : '',
-    `Status: ${animal.status}`,
-    animal.farm.trim() ? `Farm: ${animal.farm.trim()}` : '',
-    animal.paddock.trim() ? `Paddock: ${animal.paddock.trim()}` : '',
-    animal.group.trim() ? `Group: ${animal.group.trim()}` : '',
-    animal.notes.trim() ? `Notes: ${animal.notes.trim()}` : '',
-  ].filter(Boolean).join('\n');
-}
-
 function getDerivedAge(dateOfBirth: Date, now: Date) {
   const ageParts = getAgeParts(dateOfBirth, now);
 
@@ -1091,6 +1007,10 @@ function formatDate(date: Date) {
     month: 'short',
     year: 'numeric',
   }).format(date);
+}
+
+function normalizeAnimalSex(sex: unknown): AnimalSex {
+  return sex === 'male' ? 'male' : 'female';
 }
 
 function parseDateValue(value: string) {

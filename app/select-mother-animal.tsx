@@ -4,12 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { tokens } from '../src/theme/tokens';
 
 export default function SelectMotherAnimalScreen() {
   const router = useRouter();
-  const { recordId } = useLocalSearchParams<{ recordId?: string }>();
+  const { recordId, draftRecord } = useLocalSearchParams<{ recordId?: string; draftRecord?: string }>();
   const { animals } = useAnimals();
 
   return (
@@ -27,7 +28,7 @@ export default function SelectMotherAnimalScreen() {
           <View style={styles.emptyState}>
             <AppIcon name="animals" size={86} color="#E5E0E7" opacity={1} />
             <Text style={styles.emptyTitle}>No animals available</Text>
-            <Pressable
+            <BouncyPressable
               accessibilityLabel="Add animal"
               accessibilityRole="button"
               onPress={() => router.push('/add-animal')}
@@ -35,7 +36,7 @@ export default function SelectMotherAnimalScreen() {
             >
               <AppIcon name="plus" size={16} color="#fff" />
               <Text style={styles.addButtonText}>Add Animal</Text>
-            </Pressable>
+            </BouncyPressable>
           </View>
         ) : (
           animals.map((animal, index) => (
@@ -49,6 +50,7 @@ export default function SelectMotherAnimalScreen() {
                   params: {
                     selectedMotherName: animal.name,
                     ...(recordId ? { recordId } : {}),
+                    ...(draftRecord ? { draftRecord } : {}),
                   },
                 })
               }

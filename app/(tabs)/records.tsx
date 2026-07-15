@@ -1,12 +1,17 @@
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../src/components/AppIcon';
 import { AppTopBar } from '../../src/components/AppTopBar';
+import { BouncyPressable } from '../../src/components/BouncyPressable';
+import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton';
 import { useRecords } from '../../src/context/RecordsContext';
 import { tokens } from '../../src/theme/tokens';
+
+const USERJOT_URL = 'https://livestockbook.userjot.com/?cursor=1&order=top&limit=10';
+const FACEBOOK_GROUP_URL = 'https://www.facebook.com/groups/1353099223626390/';
 
 function formatAnimalCount(record: { animalIds?: string[]; animalTag: string }) {
   const count = record.animalIds?.length ?? record.animalTag.split(',').map((value) => value.trim()).filter(Boolean).length;
@@ -19,12 +24,15 @@ export default function RecordsScreen() {
   const hasActiveFilters = Object.values(filters).some((value) =>
     Array.isArray(value) ? value.length > 0 : Boolean(value),
   );
-  const shouldShowFacebookCard = records.length <= 1;
-  const shouldFloatFacebookCard = shouldShowFacebookCard && filteredRecords.length === 0;
+  const shouldShowFacebookCard = records.length <= 2;
+  const shouldShowFeedbackCard = records.length >= 3;
+  const shouldShowPromoCard = shouldShowFacebookCard || shouldShowFeedbackCard;
+  const shouldFloatPromoCard = shouldShowPromoCard && filteredRecords.length === 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-      <AppTopBar
+      <TabSwipeView>
+        <AppTopBar
         title="Records"
         actions={[
           {
@@ -44,22 +52,34 @@ export default function RecordsScreen() {
           contentContainerStyle={[styles.content, filteredRecords.length === 0 && styles.emptyContent]}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.countText}>{hasActiveFilters ? `${filteredRecords.length} of ${records.length} records` : `${records.length} records`}</Text>
-          {shouldShowFacebookCard ? (
-            <Pressable
-              accessibilityLabel="Open Facebook group in settings"
+          {shouldShowPromoCard ? (
+            <BouncyPressable
+              accessibilityLabel={shouldShowFacebookCard ? 'Open Facebook group' : 'Open feedback page'}
               accessibilityRole="button"
-              onPress={() => router.push('/settings')}
-              style={({ pressed }) => [shouldFloatFacebookCard ? styles.facebookCardFloating : styles.facebookCard, pressed && styles.cardPressed]}
+              containerStyle={shouldFloatPromoCard ? styles.facebookCardFloatingContainer : undefined}
+              onPress={() => {
+                if (shouldShowFacebookCard) {
+                  Linking.openURL(FACEBOOK_GROUP_URL);
+                  return;
+                }
+
+                Linking.openURL(USERJOT_URL);
+              }}
+              style={({ pressed }) => [
+                styles.facebookCard,
+                shouldFloatPromoCard && styles.facebookCardFloating,
+                pressed && styles.cardPressed,
+              ]}
             >
-              <AppIcon name="group" size={24} color="#171717" />
+              <AppIcon name={shouldShowFacebookCard ? 'group' : 'alert'} size={24} color="#171717" />
               <View style={styles.facebookCopy}>
-                <Text style={styles.facebookTitle}>Join the Facebook group</Text>
-                <Text style={styles.facebookText}>Users share tips, discuss the app, and offer support there.</Text>
+                <Text style={styles.facebookTitle}>{shouldShowFacebookCard ? 'Join the Facebook group' : 'Help us improve'}</Text>
+                <Text style={styles.facebookText}>{shouldShowFacebookCard ? 'Users share tips, discuss the app, and offer support there.' : 'Share feedback and ideas to help shape the app.'}</Text>
               </View>
-              <View style={styles.facebookJoinButton}><Text style={styles.facebookJoinButtonText}>Join</Text></View>
-            </Pressable>
+              <View style={styles.facebookJoinButton}><Text style={styles.facebookJoinButtonText}>{shouldShowFacebookCard ? 'Join' : 'Share feedback'}</Text></View>
+            </BouncyPressable>
           ) : null}
+          <Text style={[styles.countText, shouldFloatPromoCard && styles.countTextBelowFloatingFacebook]}>{hasActiveFilters ? `${filteredRecords.length} of ${records.length} records` : `${records.length} records`}</Text>
           {filteredRecords.length === 0 ? (
             <View style={styles.emptyState}>
               <AppIcon name="records_" size={86} color="#E5E0E7" opacity={1} />
@@ -68,7 +88,7 @@ export default function RecordsScreen() {
             </View>
           ) : (
             filteredRecords.map((record) => (
-              <Pressable
+              <BouncyPressable
                 key={record.id}
                 accessibilityRole="button"
                 onPress={() => router.push({ pathname: '/add-record', params: { recordId: record.id } })}
@@ -105,15 +125,16 @@ export default function RecordsScreen() {
                   </View>
                 </View>
                 <AppIcon name="arrow-right-circle" size={24} color={tokens.colors.accent} />
-              </Pressable>
+              </BouncyPressable>
             ))
           )}
         </ScrollView>
       </View>
       <FloatingActionButton
         accessibilityLabel="Add record"
-        onPress={() => router.push('/add-record')}
+        onPress={() => router.push({ pathname: '/add-record', params: { reveal: '1' } })}
       />
+      </TabSwipeView>
     </SafeAreaView>
   );
 }
@@ -130,13 +151,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 18,
     paddingBottom: 120,
-    gap: 12,
+    gap: 8,
   },
   countText: {
     color: '#8A7F87',
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 4,
+  },
+  countTextBelowFloatingFacebook: {
+    marginTop: 102,
   },
   emptyContent: {
     flexGrow: 1,
@@ -258,24 +282,14 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   facebookCardFloating: {
+    marginBottom: 0,
+  },
+  facebookCardFloatingContainer: {
     position: 'absolute',
     top: 18,
     left: 16,
     right: 16,
     zIndex: 2,
-    minHeight: 84,
-    borderRadius: 18,
-    backgroundColor: 'rgba(231, 108, 102, 0.14)',
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
   },
   facebookCopy: {
     flex: 1,

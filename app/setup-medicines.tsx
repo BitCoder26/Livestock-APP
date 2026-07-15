@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
 import { type TreatmentKind, useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
@@ -149,10 +151,10 @@ export default function SetupMedicinesScreen() {
           <SelectionField label="Expiry date" value={expiryDate} emptyLabel="Select expiry date" onPress={() => setShowDatePicker(true)} />
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
-          <Pressable accessibilityRole="button" accessibilityLabel="Add treatment" onPress={handleAddMedicine} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
+          <BouncyPressable accessibilityRole="button" accessibilityLabel="Add treatment" onPress={handleAddMedicine} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
             <AppIcon name="plus" size={16} color="#fff" />
             <Text style={styles.addButtonText}>{treatmentType === 'medicine' ? 'Add Medicine' : 'Add Vaccine'}</Text>
-          </Pressable>
+          </BouncyPressable>
         </View>
 
         {medicineEntities.length === 0 ? (
@@ -177,9 +179,9 @@ export default function SetupMedicinesScreen() {
                       <Text style={styles.itemSubtitle}>{medicine.treatmentType === 'medicine' ? 'Medicine' : 'Vaccine'}{medicine.activeIngredient ? ` · ${medicine.activeIngredient}` : ''}</Text>
                     </View>
                   </View>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${medicine.name}`} onPress={() => setTreatmentPendingDelete(medicine.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
-                    <AppIcon name="trash" size={17} color="#fff" />
-                  </Pressable>
+                  <BouncyPressable accessibilityRole="button" accessibilityLabel={`Delete ${medicine.name}`} onPress={() => setTreatmentPendingDelete(medicine.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                    <AppIcon name="trash" size={28} color="#fff" />
+                  </BouncyPressable>
                 </View>
                 <View style={styles.metaRow}>
                   {medicine.defaultDose ? <Text style={styles.metaPill}>{`${medicine.defaultDose} ${medicine.doseUnit}`}</Text> : null}
@@ -207,12 +209,12 @@ export default function SetupMedicinesScreen() {
               {treatmentPendingDelete ? `Are you sure you want to delete ${treatmentPendingDelete}?` : ''}
             </Text>
             <View style={styles.deleteConfirmActions}>
-              <Pressable accessibilityRole="button" onPress={() => setTreatmentPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
+              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={() => setTreatmentPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
                 <Text style={styles.deleteCancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" onPress={confirmDeleteTreatment} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
+              </BouncyPressable>
+              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={confirmDeleteTreatment} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
                 <Text style={styles.deleteConfirmButtonText}>Delete</Text>
-              </Pressable>
+              </BouncyPressable>
             </View>
           </Pressable>
         </Pressable>
@@ -220,7 +222,7 @@ export default function SetupMedicinesScreen() {
 
       <Modal transparent animationType="fade" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
-          <Pressable style={styles.selectionCard} onPress={() => {}}>
+          <AnimatedPopupCard visible={activePicker !== null} style={styles.selectionCard} onPress={() => {}}>
             <Text style={styles.selectionTitle}>{activePicker === 'doseUnit' ? 'Select quantity' : 'Select route'}</Text>
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalList}>
@@ -243,7 +245,7 @@ export default function SetupMedicinesScreen() {
                 })}
               </View>
             </ScrollView>
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -258,7 +260,7 @@ export default function SetupMedicinesScreen() {
 
       <Modal transparent animationType="fade" visible={showDatePicker && Platform.OS === 'ios'} onRequestClose={() => setShowDatePicker(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setShowDatePicker(false)}>
-          <Pressable style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showDatePicker && Platform.OS === 'ios'} style={styles.selectionCard} onPress={() => undefined}>
             <View style={styles.modalHeader}>
               <Text style={styles.selectionTitle}>Select expiry date</Text>
               <Pressable accessibilityRole="button" accessibilityLabel="Done" onPress={() => setShowDatePicker(false)}>
@@ -271,7 +273,7 @@ export default function SetupMedicinesScreen() {
               display="spinner"
               onChange={handleDateChange}
             />
-          </Pressable>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
     </SafeAreaView>

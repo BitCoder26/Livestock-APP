@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { AppTopBar } from '../src/components/AppTopBar';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { tokens } from '../src/theme/tokens';
 
 export default function UpgradeToProScreen() {
@@ -22,9 +23,9 @@ export default function UpgradeToProScreen() {
         <Text style={styles.body}>
           This page is ready as a placeholder for your future upgrade flow.
         </Text>
-        <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
+        <BouncyPressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
           <Text style={styles.buttonText}>Back to account</Text>
-        </Pressable>
+        </BouncyPressable>
       </View>
     </SafeAreaView>
   );

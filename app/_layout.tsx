@@ -19,9 +19,76 @@ export default function RootLayout() {
                 screenOptions={{
                   headerShown: false,
                   contentStyle: { backgroundColor: '#F7F5F6' },
-                  animation: 'fade',
+                  animation: 'slide_from_right',
+                  animationDuration: 280,
                 }}
-              />
+              >
+                <Stack.Screen
+                  name="add-record"
+                  options={({ route }) =>
+                    (route.params as { reveal?: string } | undefined)?.reveal === '1'
+                      ? {
+                          animation: 'none',
+                          contentStyle: { backgroundColor: 'transparent' },
+                          presentation: 'transparentModal',
+                        }
+                      : {
+                          animation: 'slide_from_right',
+                          animationDuration: 280,
+                        }
+                  }
+                />
+                <Stack.Screen
+                  name="add-animal"
+                  options={({ route }) =>
+                    (route.params as { reveal?: string } | undefined)?.reveal === '1'
+                      ? {
+                          animation: 'none',
+                          contentStyle: { backgroundColor: 'transparent' },
+                          presentation: 'transparentModal',
+                        }
+                      : {
+                          animation: 'slide_from_right',
+                          animationDuration: 280,
+                        }
+                  }
+                />
+                <Stack.Screen
+                  name="records-filter"
+                  options={{
+                    animation: 'none',
+                    contentStyle: { backgroundColor: 'transparent' },
+                    presentation: 'transparentModal',
+                  }}
+                />
+                <Stack.Screen
+                  name="setup-farms"
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 280,
+                    contentStyle: { backgroundColor: '#F7F5F6' },
+                    presentation: 'card',
+                  }}
+                />
+                <Stack.Screen
+                  name="setup-paddocks"
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 280,
+                    contentStyle: { backgroundColor: '#F7F5F6' },
+                    presentation: 'card',
+                  }}
+                />
+                <Stack.Screen
+                  name="setup-groups"
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 280,
+                    contentStyle: { backgroundColor: '#F7F5F6' },
+                    presentation: 'card',
+                  }}
+                />
+              </Stack>
             </AccountProvider>
           </RecordsProvider>
         </AnimalsProvider>

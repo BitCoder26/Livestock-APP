@@ -5,12 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { tokens } from '../src/theme/tokens';
 
 export default function SelectRecordAnimalScreen() {
   const router = useRouter();
-  const { selectedAnimalIds, recordId } = useLocalSearchParams<{ selectedAnimalIds?: string; recordId?: string }>();
+  const { selectedAnimalIds, recordId, draftRecord } = useLocalSearchParams<{ selectedAnimalIds?: string; recordId?: string; draftRecord?: string }>();
   const { animals } = useAnimals();
   const initialIds = useMemo(
     () => (selectedAnimalIds ? selectedAnimalIds.split(',').filter(Boolean) : []),
@@ -26,6 +27,17 @@ export default function SelectRecordAnimalScreen() {
     );
   };
 
+  const returnToAddRecord = () => {
+    router.dismissTo({
+      pathname: '/add-record',
+      params: {
+        selectedAnimalIds: draftIds.join(','),
+        ...(recordId ? { recordId } : {}),
+        ...(draftRecord ? { draftRecord } : {}),
+      },
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
@@ -33,7 +45,7 @@ export default function SelectRecordAnimalScreen() {
         leftAction={{
           icon: 'back',
           accessibilityLabel: 'Back',
-          onPress: () => router.back(),
+          onPress: returnToAddRecord,
         }}
         actions={
           animals.length > 0
@@ -41,14 +53,7 @@ export default function SelectRecordAnimalScreen() {
                 {
                   icon: 'check',
                   accessibilityLabel: 'Confirm selected animals',
-                  onPress: () =>
-                    router.replace({
-                      pathname: '/add-record',
-                      params: {
-                        selectedAnimalIds: draftIds.join(','),
-                        ...(recordId ? { recordId } : {}),
-                      },
-                    }),
+                  onPress: returnToAddRecord,
                 },
               ]
             : []
@@ -59,7 +64,7 @@ export default function SelectRecordAnimalScreen() {
           <View style={styles.emptyState}>
             <AppIcon name="animals" size={86} color="#E5E0E7" opacity={1} />
             <Text style={styles.emptyTitle}>No animals available</Text>
-            <Pressable
+            <BouncyPressable
               accessibilityLabel="Add animal"
               accessibilityRole="button"
               onPress={() => router.push('/add-animal')}
@@ -67,7 +72,7 @@ export default function SelectRecordAnimalScreen() {
             >
               <AppIcon name="plus" size={16} color="#fff" />
               <Text style={styles.addButtonText}>Add Animal</Text>
-            </Pressable>
+            </BouncyPressable>
           </View>
         ) : (
           animals.map((animal, index) => (
