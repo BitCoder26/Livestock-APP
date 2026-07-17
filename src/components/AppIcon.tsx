@@ -74,6 +74,7 @@ import TrashIcon from '../../assets/icons/svg/trash.svg';
 import ToolsIcon from '../../assets/icons/svg/tools.svg';
 import TurkeyIcon from '../../assets/icons/svg/turkey.svg';
 import WebPortalIcon from '../../assets/icons/svg/web_portal.svg';
+import PieChartIcon from '../../assets/icons/svg/pie.svg';
 import NotebookIcon from '../../assets/icons/svg/notebook.svg';
 import SaveIcon from '../../assets/icons/svg/save.svg';
 import ImageAddIcon from '../../assets/icons/svg/image-add.svg';
@@ -164,6 +165,7 @@ const icons = {
   tools: ToolsIcon,
   turkey: TurkeyIcon,
   web_portal: WebPortalIcon,
+  'pie-chart': PieChartIcon,
 } satisfies Record<string, ComponentType<SvgProps>>;
 
 export type AppIconName = keyof typeof icons;
