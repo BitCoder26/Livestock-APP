@@ -29,7 +29,7 @@ export default function AccountScreen() {
   const { profile, isLoaded, signOutAllDevices } = useAccount();
   const { animals } = useAnimals();
   const { records } = useRecords();
-  const { isPro } = useSubscription();
+  const { isPro, loading: subscriptionLoading } = useSubscription();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleBack = () => {
@@ -41,7 +41,7 @@ export default function AccountScreen() {
     router.replace('/(tabs)/records');
   };
 
-  if (!isLoaded) {
+  if (!isLoaded || subscriptionLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <AppTopBar

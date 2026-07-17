@@ -17,13 +17,27 @@ const ACCOUNT_SURFACE_GREY = '#F1EFF3';
 export default function ProfileScreen() {
   const router = useRouter();
   const { profile, isLoaded, updateField } = useAccount();
-  const { isPro } = useSubscription();
+  const { isPro, loading: subscriptionLoading } = useSubscription();
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showIndustryModal, setShowIndustryModal] = useState(false);
   const [countrySearchQuery, setCountrySearchQuery] = useState('');
   const [customIndustry, setCustomIndustry] = useState('');
 
-  if (!isLoaded) {
+  useEffect(() => {
+    if (!showIndustryModal) {
+      setCustomIndustry('');
+      return;
+    }
+
+    if (INDUSTRY_OPTIONS.includes(profile.industry as (typeof INDUSTRY_OPTIONS)[number])) {
+      setCustomIndustry('');
+      return;
+    }
+
+    setCustomIndustry(profile.industry);
+  }, [profile.industry, showIndustryModal]);
+
+  if (!isLoaded || subscriptionLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <AppTopBar
@@ -43,20 +57,6 @@ export default function ProfileScreen() {
   }
 
   const planLabel = isPro ? 'Pro' : profile.plan?.trim() || 'Basic';
-
-  useEffect(() => {
-    if (!showIndustryModal) {
-      setCustomIndustry('');
-      return;
-    }
-
-    if (INDUSTRY_OPTIONS.includes(profile.industry as (typeof INDUSTRY_OPTIONS)[number])) {
-      setCustomIndustry('');
-      return;
-    }
-
-    setCustomIndustry(profile.industry);
-  }, [profile.industry, showIndustryModal]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>

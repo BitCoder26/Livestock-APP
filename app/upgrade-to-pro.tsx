@@ -194,7 +194,7 @@ export default function UpgradeToProScreen() {
   };
 
   useEffect(() => {
-    if (!autotest || hasRunAutotest.current || loading) {
+    if (!__DEV__ || !autotest || hasRunAutotest.current || loading) {
       return;
     }
 
@@ -263,7 +263,7 @@ export default function UpgradeToProScreen() {
     })();
   }, [annualPackage, autotest, configured, loading, monthlyPackage, purchaseSelectedPackage, refresh, restorePurchases]);
 
-  const showDiagnostics = debug === '1' || Boolean(autotest);
+  const showDiagnostics = __DEV__ && (debug === '1' || Boolean(autotest));
 
   return (
     <View style={styles.overlay}>
@@ -409,16 +409,18 @@ export default function UpgradeToProScreen() {
                 <Text style={styles.restoreButtonText}>Restore Purchases</Text>
               )}
             </BouncyPressable>
-            {!configured ? (
+            {__DEV__ && !configured ? (
               <Text style={styles.helperText}>
                 Add `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` to enable purchases.
               </Text>
             ) : null}
-            {activeEntitlementId ? (
-              <Text style={styles.helperText}>Active entitlement: {activeEntitlementId}</Text>
-            ) : (
-              <Text style={styles.helperText}>Entitlement identifier: pro</Text>
-            )}
+            {__DEV__ ? (
+              <Text style={styles.helperText}>
+                {activeEntitlementId
+                  ? `Active entitlement: ${activeEntitlementId}`
+                  : 'Entitlement identifier: pro'}
+              </Text>
+            ) : null}
             {showDiagnostics ? (
               <View style={styles.diagnosticsCard}>
                 <Text style={styles.diagnosticsTitle}>RevenueCat Diagnostics</Text>

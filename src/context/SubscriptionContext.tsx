@@ -140,15 +140,17 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
 
         setCustomerInfo(nextCustomerInfo);
         setOffering(nextOffering);
-        console.log('[revenuecat] initialized', {
-          configured: true,
-          storeMode: nextStoreMode,
-          entitlementId: REVENUECAT_ENTITLEMENT_ID,
-          offeringId: nextOffering?.identifier ?? null,
-          monthlyPrice: nextOffering?.monthly?.product.priceString ?? null,
-          annualPrice: nextOffering?.annual?.product.priceString ?? null,
-          activeEntitlement: findActiveEntitlementId(nextCustomerInfo),
-        });
+        if (__DEV__) {
+          console.log('[revenuecat] initialized', {
+            configured: true,
+            storeMode: nextStoreMode,
+            entitlementId: REVENUECAT_ENTITLEMENT_ID,
+            offeringId: nextOffering?.identifier ?? null,
+            monthlyPrice: nextOffering?.monthly?.product.priceString ?? null,
+            annualPrice: nextOffering?.annual?.product.priceString ?? null,
+            activeEntitlement: findActiveEntitlementId(nextCustomerInfo),
+          });
+        }
       } catch (error) {
         console.warn('[RevenueCat] Failed to initialize subscription state.', error);
       } finally {
@@ -201,11 +203,16 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
           return null;
         }
 
-        const nextCustomerInfo = await Purchases.getCustomerInfo();
-        const nextOffering = await loadCurrentOffering();
-        setCustomerInfo(nextCustomerInfo);
-        setOffering(nextOffering);
-        return nextCustomerInfo;
+        try {
+          const nextCustomerInfo = await Purchases.getCustomerInfo();
+          const nextOffering = await loadCurrentOffering();
+          setCustomerInfo(nextCustomerInfo);
+          setOffering(nextOffering);
+          return nextCustomerInfo;
+        } catch (error) {
+          console.warn('[RevenueCat] Failed to refresh subscription state.', error);
+          return null;
+        }
       },
       purchaseSelectedPackage: async (plan) => {
         if (!configured) {
@@ -229,12 +236,14 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
         try {
           const result = await Purchases.purchasePackage(selectedPackage);
           setCustomerInfo(result.customerInfo);
-          console.log('[revenuecat] purchase success', {
-            plan,
-            productIdentifier: result.productIdentifier,
-            activeEntitlement: findActiveEntitlementId(result.customerInfo),
-            activeSubscriptions: result.customerInfo.activeSubscriptions,
-          });
+          if (__DEV__) {
+            console.log('[revenuecat] purchase success', {
+              plan,
+              productIdentifier: result.productIdentifier,
+              activeEntitlement: findActiveEntitlementId(result.customerInfo),
+              activeSubscriptions: result.customerInfo.activeSubscriptions,
+            });
+          }
           return { status: 'success', customerInfo: result.customerInfo };
         } catch (error) {
           const purchasesError = error as PurchasesError;
@@ -243,15 +252,19 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
             purchasesError.userCancelled === true ||
             purchasesError.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
           ) {
-            console.log('[revenuecat] purchase cancelled', { plan });
+            if (__DEV__) {
+              console.log('[revenuecat] purchase cancelled', { plan });
+            }
             return { status: 'cancelled' };
           }
 
-          console.log('[revenuecat] purchase failed', {
-            plan,
-            code: purchasesError.code,
-            message: purchasesError.message,
-          });
+          if (__DEV__) {
+            console.log('[revenuecat] purchase failed', {
+              plan,
+              code: purchasesError.code,
+              message: purchasesError.message,
+            });
+          }
           return {
             status: 'error',
             message: purchasesError.message || 'Unable to complete your purchase right now.',
@@ -273,10 +286,12 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
         try {
           const nextCustomerInfo = await Purchases.restorePurchases();
           setCustomerInfo(nextCustomerInfo);
-          console.log('[revenuecat] restore result', {
-            activeEntitlement: findActiveEntitlementId(nextCustomerInfo),
-            activeSubscriptions: nextCustomerInfo.activeSubscriptions,
-          });
+          if (__DEV__) {
+            console.log('[revenuecat] restore result', {
+              activeEntitlement: findActiveEntitlementId(nextCustomerInfo),
+              activeSubscriptions: nextCustomerInfo.activeSubscriptions,
+            });
+          }
 
           if (findActiveEntitlementId(nextCustomerInfo)) {
             return { status: 'restored', customerInfo: nextCustomerInfo };
@@ -290,14 +305,18 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
             purchasesError.userCancelled === true ||
             purchasesError.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
           ) {
-            console.log('[revenuecat] restore cancelled');
+            if (__DEV__) {
+              console.log('[revenuecat] restore cancelled');
+            }
             return { status: 'cancelled' };
           }
 
-          console.log('[revenuecat] restore failed', {
-            code: purchasesError.code,
-            message: purchasesError.message,
-          });
+          if (__DEV__) {
+            console.log('[revenuecat] restore failed', {
+              code: purchasesError.code,
+              message: purchasesError.message,
+            });
+          }
           return {
             status: 'error',
             message: purchasesError.message || 'Unable to restore purchases right now.',
