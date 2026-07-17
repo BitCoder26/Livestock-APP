@@ -51,6 +51,8 @@ const SubscriptionContext = createContext<SubscriptionContextValue | null>(null)
 const IOS_REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
 const TEST_REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
 const TEST_STORE_FLAG = process.env.EXPO_PUBLIC_REVENUECAT_USE_TEST_STORE === '1';
+const REVENUECAT_DIAGNOSTICS_ENABLED = __DEV__ && process.env.EXPO_PUBLIC_REVENUECAT_DIAGNOSTICS === '1';
+const REVENUECAT_CANCELLATION_MESSAGE = 'Purchase was cancelled.';
 
 function getRevenueCatConfig() {
   if (Platform.OS !== 'ios') {
@@ -111,7 +113,34 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
       }
 
       try {
-        await Purchases.setLogLevel(LOG_LEVEL.INFO);
+        await Purchases.setLogLevel(
+          REVENUECAT_DIAGNOSTICS_ENABLED ? LOG_LEVEL.DEBUG : LOG_LEVEL.INFO,
+        );
+        Purchases.setLogHandler((level, message) => {
+          const formattedMessage = `[RevenueCat] ${message}`;
+
+          if (!REVENUECAT_DIAGNOSTICS_ENABLED && message.includes(REVENUECAT_CANCELLATION_MESSAGE)) {
+            console.info(formattedMessage);
+            return;
+          }
+
+          switch (level) {
+            case LOG_LEVEL.DEBUG:
+              console.debug(formattedMessage);
+              break;
+            case LOG_LEVEL.INFO:
+              console.info(formattedMessage);
+              break;
+            case LOG_LEVEL.WARN:
+              console.warn(formattedMessage);
+              break;
+            case LOG_LEVEL.ERROR:
+              console.error(formattedMessage);
+              break;
+            default:
+              console.log(formattedMessage);
+          }
+        });
 
         const isConfigured = await Purchases.isConfigured();
 
