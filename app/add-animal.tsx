@@ -24,8 +24,10 @@ import { CircularRevealView } from '../src/components/CircularRevealView';
 import { DesignField } from '../src/components/DesignField';
 import { SPECIES_OPTIONS } from '../src/constants/records';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
+import { FREE_ANIMAL_LIMIT } from '../src/constants/subscription';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useSetup } from '../src/context/SetupContext';
+import { useSubscription } from '../src/context/SubscriptionContext';
 import type { AnimalAgeUnit, AnimalSex, AnimalStatus, AnimalWeightUnit } from '../src/entities/animal';
 import { tokens } from '../src/theme/tokens';
 
@@ -43,6 +45,7 @@ export function AddAnimalScreen() {
   const { species, animalId: selectedAnimalId, reveal } = useLocalSearchParams<{ species?: string; animalId?: string; reveal?: string }>();
   const { animals, addAnimal, updateAnimal, deleteAnimal } = useAnimals();
   const { farms, paddocks, groups } = useSetup();
+  const { isPro } = useSubscription();
   const existingAnimal = selectedAnimalId
     ? animals.find((animal) => animal.id === selectedAnimalId)
     : undefined;
@@ -116,6 +119,14 @@ export function AddAnimalScreen() {
         params: { animalId: payload.id },
       });
     } else {
+      if (!isPro && animals.length >= FREE_ANIMAL_LIMIT) {
+        router.push({
+          pathname: '/upgrade-to-pro',
+          params: { limitType: 'animals' },
+        });
+        return;
+      }
+
       addAnimal(payload);
       router.replace('/(tabs)/animals');
     }

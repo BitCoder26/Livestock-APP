@@ -12,11 +12,13 @@ import { BouncyPressable } from '../src/components/BouncyPressable';
 import { CircularRevealView } from '../src/components/CircularRevealView';
 import { DesignField } from '../src/components/DesignField';
 import { RECORD_TYPES, SPECIES_OPTIONS } from '../src/constants/records';
+import { FREE_ANIMAL_LIMIT, FREE_RECORD_LIMIT } from '../src/constants/subscription';
 import { useAccount } from '../src/context/AccountContext';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useRecords } from '../src/context/RecordsContext';
 import { type MedicineEntity, useSetup } from '../src/context/SetupContext';
+import { useSubscription } from '../src/context/SubscriptionContext';
 import { formatCurrencyPrefix, getCurrencyCodeForCountry } from '../src/entities/account';
 import type { AnimalSex } from '../src/entities/animal';
 import type { RecordEntry } from '../src/entities/record';
@@ -38,6 +40,7 @@ export default function AddRecordScreen() {
   const { profile } = useAccount();
   const { animals, addAnimal } = useAnimals();
   const { addRecord, updateRecord, deleteRecord, records } = useRecords();
+  const { isPro } = useSubscription();
   const { farms, paddocks, groups, medicineEntities } = useSetup();
   const editingRecord = useMemo(() => (recordId ? records.find((record) => record.id === recordId) ?? null : null), [recordId, records]);
   const isEditing = Boolean(editingRecord);
@@ -397,6 +400,22 @@ export default function AddRecordScreen() {
       router.replace({ pathname: '/view-record', params: { recordId: editingRecord.id } });
       return;
     } else {
+      if (!isPro && records.length >= FREE_RECORD_LIMIT) {
+        router.push({
+          pathname: '/upgrade-to-pro',
+          params: { limitType: 'records' },
+        });
+        return;
+      }
+
+      if (!isPro && isBirthRecord && animals.length >= FREE_ANIMAL_LIMIT) {
+        router.push({
+          pathname: '/upgrade-to-pro',
+          params: { limitType: 'animals' },
+        });
+        return;
+      }
+
       addRecord(payload);
     }
 

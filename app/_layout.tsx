@@ -6,10 +6,12 @@ import { AccountProvider } from '../src/context/AccountContext';
 import { AnimalsProvider } from '../src/context/AnimalsContext';
 import { RecordsProvider } from '../src/context/RecordsContext';
 import { SetupProvider } from '../src/context/SetupContext';
+import { SubscriptionProvider } from '../src/context/SubscriptionContext';
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
+      <SubscriptionProvider>
       <SetupProvider>
         <AnimalsProvider>
           <RecordsProvider>
@@ -106,11 +108,20 @@ export default function RootLayout() {
                     presentation: 'card',
                   }}
                 />
+                <Stack.Screen
+                  name="upgrade-to-pro"
+                  options={{
+                    animation: 'none',
+                    contentStyle: { backgroundColor: 'transparent' },
+                    presentation: 'transparentModal',
+                  }}
+                />
               </Stack>
             </AccountProvider>
           </RecordsProvider>
         </AnimalsProvider>
       </SetupProvider>
+      </SubscriptionProvider>
     </SafeAreaProvider>
   );
 }
