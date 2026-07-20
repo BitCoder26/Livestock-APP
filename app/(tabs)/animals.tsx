@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { getSpeciesThemeByTone } from '../../src/constants/speciesTheme';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton';
 import { useAnimals } from '../../src/context/AnimalsContext';
+import { useOnboarding, useSpotlightTarget } from '../../src/context/OnboardingContext';
 import type { AnimalTone } from '../../src/entities/animal';
 import { tokens } from '../../src/theme/tokens';
 
@@ -39,11 +40,16 @@ const SPECIES_FILTER_LABELS = [ALL_SPECIES_FILTER, ...SPECIES_FILTER_OPTIONS.map
 export default function AnimalsScreen() {
   const router = useRouter();
   const { animals } = useAnimals();
+  const { step } = useOnboarding();
+  const isFocused = useIsFocused();
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<(typeof STATUS_FILTER_OPTIONS)[number]>('All');
   const [selectedSpecies, setSelectedSpecies] = useState<(typeof SPECIES_FILTER_LABELS)[number]>('All');
   const sheetEntrance = useRef(new Animated.Value(0)).current;
+
+  const fabRef = useRef<View>(null);
+  useSpotlightTarget('animal', step === 'animal' && isFocused, fabRef);
 
   useEffect(() => {
     if (!showFilterSheet) {
@@ -93,9 +99,9 @@ export default function AnimalsScreen() {
             onPress: () => setShowFilterSheet(true),
           },
           {
-            icon: 'settings',
-            accessibilityLabel: 'Open settings',
-            onPress: () => router.push('/settings'),
+            icon: 'profile',
+            accessibilityLabel: 'Open account',
+            onPress: () => router.push('/account'),
           },
         ]}
       />
@@ -195,6 +201,7 @@ export default function AnimalsScreen() {
       <FloatingActionButton
         accessibilityLabel="Add animal"
         onPress={() => router.push({ pathname: '/add-animal', params: { reveal: '1' } })}
+        positionerRef={fabRef}
       />
       <Modal transparent animationType="none" visible={showFilterSheet} onRequestClose={() => setShowFilterSheet(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowFilterSheet(false)}>
@@ -296,15 +303,32 @@ export default function AnimalsScreen() {
                   })}
                 </View>
               </View>
-              <BouncyPressable
-                accessibilityLabel="Apply filter"
-                accessibilityRole="button"
-                onPress={() => setShowFilterSheet(false)}
-                style={styles.applyButton}
-              >
-                <AppIcon name="check" size={20} color="#fff" />
-                <Text style={styles.applyText}>Apply</Text>
-              </BouncyPressable>
+              <View style={styles.filterActionsRow}>
+                <BouncyPressable
+                  accessibilityLabel="Clear filter"
+                  accessibilityRole="button"
+                  containerStyle={{ flex: 1 }}
+                  onPress={() => {
+                    setSearchQuery('');
+                    setSelectedStatus('All');
+                    setSelectedSpecies('All');
+                    setShowFilterSheet(false);
+                  }}
+                  style={styles.clearFilterButton}
+                >
+                  <Text style={styles.clearFilterText}>Clear filter</Text>
+                </BouncyPressable>
+                <BouncyPressable
+                  accessibilityLabel="Apply filter"
+                  accessibilityRole="button"
+                  containerStyle={{ flex: 1 }}
+                  onPress={() => setShowFilterSheet(false)}
+                  style={styles.applyButton}
+                >
+                  <AppIcon name="check" size={20} color="#fff" />
+                  <Text style={styles.applyText}>Apply</Text>
+                </BouncyPressable>
+              </View>
             </ScrollView>
           </Pressable>
           </Animated.View>
@@ -466,10 +490,25 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: '#74423F',
-    fontWeight: '700',
+  },
+  filterActionsRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  clearFilterButton: {
+    minHeight: 52,
+    borderRadius: 26,
+    backgroundColor: '#F5F3F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearFilterText: {
+    color: tokens.colors.text,
+    fontSize: 16,
+    fontWeight: '600',
   },
   applyButton: {
-    marginTop: 8,
     minHeight: 52,
     borderRadius: 26,
     backgroundColor: tokens.colors.accent,

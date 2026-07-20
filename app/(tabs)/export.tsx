@@ -14,12 +14,14 @@ import { BouncyPressable } from '../../src/components/BouncyPressable';
 import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { DesignField } from '../../src/components/DesignField';
 import { RECORD_TYPES, SPECIES_OPTIONS } from '../../src/constants/records';
+import { useAccount } from '../../src/context/AccountContext';
 import { useAnimals } from '../../src/context/AnimalsContext';
 import { useRecords } from '../../src/context/RecordsContext';
 import { useSetup } from '../../src/context/SetupContext';
 import type { Animal, AnimalStatus } from '../../src/entities/animal';
 import type { RecordEntry } from '../../src/entities/record';
 import { tokens } from '../../src/theme/tokens';
+import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../../src/utils/dateFormat';
 
 type ExportTarget = 'animals' | 'records';
 type ExportFormat = 'pdf' | 'spreadsheet';
@@ -68,6 +70,7 @@ const DEFAULT_RECORD_FILTERS: RecordExportFilters = {
 
 export default function ExportScreen() {
   const router = useRouter();
+  const { profile } = useAccount();
   const { animals } = useAnimals();
   const { records } = useRecords();
   const { farms, paddocks, groups } = useSetup();
@@ -102,7 +105,7 @@ export default function ExportScreen() {
 
   const selectedDate = useMemo(() => {
     const value = activeDateField === 'startDate' ? recordFilters.startDate : recordFilters.endDate;
-    return parseDateValue(value) ?? new Date();
+    return parseStoredDate(value) ?? new Date();
   }, [activeDateField, recordFilters.endDate, recordFilters.startDate]);
 
   const multiSelectOptions = useMemo(() => {
@@ -128,7 +131,7 @@ export default function ExportScreen() {
   const currentSummary =
     target === 'animals'
       ? getAnimalFilterSummary(animalFilters)
-      : getRecordFilterSummary(recordFilters);
+      : getRecordFilterSummary(recordFilters, profile.dateFormat);
 
   async function handleExport(format: ExportFormat) {
     const sharingAvailable = await Sharing.isAvailableAsync();
@@ -148,14 +151,14 @@ export default function ExportScreen() {
     try {
       if (target === 'animals') {
         if (format === 'pdf') {
-          await exportAnimalsPdf(filteredAnimals, animalFilters);
+          await exportAnimalsPdf(filteredAnimals, animalFilters, profile.dateFormat);
         } else {
-          await exportAnimalsCsv(filteredAnimals);
+          await exportAnimalsCsv(filteredAnimals, profile.dateFormat);
         }
       } else if (format === 'pdf') {
-        await exportRecordsPdf(filteredRecords, animals, recordFilters);
+        await exportRecordsPdf(filteredRecords, animals, recordFilters, profile.dateFormat);
       } else {
-        await exportRecordsCsv(filteredRecords, animals);
+        await exportRecordsCsv(filteredRecords, animals, profile.dateFormat);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Something went wrong while preparing the export.';
@@ -191,7 +194,7 @@ export default function ExportScreen() {
       }
 
       if (nextDate) {
-        setRecordFilters((current) => ({ ...current, [activeDateField]: formatDate(nextDate) }));
+        setRecordFilters((current) => ({ ...current, [activeDateField]: formatDateForStorage(nextDate) }));
       }
 
       setActiveDateField(null);
@@ -199,7 +202,7 @@ export default function ExportScreen() {
     }
 
     if (nextDate) {
-      setRecordFilters((current) => ({ ...current, [activeDateField]: formatDate(nextDate) }));
+      setRecordFilters((current) => ({ ...current, [activeDateField]: formatDateForStorage(nextDate) }));
     }
   }
 
@@ -219,9 +222,9 @@ export default function ExportScreen() {
         title="Export"
         actions={[
           {
-            icon: 'settings',
-            accessibilityLabel: 'Open settings',
-            onPress: () => router.push('/settings'),
+            icon: 'profile',
+            accessibilityLabel: 'Open account',
+            onPress: () => router.push('/account'),
           },
         ]}
       />
@@ -307,17 +310,19 @@ export default function ExportScreen() {
                 <View style={styles.dateGrid}>
                   <SelectionField
                     label=""
-                    value={recordFilters.startDate ?? 'Select start date'}
+                    value={formatDateForDisplay(recordFilters.startDate, profile.dateFormat) || 'Start date'}
                     onPress={() => setActiveDateField('startDate')}
                     containerStyle={styles.dateFieldItem}
                     hideLabel
+                    isPlaceholder={!recordFilters.startDate}
                   />
                   <SelectionField
                     label=""
-                    value={recordFilters.endDate ?? 'Select end date'}
+                    value={formatDateForDisplay(recordFilters.endDate, profile.dateFormat) || 'End date'}
                     onPress={() => setActiveDateField('endDate')}
                     containerStyle={styles.dateFieldItem}
                     hideLabel
+                    isPlaceholder={!recordFilters.endDate}
                   />
                 </View>
               </View>
@@ -410,7 +415,7 @@ export default function ExportScreen() {
         onRequestClose={() => setActiveDateField(null)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setActiveDateField(null)}>
-          <AnimatedPopupCard visible={activeDateField !== null && Platform.OS === 'ios'} style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={activeDateField !== null && Platform.OS === 'ios'} style={styles.modalCard} onPress={() => undefined}>
             <View style={styles.modalHeader}>
               <Text style={styles.selectionTitle}>
                 {activeDateField === 'startDate' ? 'Select start date' : 'Select end date'}
@@ -530,14 +535,16 @@ function SelectionField({
   onPress,
   containerStyle,
   hideLabel,
+  isPlaceholder: isPlaceholderProp,
 }: {
   label: string;
   value: string;
   onPress: () => void;
   containerStyle?: object;
   hideLabel?: boolean;
+  isPlaceholder?: boolean;
 }) {
-  const isPlaceholder = value.toLowerCase().startsWith('select ');
+  const isPlaceholder = isPlaceholderProp ?? value.toLowerCase().startsWith('select ');
 
   return (
     <View style={[styles.block, containerStyle]}>
@@ -566,7 +573,7 @@ function ExportActionButton({
       onPress={onPress}
       style={({ pressed }) => [styles.exportButton, pressed && styles.pressed]}
     >
-      <AppIcon name="export_" size={18} color="#fff" />
+      <AppIcon name="export2" size={18} color="#fff" />
       <Text style={styles.exportLabel}>{busy ? 'Preparing export...' : label}</Text>
     </BouncyPressable>
   );
@@ -618,9 +625,9 @@ function animalMatchesFilters(animal: Animal, filters: AnimalExportFilters) {
 function recordMatchesFilters(record: RecordEntry, filters: RecordExportFilters, animals: Animal[]) {
   const relatedAnimals = findRelatedAnimals(record, animals);
   const searchQuery = filters.searchQuery.trim().toLowerCase();
-  const recordDate = parseDateValue(record.date);
-  const startDate = parseDateValue(filters.startDate);
-  const endDate = parseDateValue(filters.endDate);
+  const recordDate = parseStoredDate(record.date);
+  const startDate = parseStoredDate(filters.startDate);
+  const endDate = parseStoredDate(filters.endDate);
 
   if (
     searchQuery &&
@@ -676,7 +683,7 @@ function findRelatedAnimals(record: RecordEntry, animals: Animal[]) {
   return animals.filter((animal) => idParts.has(animal.id.toLowerCase()) || nameParts.has(animal.name.toLowerCase()));
 }
 
-async function exportAnimalsCsv(animals: Animal[]) {
+async function exportAnimalsCsv(animals: Animal[], dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
   const rows = [
     ['Animal ID', 'Name', 'Species', 'Sex', 'Date of Birth', 'Status', 'Farm', 'Paddock', 'Group', 'Weight', 'Notes'],
     ...animals.map((animal) => [
@@ -684,7 +691,7 @@ async function exportAnimalsCsv(animals: Animal[]) {
       animal.name,
       animal.species,
       animal.sex,
-      animal.dateOfBirth,
+      formatDateForDisplay(animal.dateOfBirth, dateFormat),
       animal.status,
       animal.farm,
       animal.paddock,
@@ -697,14 +704,14 @@ async function exportAnimalsCsv(animals: Animal[]) {
   await writeAndShareCsv(`animal-register-${createTimestamp()}.csv`, rows);
 }
 
-async function exportRecordsCsv(records: RecordEntry[], animals: Animal[]) {
+async function exportRecordsCsv(records: RecordEntry[], animals: Animal[], dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
   const rows = [
-    ['Date', 'Record Type', 'Title', 'Animal ID', 'Animal Name', 'Species', 'Farm', 'Paddock', 'Details'],
+    ['Date', 'Record Type', 'Title', 'Animal ID', 'Animal Name', 'Species', 'Farm', 'Paddock', 'Medicine', 'Dose', 'Withdrawal', 'Batch No.', 'Expiry', 'Head Count', 'Details'],
     ...records.map((record) => {
       const relatedAnimals = findRelatedAnimals(record, animals);
 
       return [
-        record.date,
+        formatDateForDisplay(record.date, dateFormat),
         record.type,
         record.title,
         record.animalTag,
@@ -712,6 +719,12 @@ async function exportRecordsCsv(records: RecordEntry[], animals: Animal[]) {
         record.species,
         joinUnique(relatedAnimals.map((animal) => animal.farm)),
         joinUnique(relatedAnimals.map((animal) => animal.paddock)),
+        record.medicine ?? '',
+        [record.dose, record.doseUnit].filter(Boolean).join(' '),
+        record.withdrawal ?? '',
+        record.batchNumber ?? '',
+        record.expiryDate ?? '',
+        record.headCount ?? '',
         record.details,
       ];
     }),
@@ -720,7 +733,7 @@ async function exportRecordsCsv(records: RecordEntry[], animals: Animal[]) {
   await writeAndShareCsv(`records-${createTimestamp()}.csv`, rows);
 }
 
-async function exportAnimalsPdf(animals: Animal[], filters: AnimalExportFilters) {
+async function exportAnimalsPdf(animals: Animal[], filters: AnimalExportFilters, dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
   const rows = animals.map((animal) => [
     animal.id,
     animal.name || '—',
@@ -743,12 +756,12 @@ async function exportAnimalsPdf(animals: Animal[], filters: AnimalExportFilters)
   await printAndSharePdf(html);
 }
 
-async function exportRecordsPdf(records: RecordEntry[], animals: Animal[], filters: RecordExportFilters) {
+async function exportRecordsPdf(records: RecordEntry[], animals: Animal[], filters: RecordExportFilters, dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
   const rows = records.map((record) => {
     const relatedAnimals = findRelatedAnimals(record, animals);
 
     return [
-      record.date,
+      formatDateForDisplay(record.date, dateFormat),
       record.type,
       record.title,
       record.animalTag || '—',
@@ -762,7 +775,7 @@ async function exportRecordsPdf(records: RecordEntry[], animals: Animal[], filte
     title: 'Records Export',
     subtitle: 'Livestock export',
     countLabel: `${records.length} ${records.length === 1 ? 'record' : 'records'}`,
-    filterSummary: getRecordFilterSummary(filters),
+    filterSummary: getRecordFilterSummary(filters, dateFormat),
     headers: ['Date', 'Type', 'Title', 'Animal ID', 'Animal Name', 'Farm', 'Paddock'],
     rows,
   });
@@ -967,12 +980,12 @@ function getAnimalFilterSummary(filters: AnimalExportFilters) {
   return summary;
 }
 
-function getRecordFilterSummary(filters: RecordExportFilters) {
+function getRecordFilterSummary(filters: RecordExportFilters, dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
   const summary: string[] = [];
 
   if (filters.searchQuery.trim()) summary.push(`Search: ${filters.searchQuery.trim()}`);
-  if (filters.startDate) summary.push(`From: ${filters.startDate}`);
-  if (filters.endDate) summary.push(`To: ${filters.endDate}`);
+  if (filters.startDate) summary.push(`From: ${formatDateForDisplay(filters.startDate, dateFormat)}`);
+  if (filters.endDate) summary.push(`To: ${formatDateForDisplay(filters.endDate, dateFormat)}`);
   if (filters.recordTypes.length > 0) summary.push(`Type: ${filters.recordTypes.join(', ')}`);
   if (filters.species.length > 0) summary.push(`Species: ${filters.species.join(', ')}`);
   if (filters.farms.length > 0) summary.push(`Farm: ${filters.farms.join(', ')}`);
@@ -997,36 +1010,6 @@ function formatSelectionSummary(values: string[], placeholder: string) {
   }
 
   return `${values.slice(0, 2).join(', ')} +${values.length - 2}`;
-}
-
-function formatDate(date: Date) {
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(date);
-}
-
-function parseDateValue(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const [dayPart, monthPart, yearPart] = value.trim().split(/\s+/);
-
-  if (!dayPart || !monthPart || !yearPart) {
-    return null;
-  }
-
-  const day = Number(dayPart);
-  const year = Number(yearPart);
-  const month = MONTH_INDEX[monthPart.toLowerCase()];
-
-  if (!Number.isFinite(day) || !Number.isFinite(year) || month === undefined) {
-    return null;
-  }
-
-  return new Date(year, month, day);
 }
 
 function splitValues(value: string) {
@@ -1300,6 +1283,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.28)',
     justifyContent: 'flex-end',
   },
+  modalCard: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 26,
+    maxHeight: '80%',
+  },
   selectionCard: {
     marginHorizontal: 18,
     marginBottom: 28,
@@ -1353,7 +1345,6 @@ const styles = StyleSheet.create({
   },
   selectionTextActive: {
     color: '#74423F',
-    fontWeight: '700',
   },
   emptyPickerState: {
     minHeight: 72,

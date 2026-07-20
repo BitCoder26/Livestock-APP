@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 export type SetupCollectionKey = 'farms' | 'paddocks' | 'groups' | 'medicines';
+export type SetupSelectionTarget = 'fromFarm' | 'fromPaddock' | 'toFarm' | 'toPaddock';
 export type FarmEntity = {
   name: string;
   holdingId: string;
@@ -22,7 +23,6 @@ export type GroupEntity = {
   farm: string;
   paddocks: string[];
   species: string;
-  description: string;
   animals: string;
   notes: string;
 };
@@ -40,6 +40,8 @@ export type MedicineEntity = {
   manufacturer: string;
   batchNumber: string;
   expiryDate: string;
+  supplier?: string;
+  purchaseDate?: string;
   notes: string;
 };
 
@@ -62,44 +64,12 @@ type SetupContextValue = {
   removeMedicine: (name: string) => void;
   addItem: (collection: SetupCollectionKey, value: string) => void;
   removeItem: (collection: SetupCollectionKey, value: string) => void;
+  pendingSetupSelectionTarget: SetupSelectionTarget | null;
+  pendingSetupSelectionResult: { target: SetupSelectionTarget; value: string } | null;
+  beginSetupSelection: (target: SetupSelectionTarget) => void;
+  resolveSetupSelection: (value: string) => void;
+  clearSetupSelectionResult: () => void;
   resetSetup: () => void;
-};
-
-const DEFAULT_SETUP = {
-  farms: [
-    {
-      name: "Tom's farm",
-      holdingId: '',
-      address: '',
-      country: '',
-      notes: '',
-    },
-    {
-      name: "George's farm",
-      holdingId: '',
-      address: '',
-      country: '',
-      notes: '',
-    },
-  ] as FarmEntity[],
-  paddocks: [
-    {
-      name: "Tom's paddock",
-      farm: "Tom's farm",
-      area: '',
-      areaUnit: '',
-      notes: '',
-    },
-    {
-      name: "George's paddock",
-      farm: "George's farm",
-      area: '',
-      areaUnit: '',
-      notes: '',
-    },
-  ] as PaddockEntity[],
-  groups: [] as GroupEntity[],
-  medicines: [] as MedicineEntity[],
 };
 
 const EMPTY_SETUP = {
@@ -113,11 +83,13 @@ const SETUP_STORAGE_KEY = 'livestockbook.setup.v1';
 const SetupContext = createContext<SetupContextValue | null>(null);
 
 export function SetupProvider({ children }: PropsWithChildren) {
-  const [farmEntities, setFarmEntities] = useState<FarmEntity[]>(DEFAULT_SETUP.farms);
-  const [paddockEntities, setPaddockEntities] = useState<PaddockEntity[]>(DEFAULT_SETUP.paddocks);
-  const [groupEntities, setGroupEntities] = useState<GroupEntity[]>(DEFAULT_SETUP.groups);
-  const [medicineEntities, setMedicineEntities] = useState<MedicineEntity[]>(DEFAULT_SETUP.medicines);
+  const [farmEntities, setFarmEntities] = useState<FarmEntity[]>(EMPTY_SETUP.farms);
+  const [paddockEntities, setPaddockEntities] = useState<PaddockEntity[]>(EMPTY_SETUP.paddocks);
+  const [groupEntities, setGroupEntities] = useState<GroupEntity[]>(EMPTY_SETUP.groups);
+  const [medicineEntities, setMedicineEntities] = useState<MedicineEntity[]>(EMPTY_SETUP.medicines);
   const [hasLoadedStoredSetup, setHasLoadedStoredSetup] = useState(false);
+  const [pendingSetupSelectionTarget, setPendingSetupSelectionTarget] = useState<SetupSelectionTarget | null>(null);
+  const [pendingSetupSelectionResult, setPendingSetupSelectionResult] = useState<{ target: SetupSelectionTarget; value: string } | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -178,6 +150,8 @@ export function SetupProvider({ children }: PropsWithChildren) {
       paddocks: paddockEntities.map((paddock) => paddock.name),
       groups: groupEntities.map((group) => group.name),
       medicines: medicineEntities.map((medicine) => medicine.name),
+      pendingSetupSelectionTarget,
+      pendingSetupSelectionResult,
       addFarm: (rawFarm) => {
         const farm = {
           name: rawFarm.name.trim(),
@@ -224,7 +198,6 @@ export function SetupProvider({ children }: PropsWithChildren) {
           farm: rawGroup.farm.trim(),
           paddocks: rawGroup.paddocks.map((paddock) => paddock.trim()).filter(Boolean),
           species: rawGroup.species.trim(),
-          description: rawGroup.description.trim(),
           animals: rawGroup.animals.trim(),
           notes: rawGroup.notes.trim(),
         };
@@ -253,6 +226,8 @@ export function SetupProvider({ children }: PropsWithChildren) {
           manufacturer: rawMedicine.manufacturer.trim(),
           batchNumber: rawMedicine.batchNumber.trim(),
           expiryDate: rawMedicine.expiryDate.trim(),
+          supplier: rawMedicine.supplier?.trim() ?? '',
+          purchaseDate: rawMedicine.purchaseDate?.trim() ?? '',
           notes: rawMedicine.notes.trim(),
         };
 
@@ -296,7 +271,7 @@ export function SetupProvider({ children }: PropsWithChildren) {
           setGroupEntities((current) =>
             current.some((entry) => entry.name.toLowerCase() === value.toLowerCase())
               ? current
-              : [...current, { name: value, farm: '', paddocks: [], species: '', description: '', animals: '', notes: '' }],
+              : [...current, { name: value, farm: '', paddocks: [], species: '', animals: '', notes: '' }],
           );
           return;
         }
@@ -327,6 +302,23 @@ export function SetupProvider({ children }: PropsWithChildren) {
         }
 
       },
+      beginSetupSelection: (target) => {
+        setPendingSetupSelectionTarget(target);
+        setPendingSetupSelectionResult(null);
+      },
+      resolveSetupSelection: (rawValue) => {
+        const value = rawValue.trim();
+
+        if (!value || !pendingSetupSelectionTarget) {
+          return;
+        }
+
+        setPendingSetupSelectionResult({ target: pendingSetupSelectionTarget, value });
+        setPendingSetupSelectionTarget(null);
+      },
+      clearSetupSelectionResult: () => {
+        setPendingSetupSelectionResult(null);
+      },
       removeItem: (collection, value) => {
         if (collection === 'farms') {
           setFarmEntities((current) => current.filter((entry) => entry.name !== value));
@@ -354,20 +346,22 @@ export function SetupProvider({ children }: PropsWithChildren) {
         setPaddockEntities(EMPTY_SETUP.paddocks);
         setGroupEntities(EMPTY_SETUP.groups);
         setMedicineEntities(EMPTY_SETUP.medicines);
+        setPendingSetupSelectionTarget(null);
+        setPendingSetupSelectionResult(null);
       },
     }),
-    [farmEntities, paddockEntities, groupEntities, medicineEntities],
+    [farmEntities, groupEntities, medicineEntities, paddockEntities, pendingSetupSelectionResult, pendingSetupSelectionTarget],
   );
 
   return <SetupContext.Provider value={value}>{children}</SetupContext.Provider>;
 }
 
-function isStoredSetup(value: unknown): value is typeof DEFAULT_SETUP {
+function isStoredSetup(value: unknown): value is typeof EMPTY_SETUP {
   if (!value || typeof value !== 'object') {
     return false;
   }
 
-  const setup = value as Partial<typeof DEFAULT_SETUP>;
+  const setup = value as Partial<typeof EMPTY_SETUP>;
   return (
     Array.isArray(setup.farms) &&
     Array.isArray(setup.paddocks) &&

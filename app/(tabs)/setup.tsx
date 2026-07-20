@@ -1,4 +1,5 @@
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
+import { useRef } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -6,6 +7,7 @@ import { AppIcon, AppIconName } from '../../src/components/AppIcon';
 import { AppTopBar } from '../../src/components/AppTopBar';
 import { BouncyPressable } from '../../src/components/BouncyPressable';
 import { TabSwipeView } from '../../src/components/TabSwipeView';
+import { useOnboarding, useSpotlightTarget } from '../../src/context/OnboardingContext';
 import { useSetup } from '../../src/context/SetupContext';
 import { tokens } from '../../src/theme/tokens';
 
@@ -26,7 +28,12 @@ const SETUP_ITEMS: Array<{
 export default function SetupScreen() {
   const router = useRouter();
   const { farms, paddocks, groups, medicines } = useSetup();
+  const { step } = useOnboarding();
+  const isFocused = useIsFocused();
   const counts = { farms: farms.length, paddocks: paddocks.length, groups: groups.length, medicines: medicines.length };
+
+  const farmCardRef = useRef<View>(null);
+  useSpotlightTarget('setup', step === 'setup' && isFocused, farmCardRef);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -35,9 +42,9 @@ export default function SetupScreen() {
         title="Setup"
         actions={[
           {
-            icon: 'settings',
-            accessibilityLabel: 'Open settings',
-            onPress: () => router.push('/settings'),
+            icon: 'profile',
+            accessibilityLabel: 'Open account',
+            onPress: () => router.push('/account'),
           },
         ]}
       />
@@ -47,22 +54,27 @@ export default function SetupScreen() {
           showsVerticalScrollIndicator={false}
         >
           {SETUP_ITEMS.map((item) => (
-            <BouncyPressable
+            <View
               key={item.title}
-              accessibilityLabel={item.title}
-              accessibilityRole="button"
-              onPress={() => router.push(item.route)}
-              style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+              ref={item.collection === 'farms' ? farmCardRef : undefined}
+              collapsable={false}
             >
-              <View style={styles.leftGroup}>
-                <AppIcon name={item.icon} size={22} color="#000" />
-                <Text style={styles.title}>{item.title}</Text>
-              </View>
-              <View style={styles.rightGroup}>
-                <Text style={styles.count}>{counts[item.collection]}</Text>
-                <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
-              </View>
-            </BouncyPressable>
+              <BouncyPressable
+                accessibilityLabel={item.title}
+                accessibilityRole="button"
+                onPress={() => router.push(item.route)}
+                style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+              >
+                <View style={styles.leftGroup}>
+                  <AppIcon name={item.icon} size={22} color="#000" />
+                  <Text style={styles.title}>{item.title}</Text>
+                </View>
+                <View style={styles.rightGroup}>
+                  <Text style={styles.count}>{counts[item.collection]}</Text>
+                  <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
+                </View>
+              </BouncyPressable>
+            </View>
           ))}
         </ScrollView>
         <BouncyPressable

@@ -29,6 +29,7 @@ import DonkeyIcon from '../../assets/icons/svg/donkey.svg';
 import DuckIcon from '../../assets/icons/svg/duck.svg';
 import EditIcon from '../../assets/icons/svg/edit-outline.svg';
 import ExportIcon from '../../assets/icons/svg/export.svg';
+import Export2Icon from '../../assets/icons/svg/export2.svg';
 import ExportTabIcon from '../../assets/icons/svg/export_.svg';
 import ExportTabOutlineIcon from '../../assets/icons/svg/export-outline-tab.svg';
 import ExportFileDownloadOutlineIcon from '../../assets/icons/svg/export-file-download-outline.svg';
@@ -40,6 +41,7 @@ import GoatIcon from '../../assets/icons/svg/goat.svg';
 import GooseIcon from '../../assets/icons/svg/goose.svg';
 import GlobeIcon from '../../assets/icons/svg/globe.svg';
 import GroupIcon from '../../assets/icons/svg/group.svg';
+import HelpCircleIcon from '../../assets/icons/svg/help-circle.svg';
 import HorseIcon from '../../assets/icons/svg/horse.svg';
 import InfoIcon from '../../assets/icons/svg/info.svg';
 import LlamaIcon from '../../assets/icons/svg/llama.svg';
@@ -48,6 +50,7 @@ import MenuIcon from '../../assets/icons/svg/menu.svg';
 import OstrichIcon from '../../assets/icons/svg/ostrich.svg';
 import PigIcon from '../../assets/icons/svg/pig.svg';
 import Pig2Icon from '../../assets/icons/svg/pig2.svg';
+import PieChartIcon from '../../assets/icons/svg/pie.svg';
 import PinIcon from '../../assets/icons/svg/pin.svg';
 import PlusIcon from '../../assets/icons/svg/plus.svg';
 import ProfileIcon from '../../assets/icons/svg/profile.svg';
@@ -59,6 +62,7 @@ import RecordsTabOutlineIcon from '../../assets/icons/svg/records-outline-tab.sv
 import SearchIcon from '../../assets/icons/svg/search.svg';
 import SettingsIcon from '../../assets/icons/svg/settings.svg';
 import ShareIcon from '../../assets/icons/svg/share.svg';
+import ShareOutlineIcon from '../../assets/icons/svg/share-outline.svg';
 import Setup4Icon from '../../assets/icons/svg/setup4.svg';
 import SetupOutlineIcon from '../../assets/icons/svg/setup-outline.svg';
 import SpannerIcon from '../../assets/icons/svg/spanner.svg';
@@ -68,13 +72,13 @@ import Spanner2Icon from '../../assets/icons/svg/spanner2.svg';
 import MailIcon from '../../assets/icons/svg/mail.svg';
 import MedalIcon from '../../assets/icons/svg/medal.svg';
 import SheepIcon from '../../assets/icons/svg/sheep.svg';
+import SheepBlackIcon from '../../assets/icons/svg/sheep-black.svg';
 import SproutIcon from '../../assets/icons/svg/sprout.svg';
 import TagIcon from '../../assets/icons/svg/tag.svg';
 import TrashIcon from '../../assets/icons/svg/trash.svg';
 import ToolsIcon from '../../assets/icons/svg/tools.svg';
 import TurkeyIcon from '../../assets/icons/svg/turkey.svg';
 import WebPortalIcon from '../../assets/icons/svg/web_portal.svg';
-import PieChartIcon from '../../assets/icons/svg/pie.svg';
 import NotebookIcon from '../../assets/icons/svg/notebook.svg';
 import SaveIcon from '../../assets/icons/svg/save.svg';
 import ImageAddIcon from '../../assets/icons/svg/image-add.svg';
@@ -115,6 +119,7 @@ const icons = {
   duck: DuckIcon,
   edit: EditIcon,
   export: ExportIcon,
+  export2: Export2Icon,
   export_: ExportTabIcon,
   'export-outline-tab': ExportTabOutlineIcon,
   'export-download-outline': ExportFileDownloadOutlineIcon,
@@ -128,6 +133,7 @@ const icons = {
   goose: GooseIcon,
   globe: GlobeIcon,
   group: GroupIcon,
+  'help-circle': HelpCircleIcon,
   horse: HorseIcon,
   'image-add': ImageAddIcon,
   info: InfoIcon,
@@ -140,6 +146,7 @@ const icons = {
   ostrich: OstrichIcon,
   pig: PigIcon,
   pig2: Pig2Icon,
+  'pie-chart': PieChartIcon,
   pin: PinIcon,
   plus: PlusIcon,
   profile: ProfileIcon,
@@ -152,6 +159,7 @@ const icons = {
   search: SearchIcon,
   settings: SettingsIcon,
   share: ShareIcon,
+  'share-outline': ShareOutlineIcon,
   setup4: Setup4Icon,
   'setup-outline': SetupOutlineIcon,
   spanner: SpannerIcon,
@@ -159,13 +167,13 @@ const icons = {
   'spanner-outline-tab': SpannerTabOutlineIcon,
   spanner2: Spanner2Icon,
   sheep: SheepIcon,
+  'sheep-black': SheepBlackIcon,
   sprout: SproutIcon,
   tag: TagIcon,
   trash: TrashIcon,
   tools: ToolsIcon,
   turkey: TurkeyIcon,
   web_portal: WebPortalIcon,
-  'pie-chart': PieChartIcon,
 } satisfies Record<string, ComponentType<SvgProps>>;
 
 export type AppIconName = keyof typeof icons;

@@ -18,7 +18,7 @@ const AnimalsContext = createContext<AnimalsContextValue | null>(null);
 const ANIMALS_STORAGE_KEY = 'livestockbook.animals.v1';
 
 export function AnimalsProvider({ children }: PropsWithChildren) {
-  const [animals, setAnimals] = useState<Animal[]>(createSeedAnimals);
+  const [animals, setAnimals] = useState<Animal[]>([]);
   const [hasLoadedStoredAnimals, setHasLoadedStoredAnimals] = useState(false);
 
   useEffect(() => {
@@ -122,111 +122,6 @@ function formatAgeLabel(value: string, unit: Animal['ageUnit']) {
   }
 
   return `${trimmedValue} ${unit}`.trim();
-}
-
-function createSeedAnimals(): Animal[] {
-  return [
-    createSeedAnimal({
-      id: 'PG-09',
-      species: 'Pig',
-      sex: 'male',
-      name: 'Albert',
-      ageValue: '5',
-      dateOfBirth: '15 Jul 2021',
-    }),
-    createSeedAnimal({
-      id: 'PG-10',
-      species: 'Pig',
-      sex: 'male',
-      name: 'Manuel',
-      ageValue: '21',
-      dateOfBirth: '15 Jul 2005',
-      status: 'Sold',
-    }),
-    createSeedAnimal({
-      id: 'CH-02',
-      species: 'Chicken',
-      sex: 'male',
-      name: 'Rosser',
-      ageValue: '1',
-      dateOfBirth: '15 Jul 2025',
-    }),
-    createSeedAnimal({
-      id: 'CH-01',
-      species: 'Chicken',
-      sex: 'male',
-      name: 'Roosty',
-      ageValue: '1',
-      dateOfBirth: '15 Jul 2025',
-    }),
-    createSeedAnimal({
-      id: 'LB-003',
-      species: 'Cattle',
-      sex: 'female',
-      name: 'Roast',
-      ageValue: '4',
-      dateOfBirth: '15 Jul 2022',
-    }),
-    createSeedAnimal({
-      id: 'LB-002',
-      species: 'Cattle',
-      sex: 'female',
-      name: 'Bessie',
-      ageValue: '3',
-      dateOfBirth: '15 Jul 2023',
-    }),
-    createSeedAnimal({
-      id: 'LB-001',
-      species: 'Cattle',
-      sex: 'female',
-      name: 'Daisy',
-      ageValue: '2',
-      dateOfBirth: '12 Mar 2024',
-      breed: 'Angus',
-      weight: '480',
-      farm: 'Home Farm',
-      paddock: 'North Paddock',
-      group: 'Breeding Herd',
-    }),
-  ];
-}
-
-type SeedAnimalInput = Pick<Animal, 'id' | 'species' | 'sex' | 'name' | 'ageValue' | 'dateOfBirth'> &
-  Partial<Pick<Animal, 'breed' | 'weight' | 'status' | 'farm' | 'paddock' | 'group'>>;
-
-function createSeedAnimal({
-  id,
-  species,
-  sex,
-  name,
-  ageValue,
-  dateOfBirth,
-  breed = '',
-  weight = '',
-  status = 'Active',
-  farm = '',
-  paddock = '',
-  group = '',
-}: SeedAnimalInput): Animal {
-  return {
-    id,
-    species,
-    sex,
-    name,
-    ageValue,
-    ageUnit: 'years old',
-    ageLabel: formatAgeLabel(ageValue, 'years old'),
-    breed,
-    dateOfBirth,
-    weight,
-    weightUnit: 'kg',
-    status,
-    farm,
-    paddock,
-    group,
-    notes: '',
-    tone: inferAnimalTone(species),
-  };
 }
 
 function isStoredAnimal(value: unknown): value is Animal {

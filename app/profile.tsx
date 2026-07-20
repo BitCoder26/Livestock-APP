@@ -90,13 +90,6 @@ export default function ProfileScreen() {
             onChangeText={(value) => updateField('name', value)}
             fieldStyle={styles.formField}
           />
-          <DesignField
-            label="Email"
-            value={profile.email}
-            keyboardType="email-address"
-            onChangeText={(value) => updateField('email', value)}
-            fieldStyle={styles.formField}
-          />
           <View style={styles.block}>
             <Text style={styles.optionLabel}>Industry</Text>
             <Pressable
@@ -425,7 +418,6 @@ const styles = StyleSheet.create({
   },
   selectionTextActive: {
     color: '#74423F',
-    fontWeight: '700',
   },
   pressed: {
     opacity: 0.92,

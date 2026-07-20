@@ -9,7 +9,7 @@ import { BouncyPressable } from '../src/components/BouncyPressable';
 import { tokens } from '../src/theme/tokens';
 
 const APP_LOGO = require('../assets/icons/new_logo.png');
-const APP_VERSION = '1.0.0';
+const APP_VERSION = 'v1.0';
 const BUY_ME_A_COFFEE_URL = 'https://buymeacoffee.com/livestockbook';
 
 function CoffeeCupIcon() {
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.background,
   },
   content: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 26,
     paddingTop: 20,
     paddingBottom: 120,
     gap: 14,

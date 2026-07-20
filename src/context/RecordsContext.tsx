@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useAnimals } from './AnimalsContext';
 import type { Animal } from '../entities/animal';
 import type { RecordEntry, RecordSpeciesTone } from '../entities/record';
+import { parseStoredDate } from '../utils/dateFormat';
 
 type CreateRecordInput = Omit<RecordEntry, 'id' | 'speciesTone'>;
 
@@ -49,7 +50,7 @@ export const DEFAULT_RECORD_FILTERS: RecordFilters = {
 
 export function RecordsProvider({ children }: PropsWithChildren) {
   const { animals } = useAnimals();
-  const [records, setRecords] = useState<RecordEntry[]>(createRecoveredRecords);
+  const [records, setRecords] = useState<RecordEntry[]>([]);
   const [filters, setFilters] = useState<RecordFilters>(DEFAULT_RECORD_FILTERS);
   const [hasLoadedStoredRecords, setHasLoadedStoredRecords] = useState(false);
 
@@ -91,14 +92,19 @@ export function RecordsProvider({ children }: PropsWithChildren) {
     void AsyncStorage.setItem(RECORDS_STORAGE_KEY, JSON.stringify(records));
   }, [hasLoadedStoredRecords, records]);
 
+  const sortedRecords = useMemo(
+    () => [...records].sort((left, right) => getRecordTimestamp(right.date) - getRecordTimestamp(left.date)),
+    [records],
+  );
+
   const filteredRecords = useMemo(
-    () => records.filter((record) => recordMatchesFilters(record, filters, animals)),
-    [animals, filters, records],
+    () => sortedRecords.filter((record) => recordMatchesFilters(record, filters, animals)),
+    [animals, filters, sortedRecords],
   );
 
   const value = useMemo<RecordsContextValue>(
     () => ({
-      records,
+      records: sortedRecords,
       filteredRecords,
       filters,
       setFilters,
@@ -135,7 +141,7 @@ export function RecordsProvider({ children }: PropsWithChildren) {
         setFilters(DEFAULT_RECORD_FILTERS);
       },
     }),
-    [filteredRecords, filters, records],
+    [filteredRecords, filters, sortedRecords],
   );
 
   return <RecordsContext.Provider value={value}>{children}</RecordsContext.Provider>;
@@ -149,43 +155,6 @@ export function useRecords() {
   }
 
   return context;
-}
-
-function createRecoveredRecords(): RecordEntry[] {
-  return [
-    {
-      id: '15 Jul 2026-Movement-LB-001-restored',
-      date: '15 Jul 2026',
-      animal: 'Daisy',
-      animalTag: 'LB-001',
-      animalIds: ['LB-001'],
-      species: 'Cattle',
-      speciesTone: 'cow',
-      type: 'Movement',
-      title: "Movement: Tom's farm / Tom's paddock to George's farm / George's paddock",
-      details: '',
-      fromFarm: "Tom's farm",
-      fromPaddock: "Tom's paddock",
-      toFarm: "George's farm",
-      toPaddock: "George's paddock",
-    },
-    {
-      id: '13 Jul 2026-Weight-LB-001-restored',
-      date: '13 Jul 2026',
-      animal: 'Daisy',
-      animalTag: 'LB-001',
-      animalIds: ['LB-001'],
-      species: 'Cattle',
-      speciesTone: 'cow',
-      type: 'Weight',
-      title: 'Weight: 480 kg',
-      details: '',
-      weight: '480',
-      weightUnit: 'kg',
-      dose: '480',
-      doseUnit: 'kg',
-    },
-  ];
 }
 
 function isStoredRecord(value: unknown): value is RecordEntry {
@@ -289,19 +258,33 @@ function recordMatchesFilters(record: RecordEntry, filters: RecordFilters, anima
 function findRelatedAnimals(record: RecordEntry, animals: Animal[]) {
   const idParts = new Set(splitValues(record.animalTag));
   const nameParts = new Set(splitValues(record.animal));
+  const combinedReference = [record.animalTag, record.animal, ...(record.animalIds ?? [])]
+    .join(' ')
+    .trim()
+    .toLowerCase();
 
   if (record.animalIds?.length) {
     for (const id of record.animalIds) {
-      idParts.add(id.toLowerCase());
+      idParts.add(id.toLowerCase().trim());
     }
   }
 
-  return animals.filter((animal) => idParts.has(animal.id.toLowerCase()) || nameParts.has(animal.name.toLowerCase()));
+  return animals.filter((animal) => {
+    const normalizedId = animal.id.trim().toLowerCase();
+    const normalizedName = animal.name.trim().toLowerCase();
+
+    return (
+      idParts.has(normalizedId) ||
+      nameParts.has(normalizedName) ||
+      (normalizedId.length > 0 && combinedReference.includes(normalizedId)) ||
+      (normalizedName.length > 0 && combinedReference.includes(normalizedName))
+    );
+  });
 }
 
 function splitValues(value: string) {
   return value
-    .split(',')
+    .split(/[,:;|•]+/)
     .map((part) => part.trim().toLowerCase())
     .filter(Boolean);
 }
@@ -311,34 +294,9 @@ function equalsIgnoreCase(left: string, right: string) {
 }
 
 function parseRecordDate(value: string) {
-  const [dayPart, monthPart, yearPart] = value.trim().split(/\s+/);
-
-  if (!dayPart || !monthPart || !yearPart) {
-    return null;
-  }
-
-  const day = Number(dayPart);
-  const year = Number(yearPart);
-  const month = MONTH_INDEX[monthPart.toLowerCase()];
-
-  if (!Number.isFinite(day) || !Number.isFinite(year) || month === undefined) {
-    return null;
-  }
-
-  return new Date(year, month, day);
+  return parseStoredDate(value);
 }
 
-const MONTH_INDEX: Record<string, number> = {
-  jan: 0,
-  feb: 1,
-  mar: 2,
-  apr: 3,
-  may: 4,
-  jun: 5,
-  jul: 6,
-  aug: 7,
-  sep: 8,
-  oct: 9,
-  nov: 10,
-  dec: 11,
-};
+function getRecordTimestamp(value: string) {
+  return parseStoredDate(value)?.getTime() ?? 0;
+}

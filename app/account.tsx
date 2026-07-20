@@ -1,5 +1,4 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
 import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -26,11 +25,10 @@ type HubItem = {
 
 export default function AccountScreen() {
   const router = useRouter();
-  const { profile, isLoaded, signOutAllDevices } = useAccount();
+  const { isLoaded } = useAccount();
   const { animals } = useAnimals();
   const { records } = useRecords();
   const { isPro, loading: subscriptionLoading } = useSubscription();
-  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -118,39 +116,6 @@ export default function AccountScreen() {
     },
   ];
 
-  const signOutItems: HubItem[] = [
-    {
-      label: isSigningOut ? 'Signing Out...' : 'Sign Out',
-      icon: 'enter-arrow',
-      onPress: () => {
-        if (isSigningOut) {
-          return;
-        }
-
-        Alert.alert('Sign Out', 'Sign out of all devices?', [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Sign Out',
-            style: 'destructive',
-            onPress: () => {
-              void (async () => {
-                setIsSigningOut(true);
-
-                try {
-                  const result = await signOutAllDevices();
-                  Alert.alert('Sign Out', result.message);
-                } finally {
-                  setIsSigningOut(false);
-                }
-              })();
-            },
-          },
-        ]);
-      },
-      accent: 'danger',
-    },
-  ];
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
@@ -177,8 +142,6 @@ export default function AccountScreen() {
         <SectionGroup items={communityItems} />
         <SectionDivider />
         <SectionGroup items={infoItems} />
-        <SectionDivider />
-        <SectionGroup items={signOutItems} />
       </ScrollView>
     </SafeAreaView>
   );

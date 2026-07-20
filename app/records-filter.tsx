@@ -19,10 +19,12 @@ import { AppIcon } from '../src/components/AppIcon';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { RECORD_TYPES, SPECIES_OPTIONS } from '../src/constants/records';
+import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { DEFAULT_RECORD_FILTERS, type RecordFilters, useRecords } from '../src/context/RecordsContext';
 import { useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
+import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
 
 type MultiSelectKey = 'species' | 'recordTypes' | 'farms' | 'paddocks';
 type DateFieldKey = 'startDate' | 'endDate';
@@ -32,6 +34,7 @@ const FILTER_FIELD_SURFACE = '#F5F3F7';
 export default function RecordsFilterScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { profile } = useAccount();
   const { records, filters, setFilters } = useRecords();
   const { animals } = useAnimals();
   const { farms, paddocks } = useSetup();
@@ -103,7 +106,7 @@ export default function RecordsFilterScreen() {
     return Array.from(knownPaddocks.values());
   }, [animals, paddocks]);
 
-  const activeDateValue = activeDateField ? parseDateValue(draftFilters[activeDateField]) ?? new Date() : new Date();
+  const activeDateValue = activeDateField ? parseStoredDate(draftFilters[activeDateField]) ?? new Date() : new Date();
 
   function updateFilter<Key extends keyof RecordFilters>(key: Key, value: RecordFilters[Key]) {
     setDraftFilters((current) => ({ ...current, [key]: value }));
@@ -131,7 +134,7 @@ export default function RecordsFilterScreen() {
       }
 
       if (nextDate) {
-        updateFilter(activeDateField, formatDate(nextDate));
+        updateFilter(activeDateField, formatDateForStorage(nextDate));
       }
 
       setActiveDateField(null);
@@ -139,7 +142,7 @@ export default function RecordsFilterScreen() {
     }
 
     if (nextDate) {
-      updateFilter(activeDateField, formatDate(nextDate));
+      updateFilter(activeDateField, formatDateForStorage(nextDate));
     }
   }
 
@@ -225,7 +228,7 @@ export default function RecordsFilterScreen() {
                   style={styles.pickerField}
                 >
                   <Text style={[styles.fieldValue, !draftFilters.startDate && styles.placeholderValue]}>
-                    {draftFilters.startDate ?? 'Select start date'}
+                    {formatDateForDisplay(draftFilters.startDate, profile.dateFormat) || 'Start date'}
                   </Text>
                   <AppIcon name="chevron-down" size={18} color="#7a7a7a" />
                 </Pressable>
@@ -236,7 +239,7 @@ export default function RecordsFilterScreen() {
                   style={styles.pickerField}
                 >
                   <Text style={[styles.fieldValue, !draftFilters.endDate && styles.placeholderValue]}>
-                    {draftFilters.endDate ?? 'Select end date'}
+                    {formatDateForDisplay(draftFilters.endDate, profile.dateFormat) || 'End date'}
                   </Text>
                   <AppIcon name="chevron-down" size={18} color="#7a7a7a" />
                 </Pressable>
@@ -329,15 +332,31 @@ export default function RecordsFilterScreen() {
               </Pressable>
             </View>
 
-            <BouncyPressable
-              accessibilityLabel="Apply filter"
-              accessibilityRole="button"
-              onPress={applyFilters}
-              style={styles.applyButton}
-            >
-              <AppIcon name="check" size={20} color="#fff" />
-              <Text style={styles.applyText}>Apply</Text>
-            </BouncyPressable>
+            <View style={styles.filterActionsRow}>
+              <BouncyPressable
+                accessibilityLabel="Clear filter"
+                accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
+                onPress={() => {
+                  setDraftFilters(DEFAULT_RECORD_FILTERS);
+                  setFilters(DEFAULT_RECORD_FILTERS);
+                  router.back();
+                }}
+                style={styles.clearFilterButton}
+              >
+                <Text style={styles.clearFilterText}>Clear filter</Text>
+              </BouncyPressable>
+              <BouncyPressable
+                accessibilityLabel="Apply filter"
+                accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
+                onPress={applyFilters}
+                style={styles.applyButton}
+              >
+                <AppIcon name="check" size={20} color="#fff" />
+                <Text style={styles.applyText}>Apply</Text>
+              </BouncyPressable>
+            </View>
           </ScrollView>
           </Pressable>
         </Animated.View>
@@ -558,8 +577,24 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 18,
   },
-  applyButton: {
+  filterActionsRow: {
     marginTop: 8,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  clearFilterButton: {
+    minHeight: 52,
+    borderRadius: 26,
+    backgroundColor: FILTER_FIELD_SURFACE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearFilterText: {
+    color: tokens.colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  applyButton: {
     minHeight: 52,
     borderRadius: 26,
     backgroundColor: tokens.colors.accent,
@@ -648,7 +683,6 @@ const styles = StyleSheet.create({
   },
   selectionTextActive: {
     color: '#74423F',
-    fontWeight: '700',
   },
   pressed: {
     opacity: 0.92,
@@ -665,36 +699,6 @@ function formatSelectionSummary(values: string[], placeholder: string) {
   }
 
   return `${values.slice(0, 2).join(', ')} +${values.length - 2}`;
-}
-
-function formatDate(date: Date) {
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(date);
-}
-
-function parseDateValue(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const [dayPart, monthPart, yearPart] = value.trim().split(/\s+/);
-
-  if (!dayPart || !monthPart || !yearPart) {
-    return null;
-  }
-
-  const day = Number(dayPart);
-  const year = Number(yearPart);
-  const month = MONTH_INDEX[monthPart.toLowerCase()];
-
-  if (!Number.isFinite(day) || !Number.isFinite(year) || month === undefined) {
-    return null;
-  }
-
-  return new Date(year, month, day);
 }
 
 function equalsIgnoreCase(left: string, right: string) {

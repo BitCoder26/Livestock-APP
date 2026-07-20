@@ -1,120 +1,53 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppIcon, AppIconName } from '../src/components/AppIcon';
+import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
+import { DesignField } from '../src/components/DesignField';
+import { DATE_FORMAT_OPTIONS, MEASUREMENT_UNIT_OPTIONS, type AppDateFormat } from '../src/entities/account';
+import { useAccount } from '../src/context/AccountContext';
 import { tokens } from '../src/theme/tokens';
 
-const WEBSITE_URL = 'https://livestockbook.app';
-const USERJOT_URL = 'https://livestockbook.userjot.com/?cursor=1&order=top&limit=10';
-const FACEBOOK_GROUP_URL = 'https://www.facebook.com/groups/1353099223626390/';
-const CONTACT_EMAIL = 'contact@livestockbook.app';
-
-type SettingsAction =
-  | 'account'
-  | 'upgrade'
-  | 'website'
-  | 'contact'
-  | 'feedback'
-  | 'facebook'
-  | 'whats-new'
-  | 'about'
-  | 'sign-out';
-
-const ITEMS: Array<{
-  label: string;
-  icon: AppIconName;
-  action: Exclude<SettingsAction, 'upgrade'>;
-  accent?: 'danger';
-  statusLabel?: string;
-  disabled?: boolean;
-}> = [
-  { label: 'Account', icon: 'profile', action: 'account' },
-  { label: 'Web Portal', icon: 'web_portal', action: 'website' },
-  { label: 'Contact', icon: 'mail', action: 'contact' },
-  { label: 'Feedback & Suggestions', icon: 'alert', action: 'feedback' },
-  { label: 'Facebook Group', icon: 'group', action: 'facebook' },
-  { label: "What's New", icon: 'notebook', action: 'whats-new' },
-  { label: 'About', icon: 'info', action: 'about' },
-  { label: 'Sign Out', icon: 'enter-arrow', action: 'sign-out', accent: 'danger' },
-];
-
-const ITEM_GROUPS = [
-  ITEMS.slice(0, 2),
-  ITEMS.slice(2, 5),
-  ITEMS.slice(5),
-] as const;
-
-const WHATS_NEW_UPDATES = [
-  'Refreshed bottom tab icons, including updated Animals, Setup, Export, and Records tab styling.',
-  'Added a real About page with app information, version details, developer info, and support links.',
-  'Improved the Settings screen with cleaner divider spacing and updated icons such as Web Portal and Upgrade to Pro.',
-  'Updated export action buttons and support actions to feel more polished and easier to use.',
-];
+const ACCOUNT_SURFACE_GREY = '#F1EFF3';
+const CURRENCY_OPTIONS = ['GBP', 'USD', 'EUR', 'AUD', 'CAD', 'NZD', 'ZAR', 'Other'] as const;
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const [showWhatsNew, setShowWhatsNew] = useState(false);
-  const whatsNewEntrance = useRef(new Animated.Value(0)).current;
+  const { profile, isLoaded, updateField, resetAppData } = useAccount();
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+  const [showDateFormatModal, setShowDateFormatModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedCurrency, setSelectedCurrency] = useState('GBP');
 
-  useEffect(() => {
-    if (!showWhatsNew) {
-      whatsNewEntrance.setValue(0);
-      return;
-    }
+  async function handleResetAppData() {
+    setIsSubmitting(true);
 
-    Animated.timing(whatsNewEntrance, {
-      toValue: 1,
-      duration: 380,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [showWhatsNew, whatsNewEntrance]);
-
-  function handleAction(action: SettingsAction) {
-    if (action === 'website') {
-      return openExternalTarget(WEBSITE_URL, 'Web Portal');
-    }
-
-    if (action === 'feedback') {
-      return openExternalTarget(USERJOT_URL, 'Feedback & Suggestions');
-    }
-
-    if (action === 'facebook') {
-      return openExternalTarget(FACEBOOK_GROUP_URL, 'Facebook Group');
-    }
-
-    if (action === 'contact') {
-      return router.push('/contact');
-    }
-
-    if (action === 'account') {
-      return router.push('/account');
-    }
-
-    if (action === 'upgrade') {
-      return Alert.alert('Upgrade to Pro', 'Add your upgrade flow here.');
-    }
-
-    if (action === 'whats-new') {
-      return setShowWhatsNew(true);
-    }
-
-    if (action === 'about') {
-      return router.push('/about');
-    }
-
-    if (action === 'sign-out') {
-      return Alert.alert('Sign Out', 'Add your sign-out flow here.');
+    try {
+      await resetAppData();
+      setShowResetModal(false);
+      Alert.alert('App data reset', 'Your local livestock data has been removed from this device.');
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-      <View style={styles.contentWrap}>
+  if (!isLoaded) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
         <AppTopBar
           title="Settings"
           leftAction={{
@@ -123,124 +56,334 @@ export default function SettingsScreen() {
             onPress: () => router.back(),
           }}
         />
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <BouncyPressable
-            accessibilityLabel="Upgrade to Pro"
-            accessibilityRole="button"
-            onPress={() => handleAction('upgrade')}
-            style={({ pressed }) => [styles.upgradeRow, pressed && styles.itemPressed]}
-          >
-            <AppIcon name="medal" size={30} color="#171717" />
-            <View style={styles.upgradeTextWrap}>
-              <Text style={styles.upgradeTitle}>Upgrade to Pro</Text>
-              <Text style={styles.upgradeSubtitle}>Unlock all features</Text>
-            </View>
-            <View style={styles.upgradeActionButton}><Text style={styles.upgradeActionButtonText}>Upgrade</Text></View>
-          </BouncyPressable>
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color={tokens.colors.accent} size="small" />
+          <Text style={styles.loadingText}>Loading settings</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-          {ITEM_GROUPS.map((group, groupIndex) => (
-            <View key={`group-${groupIndex}`}>
-              <View style={styles.groupBlock}>
-                {group.map((item) => (
-                  <Pressable
-                    key={item.label}
-                    accessibilityLabel={item.label}
-                    accessibilityRole="button"
-                    accessibilityState={item.disabled ? { disabled: true } : undefined}
-                    onPress={item.disabled ? undefined : () => handleAction(item.action)}
-                    style={({ pressed }) => [styles.itemRow, pressed && styles.itemPressed]}
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+      <AppTopBar
+        title="Settings"
+        leftAction={{
+          icon: 'back',
+          accessibilityLabel: 'Back',
+          onPress: () => router.back(),
+        }}
+      />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Preferences</Text>
+          <View style={styles.block}>
+            <Text style={styles.optionLabel}>Currency</Text>
+            <Pressable
+              accessibilityLabel="Select currency"
+              accessibilityRole="button"
+              onPress={() => setShowCurrencyModal(true)}
+              style={({ pressed }) => [styles.selectField, pressed && styles.pressed]}
+            >
+              <Text style={styles.selectValue}>{selectedCurrency}</Text>
+              <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+            </Pressable>
+          </View>
+
+          <View style={styles.block}>
+            <Text style={styles.optionLabel}>Default units</Text>
+            <View style={styles.optionWrap}>
+              {MEASUREMENT_UNIT_OPTIONS.map((option) => (
+                <Pressable
+                  key={option}
+                  accessibilityLabel={option}
+                  accessibilityRole="button"
+                  onPress={() => updateField('measurementUnits', option)}
+                  style={({ pressed }) => [
+                    styles.optionChip,
+                    profile.measurementUnits === option && styles.optionChipSelected,
+                    pressed && styles.optionChipPressed,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionText,
+                      profile.measurementUnits === option && styles.optionTextSelected,
+                    ]}
                   >
-                    <View style={styles.leftGroup}>
-                      <AppIcon name={item.icon} size={20} color="#171717" />
-                      <Text
-                        style={[
-                          styles.itemText,
-                          item.accent === 'danger' && styles.itemTextDanger,
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-                    </View>
-                    {item.statusLabel ? <Text style={styles.itemStatusText}>{item.statusLabel}</Text> : null}
-                  </Pressable>
-                ))}
-              </View>
-              {groupIndex < ITEM_GROUPS.length - 1 ? <View style={styles.groupDivider} /> : null}
-            </View>
-          ))}
-        </ScrollView>
-      </View>
-
-      <Modal transparent animationType="none" visible={showWhatsNew} onRequestClose={() => setShowWhatsNew(false)}>
-        <Pressable style={styles.overlay} onPress={() => setShowWhatsNew(false)}>
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.modalBackdrop, { opacity: whatsNewEntrance }]}
-          />
-          <Animated.View
-            style={[
-              styles.sheet,
-              {
-                opacity: whatsNewEntrance.interpolate({
-                  inputRange: [0, 0.28, 1],
-                  outputRange: [0, 1, 1],
-                }),
-                transform: [
-                  {
-                    translateY: whatsNewEntrance.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [140, 0],
-                    }),
-                  },
-                  {
-                    scale: whatsNewEntrance.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.985, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-          <Pressable onPress={() => undefined}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>What&apos;s New</Text>
-            </View>
-            <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
-              {WHATS_NEW_UPDATES.map((item, index) => (
-                <View key={item} style={styles.featureBlock}>
-                  <Text style={styles.featureLabel}>Update {index + 1}</Text>
-                  <Text style={styles.featureText}>{item}</Text>
-                </View>
+                    {option}
+                  </Text>
+                </Pressable>
               ))}
-            </ScrollView>
-          </Pressable>
-          </Animated.View>
+            </View>
+          </View>
+
+          <View style={styles.block}>
+            <Text style={styles.optionLabel}>Date format</Text>
+            <Pressable
+              accessibilityLabel="Select date format"
+              accessibilityRole="button"
+              onPress={() => setShowDateFormatModal(true)}
+              style={({ pressed }) => [styles.selectField, pressed && styles.pressed]}
+            >
+              <Text style={styles.selectValue}>{profile.dateFormat}</Text>
+              <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Danger Zone</Text>
+          <ActionButton
+            label="Reset app data"
+            variant="danger"
+            onPress={() => setShowResetModal(true)}
+          />
+        </View>
+      </ScrollView>
+
+      <SelectionModal
+        visible={showCurrencyModal}
+        title="Select currency"
+        options={[...CURRENCY_OPTIONS]}
+        selectedValue={selectedCurrency}
+        onSelect={(value) => {
+          setSelectedCurrency(value);
+          setShowCurrencyModal(false);
+        }}
+        onClose={() => setShowCurrencyModal(false)}
+      />
+
+      <SelectionModal
+        visible={showDateFormatModal}
+        title="Select date format"
+        options={[...DATE_FORMAT_OPTIONS]}
+        selectedValue={profile.dateFormat}
+        onSelect={(value) => {
+          updateField('dateFormat', value as AppDateFormat);
+          setShowDateFormatModal(false);
+        }}
+        onClose={() => setShowDateFormatModal(false)}
+      />
+
+      <Modal transparent animationType="fade" visible={showResetModal} onRequestClose={() => setShowResetModal(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowResetModal(false)}>
+          <AnimatedPopupCard visible={showResetModal} style={styles.sheet} onPress={() => undefined}>
+            <Text style={styles.sheetTitle}>Reset app data</Text>
+            <Text style={styles.sheetBody}>
+              This will remove your animals, records, setup items, and filters from this device. Your profile and preferences will stay in place.
+            </Text>
+            <View style={styles.sheetButtons}>
+              <SheetButton label="Cancel" variant="secondary" onPress={() => setShowResetModal(false)} />
+              <SheetButton
+                label={isSubmitting ? 'Resetting...' : 'Reset app data'}
+                variant="danger"
+                onPress={() => void handleResetAppData()}
+                disabled={isSubmitting}
+              />
+            </View>
+          </AnimatedPopupCard>
         </Pressable>
       </Modal>
+
     </SafeAreaView>
   );
 }
 
-async function openExternalTarget(url: string, label: string) {
-  if (url.includes('your-')) {
-    Alert.alert(label, `Replace the placeholder ${label.toUpperCase()} link in settings.tsx.`);
-    return;
-  }
+type SelectionModalProps = {
+  visible: boolean;
+  title: string;
+  options: string[];
+  selectedValue: string;
+  onSelect: (value: string) => void;
+  onClose: () => void;
+  clearLabel?: string;
+  customValue?: string;
+  onCustomValueChange?: (value: string) => void;
+  customLabel?: string;
+  customPlaceholder?: string;
+  customSubmitLabel?: string;
+  searchValue?: string;
+  onSearchValueChange?: (value: string) => void;
+  optionLabelPrefix?: (option: string) => string;
+};
 
-  try {
-    const supported = await Linking.canOpenURL(url);
+function SelectionModal({ visible, title, options, selectedValue, onSelect, onClose, clearLabel, customValue, onCustomValueChange, customLabel, customPlaceholder, customSubmitLabel, searchValue, onSearchValueChange, optionLabelPrefix }: SelectionModalProps) {
+  const trimmedCustomValue = customValue?.trim() ?? '';
+  const normalizedSearch = searchValue?.trim().toLowerCase() ?? '';
+  const filteredOptions = normalizedSearch.length === 0
+    ? options
+    : options.filter((option) => option.toLowerCase().includes(normalizedSearch));
 
-    if (!supported) {
-      Alert.alert(label, `Unable to open ${label} right now.`);
-      return;
-    }
+  return (
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <AnimatedPopupCard visible={visible} style={styles.selectionSheet} onPress={() => undefined}>
+          <Text style={styles.selectionTitle}>{title}</Text>
+          <ScrollView
+            style={styles.selectionScroll}
+            contentContainerStyle={styles.selectionScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {onSearchValueChange ? (
+              <View style={styles.selectionSearchBlock}>
+                <DesignField
+                  label="Search"
+                  value={searchValue ?? ''}
+                  onChangeText={onSearchValueChange}
+                  fieldStyle={styles.formField}
+                />
+              </View>
+            ) : null}
+            {onCustomValueChange ? (
+              <View style={styles.selectionCustomBlock}>
+                <DesignField
+                  label={customLabel ?? 'Custom value'}
+                  value={customValue ?? ''}
+                  onChangeText={onCustomValueChange}
+                  fieldStyle={styles.formField}
+                />
+                <BouncyPressable
+                  accessibilityLabel={customSubmitLabel ?? 'Save custom value'}
+                  accessibilityRole="button"
+                  disabled={trimmedCustomValue.length === 0}
+                  onPress={() => {
+                    if (trimmedCustomValue.length === 0) {
+                      return;
+                    }
 
-    await Linking.openURL(url);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : `Unable to open ${label} right now.`;
-    Alert.alert(label, message);
-  }
+                    onSelect(trimmedCustomValue);
+                  }}
+                  style={({ pressed }) => [
+                    styles.selectionCustomButton,
+                    trimmedCustomValue.length === 0 && styles.selectionCustomButtonDisabled,
+                    pressed && trimmedCustomValue.length > 0 && styles.actionButtonPressed,
+                  ]}
+                >
+                  <Text style={styles.selectionCustomButtonText}>{customSubmitLabel ?? 'Use custom industry'}</Text>
+                </BouncyPressable>
+              </View>
+            ) : null}
+            {clearLabel ? (
+              <Pressable
+                accessibilityLabel={clearLabel}
+                accessibilityRole="button"
+                onPress={() => onSelect('')}
+                style={[
+                  styles.selectionRow,
+                  selectedValue === '' && styles.selectionRowActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.selectionText,
+                    selectedValue === '' && styles.selectionTextActive,
+                  ]}
+                >
+                  {clearLabel}
+                </Text>
+                {selectedValue === '' ? <AppIcon name="check" size={18} color={tokens.colors.accentDeep} /> : null}
+              </Pressable>
+            ) : null}
+            {filteredOptions.map((option) => (
+              <Pressable
+                key={option}
+                accessibilityLabel={option}
+                accessibilityRole="button"
+                onPress={() => onSelect(option)}
+                style={[
+                  styles.selectionRow,
+                  selectedValue === option && styles.selectionRowActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.selectionText,
+                    selectedValue === option && styles.selectionTextActive,
+                  ]}
+                >
+                  {optionLabelPrefix ? `${optionLabelPrefix(option)} ${option}`.trim() : option}
+                </Text>
+                {selectedValue === option ? <AppIcon name="check" size={18} color={tokens.colors.accentDeep} /> : null}
+              </Pressable>
+            ))}
+          </ScrollView>
+        </AnimatedPopupCard>
+      </Pressable>
+    </Modal>
+  );
+}
+
+type ActionButtonProps = {
+  label: string;
+  onPress: () => void;
+  variant?: 'default' | 'danger';
+};
+
+function ActionButton({ label, onPress, variant = 'default' }: ActionButtonProps) {
+  const isDanger = variant === 'danger';
+
+  return (
+    <BouncyPressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.actionButton,
+        isDanger && styles.actionButtonDanger,
+        pressed && styles.actionButtonPressed,
+      ]}
+    >
+      <>
+        <Text
+          style={[
+            styles.actionText,
+            isDanger && styles.actionTextDanger,
+          ]}
+        >
+          {label}
+        </Text>
+        <View style={styles.actionChevron}>
+          <AppIcon name="chevron-right" size={12} color={isDanger ? '#FFFFFF' : '#EFEFEF'} />
+        </View>
+      </>
+    </BouncyPressable>
+  );
+}
+
+type SheetButtonProps = {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  variant?: 'default' | 'secondary' | 'danger';
+};
+
+function SheetButton({ label, onPress, disabled = false, variant = 'default' }: SheetButtonProps) {
+  return (
+    <BouncyPressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      containerStyle={{ flex: 1 }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.sheetButton,
+        variant === 'secondary' && styles.sheetButtonSecondary,
+        variant === 'danger' && styles.sheetButtonDanger,
+        disabled && styles.sheetButtonDisabled,
+        pressed && !disabled && styles.actionButtonPressed,
+      ]}
+    >
+      <Text
+        style={[
+          styles.sheetButtonText,
+          variant === 'secondary' && styles.sheetButtonTextSecondary,
+        ]}
+      >
+        {label}
+      </Text>
+    </BouncyPressable>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -248,143 +391,239 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.colors.background,
   },
-  contentWrap: {
-    flex: 1,
-  },
   content: {
     paddingHorizontal: 26,
     paddingTop: 18,
-    paddingBottom: 120,
+    paddingBottom: 44,
+    gap: 18,
   },
-  upgradeRow: {
-    minHeight: 84,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 18,
-    backgroundColor: 'rgba(231, 108, 102, 0.14)',
-    gap: 16,
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+  section: {
+    gap: 14,
   },
-  upgradeTextWrap: {
-    gap: 2,
-    flex: 1,
-  },
-  upgradeTitle: {
+  sectionTitle: {
     color: tokens.colors.text,
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: '700',
   },
-  upgradeSubtitle: {
-    color: tokens.colors.textSoft,
-    fontSize: 12,
+  block: {
+    gap: 8,
+  },
+  optionLabel: {
+    color: tokens.colors.text,
+    fontSize: 14,
     fontWeight: '500',
   },
-  upgradeActionButton: {
-    minWidth: 82,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: tokens.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    flexShrink: 0,
+  formField: {
+    backgroundColor: ACCOUNT_SURFACE_GREY,
+    borderWidth: 0,
   },
-  upgradeActionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  itemRow: {
-    minHeight: 38,
+  selectField: {
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: ACCOUNT_SURFACE_GREY,
+    borderWidth: 0,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  groupBlock: {
-    gap: 10,
+  selectValue: {
+    color: '#2b2b2b',
+    fontSize: 13,
+    fontWeight: '500',
   },
-  groupDivider: {
-    height: 1,
-    backgroundColor: 'rgba(23, 23, 23, 0.12)',
-    marginTop: 8,
-    marginBottom: 8,
+  optionWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  leftGroup: {
+  optionChip: {
+    borderRadius: 999,
+    backgroundColor: ACCOUNT_SURFACE_GREY,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  optionChipSelected: {
+    backgroundColor: '#FCE5E4',
+  },
+  optionChipPressed: {
+    opacity: 0.92,
+  },
+  optionText: {
+    color: '#555',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  optionTextSelected: {
+    color: '#74423F',
+  },
+  actionButton: {
+    minHeight: 54,
+    borderRadius: 27,
+    backgroundColor: ACCOUNT_SURFACE_GREY,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
   },
-  itemText: {
-    color: '#262626',
-    fontSize: 14,
-    fontWeight: '500',
+  actionButtonDanger: {
+    backgroundColor: '#C95656',
   },
-  itemTextDanger: {
-    color: tokens.colors.danger,
+  actionButtonPressed: {
+    opacity: 0.92,
   },
-  itemStatusText: {
-    color: 'rgba(38, 38, 38, 0.45)',
-    fontSize: 11,
-    fontWeight: '500',
+  pressed: {
+    opacity: 0.92,
   },
-  itemPressed: {
-    opacity: 0.86,
+  actionText: {
+    color: tokens.colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  actionTextDanger: {
+    color: '#fff',
   },
   overlay: {
-    position: 'absolute',
-    inset: 0,
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
     justifyContent: 'flex-end',
   },
-  modalBackdrop: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-  },
   sheet: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 26,
-    maxHeight: '86%',
+    gap: 14,
   },
-  sheetHeader: {
+  selectionSheet: {
+    marginHorizontal: 18,
+    marginBottom: 28,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    gap: 8,
+    maxHeight: '78%',
+  },
+  selectionScroll: {
+    flexGrow: 0,
+  },
+  selectionScrollContent: {
+    gap: 8,
+    paddingBottom: 4,
+  },
+  selectionSearchBlock: {
+    marginBottom: 6,
+  },
+  selectionCustomBlock: {
+    gap: 10,
+    marginBottom: 6,
+  },
+  selectionCustomButton: {
+    minHeight: 46,
+    borderRadius: 23,
+    backgroundColor: tokens.colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    paddingHorizontal: 16,
+  },
+  selectionCustomButtonDisabled: {
+    opacity: 0.45,
+  },
+  selectionCustomButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   sheetTitle: {
     color: tokens.colors.text,
     fontSize: 18,
     fontWeight: '700',
   },
-  sheetContent: {
-    gap: 16,
-    paddingBottom: 24,
+  selectionTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
   },
-  featureBlock: {
-    gap: 6,
+  selectionRow: {
+    minHeight: 46,
+    borderRadius: 18,
+    backgroundColor: '#F5F3F7',
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  featureLabel: {
-    color: tokens.colors.accent,
+  selectionRowActive: {
+    backgroundColor: '#FCE5E4',
+  },
+  selectionText: {
+    color: tokens.colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  selectionTextActive: {
+    color: '#74423F',
+  },
+  sheetBody: {
+    color: '#444',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  sheetButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  sheetButton: {
+    flex: 1,
+    minHeight: 54,
+    borderRadius: 27,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  sheetButtonSecondary: {
+    backgroundColor: '#F5F3F7',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  sheetButtonDanger: {
+    backgroundColor: '#C95656',
+  },
+  sheetButtonDisabled: {
+    opacity: 0.45,
+  },
+  sheetButtonText: {
+    color: '#fff',
     fontSize: 14,
     fontWeight: '700',
   },
-  featureText: {
-    color: '#383838',
+  sheetButtonTextSecondary: {
+    color: tokens.colors.text,
+  },
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    color: tokens.colors.textSoft,
     fontSize: 14,
-    lineHeight: 23,
-    fontWeight: '500',
+  },
+  actionChevron: {
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

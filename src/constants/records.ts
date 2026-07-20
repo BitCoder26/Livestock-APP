@@ -10,6 +10,7 @@ export const RECORD_TYPES = [
   'Health Check',
   'Sale',
   'Purchase',
+  'Count',
   'Other',
 ] as const;
 

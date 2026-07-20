@@ -38,10 +38,11 @@ export async function loadAccountProfile() {
 
   try {
     const parsed = JSON.parse(row.value) as Partial<AccountProfile>;
-
+    const normalizedPlan = parsed.plan === 'Pro' ? 'Basic' : parsed.plan;
     return {
       ...DEFAULT_ACCOUNT_PROFILE,
       ...parsed,
+      plan: normalizedPlan ?? DEFAULT_ACCOUNT_PROFILE.plan,
     };
   } catch {
     return DEFAULT_ACCOUNT_PROFILE;

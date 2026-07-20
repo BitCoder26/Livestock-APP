@@ -1,4 +1,5 @@
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
+import { useRef } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -7,27 +8,42 @@ import { AppTopBar } from '../../src/components/AppTopBar';
 import { BouncyPressable } from '../../src/components/BouncyPressable';
 import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton';
+import { getSpeciesThemeByLabel } from '../../src/constants/speciesTheme';
+import { useAccount } from '../../src/context/AccountContext';
+import { useOnboarding, useSpotlightTarget } from '../../src/context/OnboardingContext';
 import { useRecords } from '../../src/context/RecordsContext';
 import { tokens } from '../../src/theme/tokens';
+import { formatDateForDisplay } from '../../src/utils/dateFormat';
 
-const USERJOT_URL = 'https://livestockbook.userjot.com/?cursor=1&order=top&limit=10';
 const FACEBOOK_GROUP_URL = 'https://www.facebook.com/groups/1353099223626390/';
 
-function formatAnimalCount(record: { animalIds?: string[]; animalTag: string }) {
+function formatAnimalSummary(record: { animalIds?: string[]; animalTag: string; type?: string; headCount?: string }) {
+  if (record.type === 'Count') {
+    return `${record.headCount?.trim() || '?'} head counted`;
+  }
+
   const count = record.animalIds?.length ?? record.animalTag.split(',').map((value) => value.trim()).filter(Boolean).length;
-  return `${count} ${count === 1 ? 'animal' : 'animals'}`;
+
+  if (count === 1) {
+    return `1 animal (${record.animalTag.trim()})`;
+  }
+
+  return `${count} animals`;
 }
 
 export default function RecordsScreen() {
   const router = useRouter();
+  const { profile } = useAccount();
   const { records, filteredRecords, filters } = useRecords();
+  const { step } = useOnboarding();
+  const isFocused = useIsFocused();
+
+  const fabRef = useRef<View>(null);
+  useSpotlightTarget('record', step === 'record' && isFocused, fabRef);
   const hasActiveFilters = Object.values(filters).some((value) =>
     Array.isArray(value) ? value.length > 0 : Boolean(value),
   );
-  const shouldShowFacebookCard = records.length <= 2;
-  const shouldShowFeedbackCard = records.length >= 3;
-  const shouldShowPromoCard = shouldShowFacebookCard || shouldShowFeedbackCard;
-  const shouldFloatPromoCard = shouldShowPromoCard && filteredRecords.length === 0;
+  const shouldFloatPromoCard = filteredRecords.length === 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -41,9 +57,9 @@ export default function RecordsScreen() {
             onPress: () => router.push('/records-filter'),
           },
           {
-            icon: 'settings',
-            accessibilityLabel: 'Open settings',
-            onPress: () => router.push('/settings'),
+            icon: 'profile',
+            accessibilityLabel: 'Open account',
+            onPress: () => router.push('/account'),
           },
         ]}
       />
@@ -52,33 +68,24 @@ export default function RecordsScreen() {
           contentContainerStyle={[styles.content, filteredRecords.length === 0 && styles.emptyContent]}
           showsVerticalScrollIndicator={false}
         >
-          {shouldShowPromoCard ? (
-            <BouncyPressable
-              accessibilityLabel={shouldShowFacebookCard ? 'Open Facebook group' : 'Open feedback page'}
-              accessibilityRole="button"
-              containerStyle={shouldFloatPromoCard ? styles.facebookCardFloatingContainer : undefined}
-              onPress={() => {
-                if (shouldShowFacebookCard) {
-                  Linking.openURL(FACEBOOK_GROUP_URL);
-                  return;
-                }
-
-                Linking.openURL(USERJOT_URL);
-              }}
-              style={({ pressed }) => [
-                styles.facebookCard,
-                shouldFloatPromoCard && styles.facebookCardFloating,
-                pressed && styles.cardPressed,
-              ]}
-            >
-              <AppIcon name={shouldShowFacebookCard ? 'group' : 'alert'} size={24} color="#171717" />
-              <View style={styles.facebookCopy}>
-                <Text style={styles.facebookTitle}>{shouldShowFacebookCard ? 'Join the Facebook group' : 'Help us improve'}</Text>
-                <Text style={styles.facebookText}>{shouldShowFacebookCard ? 'Users share tips, discuss the app, and offer support there.' : 'Share feedback and ideas to help shape the app.'}</Text>
-              </View>
-              <View style={styles.facebookJoinButton}><Text style={styles.facebookJoinButtonText}>{shouldShowFacebookCard ? 'Join' : 'Share feedback'}</Text></View>
-            </BouncyPressable>
-          ) : null}
+          <BouncyPressable
+            accessibilityLabel="Open Facebook group"
+            accessibilityRole="button"
+            containerStyle={shouldFloatPromoCard ? styles.facebookCardFloatingContainer : undefined}
+            onPress={() => Linking.openURL(FACEBOOK_GROUP_URL)}
+            style={({ pressed }) => [
+              styles.facebookCard,
+              shouldFloatPromoCard && styles.facebookCardFloating,
+              pressed && styles.cardPressed,
+            ]}
+          >
+            <AppIcon name="group" size={24} color="#171717" />
+            <View style={styles.facebookCopy}>
+              <Text style={styles.facebookTitle}>Join the Facebook group</Text>
+              <Text style={styles.facebookText}>Users share tips, discuss the app, and offer support there.</Text>
+            </View>
+            <View style={styles.facebookJoinButton}><Text style={styles.facebookJoinButtonText}>Join</Text></View>
+          </BouncyPressable>
           <Text style={[styles.countText, shouldFloatPromoCard && styles.countTextBelowFloatingFacebook]}>{hasActiveFilters ? `${filteredRecords.length} of ${records.length} records` : `${records.length} records`}</Text>
           {filteredRecords.length === 0 ? (
             <View style={styles.emptyState}>
@@ -87,52 +94,43 @@ export default function RecordsScreen() {
               <Text style={styles.emptyText}>{hasActiveFilters ? 'Try fewer filters' : 'Add below'}</Text>
             </View>
           ) : (
-            filteredRecords.map((record) => (
-              <BouncyPressable
-                key={record.id}
-                accessibilityRole="button"
-                onPress={() => router.push({ pathname: '/view-record', params: { recordId: record.id } })}
-                style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-              >
-                <View style={styles.cardCopy}>
-                  <Text style={styles.cardDate}>{record.date}</Text>
-                  <Text style={styles.cardType}>{record.type}</Text>
-                  <View style={styles.cardFooterRow}>
-                    <View
-                      style={[
-                        styles.speciesChip,
-                        record.speciesTone === 'sheep'
-                          ? styles.sheepChip
-                          : record.speciesTone === 'pig'
-                            ? styles.pigChip
-                            : styles.cowChip,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.speciesChipText,
-                          record.speciesTone === 'sheep'
-                            ? styles.sheepChipText
-                            : record.speciesTone === 'pig'
-                              ? styles.pigChipText
-                              : styles.cowChipText,
-                        ]}
-                      >
-                        {record.species}
-                      </Text>
+            filteredRecords.map((record) => {
+              const speciesTheme = getSpeciesThemeByLabel(record.species);
+
+              return (
+                <BouncyPressable
+                  key={record.id}
+                  accessibilityRole="button"
+                  onPress={() => router.push({ pathname: '/view-record', params: { recordId: record.id } })}
+                  style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+                >
+                  <View style={styles.cardCopy}>
+                    <Text style={styles.cardTypeTitle} numberOfLines={1}>
+                      {record.type}
+                    </Text>
+                    <Text style={styles.cardDate} numberOfLines={1}>
+                      {formatDateForDisplay(record.date, profile.dateFormat)}
+                    </Text>
+                    <View style={styles.footerRow}>
+                      <View style={[styles.speciesChip, { backgroundColor: speciesTheme.chipBackground }]}>
+                        <Text style={[styles.speciesChipText, { color: speciesTheme.text }]}>{record.species}</Text>
+                      </View>
+                      <View style={styles.animalMetaRow}>
+                        <Text style={styles.cardMeta}>{formatAnimalSummary(record)}</Text>
+                      </View>
                     </View>
-                    <Text style={styles.cardMeta}>{formatAnimalCount(record)}</Text>
                   </View>
-                </View>
-                <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
-              </BouncyPressable>
-            ))
+                  <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
+                </BouncyPressable>
+              );
+            })
           )}
         </ScrollView>
       </View>
       <FloatingActionButton
         accessibilityLabel="Add record"
         onPress={() => router.push({ pathname: '/add-record', params: { reveal: '1' } })}
+        positionerRef={fabRef}
       />
       </TabSwipeView>
     </SafeAreaView>
@@ -142,7 +140,7 @@ export default function RecordsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: tokens.colors.background,
   },
   body: {
     flex: 1,
@@ -187,83 +185,66 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    minHeight: 96,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: 18,
+    minHeight: 84,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: 'rgba(28, 28, 28, 0.06)',
+    gap: 12,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOpacity: 0.16,
+    shadowRadius: 7,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    elevation: 4,
   },
   cardPressed: {
     opacity: 0.92,
   },
   cardCopy: {
     flex: 1,
-    gap: 4,
-    paddingRight: 10,
+    gap: 5,
+    minWidth: 0,
   },
-  cardDate: {
+  cardTypeTitle: {
     color: tokens.colors.text,
     fontSize: 16,
     fontWeight: '700',
+    flexShrink: 1,
   },
-  cardType: {
+  cardDate: {
     color: tokens.colors.textSoft,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
+    flexShrink: 0,
   },
-  cardFooterRow: {
+  footerRow: {
     marginTop: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   cardMeta: {
-    color: '#544F49',
+    color: tokens.colors.muted,
     fontSize: 11,
     fontWeight: '600',
-    flex: 1,
   },
-  speciesChip: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
+  animalMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     flexShrink: 0,
   },
-  cowChip: {
-    backgroundColor: '#FCE5E4',
-    borderColor: '#E79D99',
-  },
-  sheepChip: {
-    backgroundColor: '#E7F1DA',
-    borderColor: '#BFD7A6',
-  },
-  pigChip: {
-    backgroundColor: '#DCEAF9',
-    borderColor: '#90B9DE',
+  speciesChip: {
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    flexShrink: 0,
   },
   speciesChipText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  cowChipText: {
-    color: '#5b4747',
-  },
-  sheepChipText: {
-    color: '#4b6040',
-  },
-  pigChipText: {
-    color: '#4b6483',
+    fontSize: 11,
+    fontWeight: '600',
   },
   facebookCard: {
     minHeight: 84,

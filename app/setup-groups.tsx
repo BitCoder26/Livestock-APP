@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,6 +8,7 @@ import { AppTopBar } from '../src/components/AppTopBar';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
+import { InfoModal } from '../src/components/InfoModal';
 import { SPECIES_OPTIONS } from '../src/constants/records';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
 import { useSetup } from '../src/context/SetupContext';
@@ -22,10 +23,17 @@ export default function SetupGroupsScreen() {
   const [farm, setFarm] = useState('');
   const [selectedPaddocks, setSelectedPaddocks] = useState<string[]>([]);
   const [species, setSpecies] = useState('');
-  const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
+  const [displayPicker, setDisplayPicker] = useState<Exclude<PickerKey, null>>('species');
   const [groupPendingDelete, setGroupPendingDelete] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
+
+  useEffect(() => {
+    if (activePicker) {
+      setDisplayPicker(activePicker);
+    }
+  }, [activePicker]);
 
   const paddockOptions = useMemo(
     () => paddockEntities.filter((paddock) => !farm || paddock.farm === farm).map((paddock) => paddock.name),
@@ -38,7 +46,6 @@ export default function SetupGroupsScreen() {
       farm,
       paddocks: selectedPaddocks,
       species,
-      description,
       animals: '',
       notes,
     });
@@ -51,7 +58,6 @@ export default function SetupGroupsScreen() {
     setFarm('');
     setSelectedPaddocks([]);
     setSpecies('');
-    setDescription('');
     setNotes('');
   };
 
@@ -66,7 +72,17 @@ export default function SetupGroupsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-      <AppTopBar title="Groups" leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: () => router.back() }} />
+      <AppTopBar
+        title="Groups"
+        leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: () => router.back() }}
+        actions={[
+          {
+            icon: 'help-circle',
+            accessibilityLabel: 'About groups',
+            onPress: () => setShowHelp(true),
+          },
+        ]}
+      />
       <ScrollView contentContainerStyle={[styles.content, groupEntities.length === 0 && styles.emptyContent]} showsVerticalScrollIndicator={false}>
         <View style={styles.editorCard}>
           <Text style={styles.sectionLabel}>Animal groups</Text>
@@ -85,7 +101,7 @@ export default function SetupGroupsScreen() {
               setActivePicker('farm');
             }}
           />
-          <Pressable accessibilityRole="button" onPress={() => router.push('/setup-farms')}>
+          <Pressable accessibilityLabel="Add farm" accessibilityRole="button" hitSlop={10} onPress={() => router.push('/setup-farms')}>
             <Text style={styles.helperLink}>+ Add Farm</Text>
           </Pressable>
           <SelectionField
@@ -102,11 +118,10 @@ export default function SetupGroupsScreen() {
             }}
             isPlaceholder={selectedPaddocks.length === 0}
           />
-          <Pressable accessibilityRole="button" onPress={() => router.push('/setup-paddocks')}>
+          <Pressable accessibilityLabel="Add paddock" accessibilityRole="button" hitSlop={10} onPress={() => router.push('/setup-paddocks')}>
             <Text style={styles.helperLink}>+ Add Paddock</Text>
           </Pressable>
           <SelectionField label="Species" value={species} emptyLabel="Select species" onPress={() => setActivePicker('species')} />
-          <DesignField value={description} label="Description / Purpose" onChangeText={setDescription} />
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
           <BouncyPressable accessibilityRole="button" accessibilityLabel="Add group" onPress={handleAddGroup} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
@@ -144,7 +159,6 @@ export default function SetupGroupsScreen() {
                     <Text key={paddock} style={styles.metaPill}>{paddock}</Text>
                   ))}
                 </View>
-                {group.description ? <Text style={styles.detailText}>{group.description}</Text> : null}
                 {group.notes ? <Text style={styles.itemNotes}>{group.notes}</Text> : null}
               </View>
             ))}
@@ -178,11 +192,20 @@ export default function SetupGroupsScreen() {
 
       <Modal transparent animationType="fade" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
-          <AnimatedPopupCard visible={activePicker !== null} style={activePicker === 'species' ? styles.modalCard : styles.selectionCard} onPress={() => {}}>
-            {activePicker === 'species' ? (
+          <AnimatedPopupCard visible={activePicker !== null} style={displayPicker === 'species' ? styles.modalCard : styles.selectionCard} onPress={() => {}}>
+            {displayPicker === 'species' ? (
               <>
                 <View style={styles.speciesModalHeader}>
                   <Text style={styles.speciesModalTitle}>Select Species</Text>
+                  <Pressable
+                    accessibilityLabel="Close species selector"
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    onPress={() => setActivePicker(null)}
+                    style={styles.speciesModalClose}
+                  >
+                    <AppIcon name="close" size={16} color={tokens.colors.text} />
+                  </Pressable>
                 </View>
                 <ScrollView contentContainerStyle={styles.speciesModalGrid} showsVerticalScrollIndicator={false}>
                   {SPECIES_OPTIONS.map((item) => {
@@ -212,11 +235,11 @@ export default function SetupGroupsScreen() {
             ) : (
               <>
                 <Text style={styles.selectionTitle}>
-                  {activePicker === 'farm' ? 'Select farm' : 'Select paddocks'}
+                  {displayPicker === 'farm' ? 'Select farm' : 'Select paddocks'}
                 </Text>
                 <ScrollView showsVerticalScrollIndicator={false}>
                   <View style={styles.modalList}>
-                    {activePicker === 'farm'
+                    {displayPicker === 'farm'
                       ? farms.map((option) => {
                           const isSelected = farm === option;
                           return (
@@ -247,7 +270,7 @@ export default function SetupGroupsScreen() {
                 </ScrollView>
               </>
             )}
-            {activePicker === 'paddocks' ? (
+            {displayPicker === 'paddocks' ? (
               <BouncyPressable accessibilityRole="button" onPress={() => setActivePicker(null)} style={({ pressed }) => [styles.doneButton, pressed && styles.pressed]}>
                 <Text style={styles.doneButtonText}>Done</Text>
               </BouncyPressable>
@@ -255,6 +278,12 @@ export default function SetupGroupsScreen() {
           </AnimatedPopupCard>
         </Pressable>
       </Modal>
+      <InfoModal
+        visible={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Groups"
+        description="Groups let you organise animals into mobs or management groups, tied to a farm, paddocks and species, so you can move, treat and record them together instead of one at a time."
+      />
     </SafeAreaView>
   );
 }
@@ -366,7 +395,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  detailText: { color: tokens.colors.text, fontSize: 13, fontWeight: '500', lineHeight: 18 },
   detailSubtext: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '500' },
   itemNotes: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '500', lineHeight: 17 },
   centeredModalBackdrop: {
@@ -467,7 +495,7 @@ const styles = StyleSheet.create({
   },
   selectionRowActive: { backgroundColor: '#FCE5E4' },
   selectionText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
-  selectionTextActive: { color: '#74423F', fontWeight: '700' },
+  selectionTextActive: { color: '#74423F' },
   speciesModalGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -484,6 +512,15 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
     fontSize: 18,
     fontWeight: '700',
+  },
+  speciesModalClose: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   speciesModalCard: {
     width: '48%',

@@ -1,6 +1,6 @@
 import MaskedView from '@react-native-masked-view/masked-view';
 import type { ReactNode } from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 const BUTTON_DIAMETER = 68;
@@ -17,23 +17,39 @@ export function CircularRevealView({
 }) {
   const { width, height } = useWindowDimensions();
   const progress = useRef(new Animated.Value(active ? 0 : 1)).current;
+  // MaskedView keeps hit-testing broken for its content even once the mask
+  // visually covers the whole screen, so it must be unmounted once the
+  // reveal finishes rather than left wrapping the screen forever.
+  const [isRevealing, setIsRevealing] = useState(active);
 
   useEffect(() => {
     if (!active) {
       progress.setValue(1);
+      setIsRevealing(false);
       return;
     }
 
+    setIsRevealing(true);
     progress.setValue(0);
-    Animated.timing(progress, {
+    const animation = Animated.timing(progress, {
       toValue: 1,
       duration: REVEAL_DURATION,
       easing: Easing.inOut(Easing.cubic),
       useNativeDriver: true,
-    }).start();
+    });
+
+    animation.start(({ finished }) => {
+      if (finished) {
+        setIsRevealing(false);
+      }
+    });
+
+    return () => {
+      animation.stop();
+    };
   }, [active, progress]);
 
-  if (!active) {
+  if (!isRevealing) {
     return <View style={styles.content}>{children}</View>;
   }
 

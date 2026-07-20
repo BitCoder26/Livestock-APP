@@ -48,15 +48,15 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.background,
   },
   content: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 26,
     paddingTop: 20,
     paddingBottom: 120,
     gap: 14,
   },
   heading: {
     color: tokens.colors.text,
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
   },
   intro: {
     color: '#4a4a4a',

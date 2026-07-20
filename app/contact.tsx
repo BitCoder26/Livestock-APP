@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.background,
   },
   content: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 26,
     paddingTop: 20,
     paddingBottom: 120,
   },

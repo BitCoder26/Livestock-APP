@@ -13,7 +13,7 @@ const THEMES = {
   cow: {
     tintBackground: '#FBE7E3',
     tintBorder: '#EAB1AB',
-    chipBackground: '#FDF0ED',
+    chipBackground: '#F9E9E5',
     chipBorder: '#EAB1AB',
     text: '#6A5452',
     icon: '#6A5452',
@@ -21,7 +21,7 @@ const THEMES = {
   pig: {
     tintBackground: '#E3EEF9',
     tintBorder: '#AAC9E4',
-    chipBackground: '#EEF5FC',
+    chipBackground: '#E7F1FB',
     chipBorder: '#AAC9E4',
     text: '#58708B',
     icon: '#58708B',
@@ -29,7 +29,7 @@ const THEMES = {
   sheep: {
     tintBackground: '#EAF2DD',
     tintBorder: '#C7D8A9',
-    chipBackground: '#F1F6E8',
+    chipBackground: '#EDF4E2',
     chipBorder: '#C7D8A9',
     text: '#5E6E50',
     icon: '#5E6E50',
@@ -37,7 +37,7 @@ const THEMES = {
   goat: {
     tintBackground: '#EEE7F8',
     tintBorder: '#C9B9E3',
-    chipBackground: '#F5F0FB',
+    chipBackground: '#F0EAF9',
     chipBorder: '#C9B9E3',
     text: '#6A5A86',
     icon: '#6A5A86',
@@ -45,7 +45,7 @@ const THEMES = {
   poultry: {
     tintBackground: '#F8EFCB',
     tintBorder: '#DEC98F',
-    chipBackground: '#FBF4DF',
+    chipBackground: '#F8F0D6',
     chipBorder: '#DEC98F',
     text: '#816D43',
     icon: '#816D43',
@@ -53,7 +53,7 @@ const THEMES = {
   equine: {
     tintBackground: '#F3DED0',
     tintBorder: '#D1AE97',
-    chipBackground: '#F8E9E0',
+    chipBackground: '#F5E4DA',
     chipBorder: '#D1AE97',
     text: '#7A5947',
     icon: '#7A5947',
@@ -61,7 +61,7 @@ const THEMES = {
   camelid: {
     tintBackground: '#DDEFEA',
     tintBorder: '#A3CCC4',
-    chipBackground: '#ECF7F4',
+    chipBackground: '#E5F2EE',
     chipBorder: '#A3CCC4',
     text: '#53756F',
     icon: '#53756F',
@@ -69,7 +69,7 @@ const THEMES = {
   neutral: {
     tintBackground: '#EEE9EC',
     tintBorder: '#D8CED3',
-    chipBackground: '#F4EFF2',
+    chipBackground: '#EFE8EC',
     chipBorder: '#D8CED3',
     text: '#696366',
     icon: '#696366',

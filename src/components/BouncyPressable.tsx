@@ -41,27 +41,26 @@ export function BouncyPressable({
   };
 
   const handlePress = (event: GestureResponderEvent) => {
-    if (!onPress || isAnimatingRef.current) {
-      return;
+    if (!isAnimatingRef.current) {
+      isAnimatingRef.current = true;
+      scale.stopAnimation();
+      Animated.sequence([
+        Animated.timing(scale, {
+          toValue: 1.035,
+          duration: 75,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 1,
+          duration: 70,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        isAnimatingRef.current = false;
+      });
     }
 
-    isAnimatingRef.current = true;
-    scale.stopAnimation();
-    Animated.sequence([
-      Animated.timing(scale, {
-        toValue: 1.035,
-        duration: 75,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scale, {
-        toValue: 1,
-        duration: 70,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      isAnimatingRef.current = false;
-      onPress(event);
-    });
+    onPress?.(event);
   };
 
   return (

@@ -7,29 +7,39 @@ import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
+import { InfoModal } from '../src/components/InfoModal';
 import { useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
 
 export default function SetupFarmsScreen() {
   const router = useRouter();
-  const { farmEntities, addFarm, removeFarm } = useSetup();
+  const { farmEntities, addFarm, removeFarm, pendingSetupSelectionTarget, resolveSetupSelection } = useSetup();
   const [farmName, setFarmName] = useState('');
   const [holdingId, setHoldingId] = useState('');
   const [address, setAddress] = useState('');
   const [country, setCountry] = useState('');
   const [notes, setNotes] = useState('');
   const [farmPendingDelete, setFarmPendingDelete] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   const handleAddFarm = () => {
+    const nextFarmName = farmName.trim();
+
     addFarm({
-      name: farmName,
+      name: nextFarmName,
       holdingId,
       address,
       country,
       notes,
     });
 
-    if (!farmName.trim()) {
+    if (!nextFarmName) {
+      return;
+    }
+
+    if (pendingSetupSelectionTarget === 'fromFarm' || pendingSetupSelectionTarget === 'toFarm') {
+      resolveSetupSelection(nextFarmName);
+      router.back();
       return;
     }
 
@@ -58,6 +68,13 @@ export default function SetupFarmsScreen() {
           accessibilityLabel: 'Back',
           onPress: () => router.back(),
         }}
+        actions={[
+          {
+            icon: 'help-circle',
+            accessibilityLabel: 'About farms',
+            onPress: () => setShowHelp(true),
+          },
+        ]}
       />
       <ScrollView
         contentContainerStyle={[styles.content, farmEntities.length === 0 && styles.emptyContent]}
@@ -183,6 +200,12 @@ export default function SetupFarmsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+      <InfoModal
+        visible={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Farms"
+        description="Farms are the physical properties where you keep your livestock. Add every farm you manage here so you can tag animals, records, and paddocks to the right location, and filter or export by farm later."
+      />
     </SafeAreaView>
   );
 }

@@ -16,6 +16,9 @@ export type RecordEntry = {
   doseUnit?: string;
   route?: string;
   withdrawal?: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  headCount?: string;
   imageUris?: string[];
   recordTitle?: string;
   weight?: string;

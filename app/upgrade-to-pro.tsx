@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Easing, Image, Linking, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
@@ -10,6 +10,8 @@ import { useSubscription } from '../src/context/SubscriptionContext';
 import { tokens } from '../src/theme/tokens';
 
 const PERKS = ['Unlimited animals', 'Unlimited records'];
+const PRIVACY_POLICY_URL = 'https://livestockbook.app/privacy.html';
+const TERMS_OF_USE_URL = 'https://livestockbook.app/terms.html';
 
 type PlanId = 'monthly' | 'yearly';
 
@@ -409,16 +411,26 @@ export default function UpgradeToProScreen() {
                 <Text style={styles.restoreButtonText}>Restore Purchases</Text>
               )}
             </BouncyPressable>
+            <View style={styles.legalRow}>
+              <Text
+                accessibilityRole="link"
+                onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+                style={styles.legalLink}
+              >
+                Privacy Policy
+              </Text>
+              <Text style={styles.legalDivider}>•</Text>
+              <Text
+                accessibilityRole="link"
+                onPress={() => Linking.openURL(TERMS_OF_USE_URL)}
+                style={styles.legalLink}
+              >
+                Terms of Use
+              </Text>
+            </View>
             {__DEV__ && !configured ? (
               <Text style={styles.helperText}>
                 Add `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` to enable purchases.
-              </Text>
-            ) : null}
-            {__DEV__ ? (
-              <Text style={styles.helperText}>
-                {activeEntitlementId
-                  ? `Active entitlement: ${activeEntitlementId}`
-                  : 'Entitlement identifier: pro'}
               </Text>
             ) : null}
             {showDiagnostics ? (
@@ -476,26 +488,26 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 22,
-    paddingTop: 4,
-    paddingBottom: 6,
-    gap: 8,
+    paddingTop: 3,
+    paddingBottom: 5,
+    gap: 6,
   },
   heroBlock: {
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
   },
   crownPlate: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#FBF2DC',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   heroTitle: {
     color: tokens.colors.text,
-    fontSize: 21,
+    fontSize: 20,
     fontWeight: '800',
   },
   heroLead: {
@@ -503,8 +515,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 10,
+    marginTop: 3,
+    marginBottom: 7,
   },
   limitNote: {
     color: tokens.colors.textSoft,
@@ -512,15 +524,15 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
     marginTop: 2,
-    marginBottom: 8,
+    marginBottom: 6,
     paddingHorizontal: 8,
   },
   perksCard: {
     backgroundColor: tokens.colors.surfaceMuted,
     borderRadius: tokens.radius.md,
-    padding: 14,
-    gap: 8,
-    marginBottom: 14,
+    padding: 12,
+    gap: 6,
+    marginBottom: 10,
   },
   perksTitle: {
     color: tokens.colors.text,
@@ -550,7 +562,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   pricingBlock: {
-    gap: 8,
+    gap: 6,
   },
   taxNote: {
     color: tokens.colors.muted,
@@ -570,7 +582,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.md,
     borderWidth: 2,
     borderColor: tokens.colors.border,
-    paddingVertical: 12,
+    paddingVertical: 11,
     paddingHorizontal: 12,
   },
   planCardSelected: {
@@ -640,7 +652,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   upgradeButton: {
-    minHeight: 54,
+    minHeight: 52,
     borderRadius: tokens.radius.pill,
     backgroundColor: tokens.colors.accent,
     alignItems: 'center',
@@ -655,11 +667,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   restoreButton: {
-    minHeight: 52,
+    minHeight: 50,
     borderRadius: tokens.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F4F0E5',
+    backgroundColor: 'rgba(221, 101, 96, 0.14)',
   },
   restoreButtonText: {
     color: tokens.colors.accentDeep,
@@ -671,6 +683,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     textAlign: 'center',
+  },
+  legalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  legalLink: {
+    color: tokens.colors.textSoft,
+    fontSize: 12,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  legalDivider: {
+    color: tokens.colors.muted,
+    fontSize: 12,
   },
   diagnosticsCard: {
     backgroundColor: '#F7F3E8',

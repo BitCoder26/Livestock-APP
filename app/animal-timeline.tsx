@@ -1,18 +1,21 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useRecords } from '../src/context/RecordsContext';
 import type { RecordEntry } from '../src/entities/record';
 import { tokens } from '../src/theme/tokens';
+import { formatDateForDisplay, parseStoredDate } from '../src/utils/dateFormat';
 
 export default function AnimalTimelineScreen() {
   const router = useRouter();
   const { animalId } = useLocalSearchParams<{ animalId?: string }>();
+  const { profile } = useAccount();
   const { animals } = useAnimals();
   const { records } = useRecords();
 
@@ -34,6 +37,37 @@ export default function AnimalTimelineScreen() {
   const primaryImageUri = animal?.imageUris?.[0] ?? null;
   const galleryImageUris = animal?.imageUris?.slice(1) ?? [];
 
+  const handleShareAnimal = async () => {
+    if (!animal) {
+      Alert.alert('Animal not found', 'There is no animal to share right now.');
+      return;
+    }
+
+    const shareSections = [
+      animal.name.trim() || 'Unnamed animal',
+      `ID: ${animal.id}`,
+      animal.species.trim() ? `Species: ${animal.species.trim()}` : '',
+      animal.breed.trim() ? `Breed: ${animal.breed.trim()}` : '',
+      animal.ageLabel.trim() ? `Age: ${animal.ageLabel.trim()}` : '',
+      animal.weight.trim() ? `Weight: ${formatAnimalWeight(animal.weight, animal.weightUnit)}` : '',
+      animal.farm.trim() ? `Farm: ${animal.farm.trim()}` : '',
+      animal.paddock.trim() ? `Paddock: ${animal.paddock.trim()}` : '',
+      animal.group.trim() ? `Group: ${animal.group.trim()}` : '',
+      `Status: ${animal.status}`,
+      animal.notes.trim() ? `Notes: ${animal.notes.trim()}` : '',
+      `Timeline records: ${timelineRecords.length}`,
+    ].filter(Boolean);
+
+    try {
+      await Share.share({
+        title: animal.name.trim() || animal.id,
+        message: shareSections.join('\n'),
+      });
+    } catch {
+      Alert.alert('Share unavailable', 'Unable to open the share sheet right now.');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
@@ -46,6 +80,12 @@ export default function AnimalTimelineScreen() {
         actions={
           animal
             ? [
+                {
+                  icon: 'share-outline',
+                  accessibilityLabel: 'Share',
+                  onPress: handleShareAnimal,
+                  size: 22,
+                },
                 {
                   icon: 'edit',
                   accessibilityLabel: 'Edit animal',
@@ -92,7 +132,7 @@ export default function AnimalTimelineScreen() {
               <SummaryDetail label="Breed" value={animal.breed} />
               <SummaryDetail label="Weight" value={formatAnimalWeight(animal.weight, animal.weightUnit)} />
               <SummaryDetail label="Age" value={animal.ageLabel} />
-              <SummaryDetail label="Date of birth" value={animal.dateOfBirth} />
+              <SummaryDetail label="Date of birth" value={formatDateForDisplay(animal.dateOfBirth, profile.dateFormat)} />
               <SummaryDetail label="Farm" value={animal.farm} />
               <SummaryDetail label="Paddock" value={animal.paddock} />
               <SummaryDetail label="Group" value={animal.group} />
@@ -138,14 +178,14 @@ export default function AnimalTimelineScreen() {
 
               return (
                 <View key={record.id} style={styles.timelineRow}>
-                  <Text style={styles.recordDate}>{record.date}</Text>
+                  <Text style={styles.recordDate}>{formatDateForDisplay(record.date, profile.dateFormat)}</Text>
                   <View style={styles.railColumn}>
                     {!isLast ? <View style={styles.railLine} /> : null}
                     <View style={styles.railDot} />
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${record.type} on ${record.date}`}
+                    accessibilityLabel={`${record.type} on ${formatDateForDisplay(record.date, profile.dateFormat)}`}
                     onPress={() => router.push({ pathname: '/view-record', params: { recordId: record.id } })}
                     style={({ pressed }) => [styles.recordCard, pressed && styles.cardPressed]}
                   >
@@ -190,16 +230,7 @@ function recordBelongsToAnimal(record: RecordEntry, animalId: string, animalName
 }
 
 function getRecordTimestamp(value: string) {
-  const [dayPart, monthPart, yearPart] = value.trim().split(/\s+/);
-  const monthIndex = MONTH_INDEX[monthPart?.toLowerCase() ?? ''];
-  const day = Number(dayPart);
-  const year = Number(yearPart);
-
-  if (!Number.isFinite(day) || !Number.isFinite(year) || monthIndex === undefined) {
-    return 0;
-  }
-
-  return new Date(year, monthIndex, day).getTime();
+  return parseStoredDate(value)?.getTime() ?? 0;
 }
 
 function getTimelineDetails(record: RecordEntry) {
@@ -287,9 +318,9 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   summaryProfileImage: {
-    width: 78,
-    height: 78,
-    borderRadius: 20,
+    width: 116,
+    height: 116,
+    borderRadius: 28,
     backgroundColor: tokens.colors.surfaceMuted,
   },
   summaryId: {
@@ -453,7 +484,7 @@ const styles = StyleSheet.create({
   },
   recordCopy: {
     flex: 1,
-    gap: 4,
+    gap: 2,
     paddingRight: 10,
   },
   recordTitle: {
@@ -464,7 +495,7 @@ const styles = StyleSheet.create({
   recordDetails: {
     color: tokens.colors.textSoft,
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 16,
     fontWeight: '500',
   },
 });

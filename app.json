@@ -1,13 +1,16 @@
 {
   "expo": {
-    "name": "Livestock App",
+    "name": "LivestockBook",
     "slug": "livestock-app",
-    "version": "1.0.0",
+    "scheme": "app.livestockbook",
+    "version": "1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "buildNumber": "1",
+      "bundleIdentifier": "app.livestockbook"
     },
     "android": {
       "adaptiveIcon": {
@@ -16,17 +19,36 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 1,
+      "package": "app.livestockbook"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#DD6560",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain"
+        }
+      ],
       "expo-router",
       "expo-sqlite",
       "expo-sharing",
       "@react-native-community/datetimepicker",
-      "expo-asset"
+      "expo-asset",
+      "expo-localization",
+      "posthog-react-native/expo",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow LivestockBook to access your photos to attach images to animals and records."
+        }
+      ]
     ]
   }
 }

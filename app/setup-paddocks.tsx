@@ -8,6 +8,7 @@ import { AppTopBar } from '../src/components/AppTopBar';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
+import { InfoModal } from '../src/components/InfoModal';
 import { useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
 
@@ -17,7 +18,7 @@ type PickerKey = 'farm' | 'areaUnit' | null;
 
 export default function SetupPaddocksScreen() {
   const router = useRouter();
-  const { farms, paddockEntities, addPaddock, removePaddock } = useSetup();
+  const { farms, paddockEntities, addPaddock, removePaddock, pendingSetupSelectionTarget, resolveSetupSelection } = useSetup();
   const [name, setName] = useState('');
   const [farm, setFarm] = useState('');
   const [area, setArea] = useState('');
@@ -25,17 +26,26 @@ export default function SetupPaddocksScreen() {
   const [notes, setNotes] = useState('');
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
   const [paddockPendingDelete, setPaddockPendingDelete] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   const handleAddPaddock = () => {
+    const nextPaddockName = name.trim();
+
     addPaddock({
-      name,
+      name: nextPaddockName,
       farm,
       area,
       areaUnit,
       notes,
     });
 
-    if (!name.trim()) {
+    if (!nextPaddockName) {
+      return;
+    }
+
+    if (pendingSetupSelectionTarget === 'fromPaddock' || pendingSetupSelectionTarget === 'toPaddock') {
+      resolveSetupSelection(nextPaddockName);
+      router.back();
       return;
     }
 
@@ -67,6 +77,13 @@ export default function SetupPaddocksScreen() {
       <AppTopBar
         title="Paddocks"
         leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: () => router.back() }}
+        actions={[
+          {
+            icon: 'help-circle',
+            accessibilityLabel: 'About paddocks',
+            onPress: () => setShowHelp(true),
+          },
+        ]}
       />
       <ScrollView contentContainerStyle={[styles.content, paddockEntities.length === 0 && styles.emptyContent]} showsVerticalScrollIndicator={false}>
         <View style={styles.editorCard}>
@@ -184,6 +201,12 @@ export default function SetupPaddocksScreen() {
           </AnimatedPopupCard>
         </Pressable>
       </Modal>
+      <InfoModal
+        visible={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Paddocks"
+        description="Paddocks are the fields or enclosures within a farm. Add paddocks here so you can track exactly where each animal or group is grazing, and filter records by location."
+      />
     </SafeAreaView>
   );
 }
@@ -379,6 +402,6 @@ const styles = StyleSheet.create({
   },
   selectionRowActive: { backgroundColor: '#FCE5E4' },
   selectionText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
-  selectionTextActive: { color: '#74423F', fontWeight: '700' },
+  selectionTextActive: { color: '#74423F' },
   pressed: { opacity: 0.92 },
 });

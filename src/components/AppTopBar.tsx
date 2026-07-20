@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from './AppIcon';
@@ -30,8 +30,9 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
             <BouncyPressable
               accessibilityLabel={leftAction.accessibilityLabel}
               accessibilityRole="button"
+              hitSlop={12}
               onPress={leftAction.onPress}
-              style={styles.iconButton}
+              style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
             >
               <AppIcon name={leftAction.icon} size={24} />
             </BouncyPressable>
@@ -40,22 +41,21 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
         </View>
         <View style={styles.actions}>
           {actions.map((action) => {
-            const ActionButton = action.icon === 'filter' || action.icon === 'settings' ? BouncyPressable : Pressable;
-
             return (
-              <ActionButton
+              <BouncyPressable
                 key={action.accessibilityLabel}
                 accessibilityLabel={action.accessibilityLabel}
                 accessibilityRole="button"
+                hitSlop={12}
                 onPress={action.onPress}
-                style={styles.iconButton}
+                style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
               >
                 <AppIcon
                   name={action.icon}
                   size={action.size ?? (action.icon === 'filter' ? 28 : 24)}
                   color={action.color ?? '#fff'}
                 />
-              </ActionButton>
+              </BouncyPressable>
             );
           })}
         </View>
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   leftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 18,
   },
   title: {
     color: '#fff',
@@ -98,5 +98,8 @@ const styles = StyleSheet.create({
     minHeight: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.82,
   },
 });

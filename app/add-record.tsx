@@ -2,7 +2,7 @@ import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from '../src/components/AppIcon';
@@ -17,12 +17,13 @@ import { useAccount } from '../src/context/AccountContext';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useRecords } from '../src/context/RecordsContext';
-import { type MedicineEntity, useSetup } from '../src/context/SetupContext';
+import { type MedicineEntity, type SetupSelectionTarget, useSetup } from '../src/context/SetupContext';
 import { useSubscription } from '../src/context/SubscriptionContext';
 import { formatCurrencyPrefix, getCurrencyCodeForCountry } from '../src/entities/account';
 import type { AnimalSex } from '../src/entities/animal';
 import type { RecordEntry } from '../src/entities/record';
 import { tokens } from '../src/theme/tokens';
+import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
 
 const DOSE_UNITS = ['ml', 'mg', 'g', 'tablet(s)', 'bolus', 'sachet', 'dose'] as const;
 const WEIGHT_UNITS = ['kg', 'lb'] as const;
@@ -36,12 +37,26 @@ type MovementPickerKey = (typeof MOVEMENT_PICKERS)[number];
 export default function AddRecordScreen() {
   const router = useRouter();
   const pathname = usePathname();
-  const { selectedAnimalIds, selectedMotherName, recordId, draftRecord, reveal } = useLocalSearchParams<{ selectedAnimalIds?: string; selectedMotherName?: string; recordId?: string; draftRecord?: string; reveal?: string }>();
+  const { selectedAnimalIds, selectedMotherName, recordId, draftRecord, reveal } = useLocalSearchParams<{
+    selectedAnimalIds?: string;
+    selectedMotherName?: string;
+    recordId?: string;
+    draftRecord?: string;
+    reveal?: string;
+  }>();
   const { profile } = useAccount();
   const { animals, addAnimal } = useAnimals();
   const { addRecord, updateRecord, deleteRecord, records } = useRecords();
+  const {
+    farms,
+    paddocks,
+    groups,
+    medicineEntities,
+    pendingSetupSelectionResult,
+    beginSetupSelection,
+    clearSetupSelectionResult,
+  } = useSetup();
   const { isPro } = useSubscription();
-  const { farms, paddocks, groups, medicineEntities } = useSetup();
   const editingRecord = useMemo(() => (recordId ? records.find((record) => record.id === recordId) ?? null : null), [recordId, records]);
   const isEditing = Boolean(editingRecord);
   const isEditRoute = pathname === '/edit-record';
@@ -74,6 +89,10 @@ export default function AddRecordScreen() {
   const [doseUnit, setDoseUnit] = useState<(typeof DOSE_UNITS)[number]>('ml');
   const [route, setRoute] = useState<(typeof ROUTE_OPTIONS)[number]>('Injection');
   const [withdrawal, setWithdrawal] = useState('0');
+  const [batchNumber, setBatchNumber] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [headCount, setHeadCount] = useState('');
+  const [countSpecies, setCountSpecies] = useState('');
   const [fromFarm, setFromFarm] = useState('');
   const [fromPaddock, setFromPaddock] = useState('');
   const [toFarm, setToFarm] = useState('');
@@ -90,11 +109,14 @@ export default function AddRecordScreen() {
   const [showTreatmentPicker, setShowTreatmentPicker] = useState(false);
   const [showDisposalMethodPicker, setShowDisposalMethodPicker] = useState(false);
   const [showBirthSpeciesPicker, setShowBirthSpeciesPicker] = useState(false);
+  const [showCountSpeciesPicker, setShowCountSpeciesPicker] = useState(false);
+  const [showExpiryDatePicker, setShowExpiryDatePicker] = useState(false);
   const [activeMovementPicker, setActiveMovementPicker] = useState<MovementPickerKey | null>(null);
   const [imageUris, setImageUris] = useState<string[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const date = formatDate(selectedDate);
+  const date = formatDateForDisplay(selectedDate, profile.dateFormat);
+  const storedDate = formatDateForStorage(selectedDate);
   const selectedAnimals = animals.filter((animal) => chosenAnimalIds.includes(animal.id));
   const isMedicationRecord = recordType === 'Medication';
   const isVaccinationRecord = recordType === 'Vaccination';
@@ -105,6 +127,7 @@ export default function AddRecordScreen() {
   const isHealthCheckRecord = recordType === 'Health Check';
   const isSaleRecord = recordType === 'Sale';
   const isPurchaseRecord = recordType === 'Purchase';
+  const isCountRecord = recordType === 'Count';
   const isOtherRecord = recordType === 'Other';
   const currencyPrefix = formatCurrencyPrefix(profile.country);
   const currencyCode = getCurrencyCodeForCountry(profile.country);
@@ -164,6 +187,10 @@ export default function AddRecordScreen() {
     setDoseUnit(draft.doseUnit);
     setRoute(draft.route);
     setWithdrawal(draft.withdrawal);
+    setBatchNumber(draft.batchNumber);
+    setExpiryDate(draft.expiryDate);
+    setHeadCount(draft.headCount);
+    setCountSpecies(draft.countSpecies);
     setFromFarm(draft.fromFarm);
     setFromPaddock(draft.fromPaddock);
     setToFarm(draft.toFarm);
@@ -211,6 +238,10 @@ export default function AddRecordScreen() {
     setDoseUnit(formState.doseUnit);
     setRoute(formState.route);
     setWithdrawal(formState.withdrawal);
+    setBatchNumber(formState.batchNumber);
+    setExpiryDate(formState.expiryDate);
+    setHeadCount(formState.headCount);
+    setCountSpecies(formState.countSpecies);
     setFromFarm(formState.fromFarm);
     setFromPaddock(formState.fromPaddock);
     setToFarm(formState.toFarm);
@@ -219,6 +250,29 @@ export default function AddRecordScreen() {
     setChosenAnimalIds(formState.chosenAnimalIds);
     setImageUris(formState.imageUris);
   }, [draftRecord, editingRecord]);
+
+  useEffect(() => {
+    if (!pendingSetupSelectionResult) {
+      return;
+    }
+
+    switch (pendingSetupSelectionResult.target) {
+      case 'fromFarm':
+        setFromFarm(pendingSetupSelectionResult.value);
+        break;
+      case 'toFarm':
+        setToFarm(pendingSetupSelectionResult.value);
+        break;
+      case 'fromPaddock':
+        setFromPaddock(pendingSetupSelectionResult.value);
+        break;
+      case 'toPaddock':
+        setToPaddock(pendingSetupSelectionResult.value);
+        break;
+    }
+
+    clearSetupSelectionResult();
+  }, [clearSetupSelectionResult, pendingSetupSelectionResult]);
 
   const showMissingRequiredFields = (fields: string[]) => {
     Alert.alert(
@@ -230,8 +284,12 @@ export default function AddRecordScreen() {
   const handleSave = () => {
     const missingFields: string[] = [];
 
-    if (!isBirthRecord && chosenAnimalIds.length === 0) {
+    if (!isBirthRecord && !isCountRecord && chosenAnimalIds.length === 0) {
       missingFields.push('Animal(s)');
+    }
+
+    if (isCountRecord && !headCount.trim()) {
+      missingFields.push('Head Count');
     }
 
     if (isBirthRecord) {
@@ -314,7 +372,6 @@ export default function AddRecordScreen() {
     const saleDetails = [
       buyer.trim() ? `Buyer: ${buyer.trim()}` : '',
       salePrice.trim() ? `Sale Price: ${currencyPrefix}${salePrice.trim()} ${currencyCode}`.trim() : '',
-      destination.trim() ? `Destination: ${destination.trim()}` : '',
       details.trim(),
     ]
       .filter(Boolean)
@@ -322,17 +379,28 @@ export default function AddRecordScreen() {
     const purchaseDetails = [
       seller.trim() ? `Seller: ${seller.trim()}` : '',
       purchasePrice.trim() ? `Purchase Price: ${currencyPrefix}${purchasePrice.trim()} ${currencyCode}`.trim() : '',
-      sourceFarm.trim() ? `Source: ${sourceFarm.trim()}` : '',
       details.trim(),
     ]
       .filter(Boolean)
       .join('\n\n');
     const payload = {
-      date: date.trim(),
-      animal: isBirthRecord ? birthTagId.trim() : selectedAnimals.map((animal) => animal.name.trim()).join(', '),
-      animalTag: isBirthRecord ? birthTagId.trim() : selectedAnimals.map((animal) => animal.id.trim()).join(', '),
-      animalIds: isBirthRecord ? undefined : selectedAnimals.map((animal) => animal.id),
-      species: isBirthRecord ? birthSpecies.trim() : getCombinedSpecies(selectedAnimals),
+      date: storedDate,
+      animal: isBirthRecord
+        ? birthTagId.trim()
+        : isCountRecord
+          ? ''
+          : selectedAnimals.map((animal) => animal.name.trim()).join(', '),
+      animalTag: isBirthRecord
+        ? birthTagId.trim()
+        : isCountRecord
+          ? ''
+          : selectedAnimals.map((animal) => animal.id.trim()).join(', '),
+      animalIds: isBirthRecord || isCountRecord ? undefined : selectedAnimals.map((animal) => animal.id),
+      species: isBirthRecord
+        ? birthSpecies.trim()
+        : isCountRecord
+          ? countSpecies.trim() || 'All species'
+          : getCombinedSpecies(selectedAnimals),
       type: recordType,
       title: isMedicationRecord || isVaccinationRecord
         ? `${recordType}: ${medicine.trim()}`.trim()
@@ -350,6 +418,8 @@ export default function AddRecordScreen() {
           ? `${recordType}: ${buyer.trim()}`.trim()
         : isPurchaseRecord
           ? `${recordType}: ${seller.trim()}`.trim()
+        : isCountRecord
+          ? `${recordType}: ${headCount.trim()} ${countSpecies.trim() || 'animals'}`.trim()
         : `${recordType}: ${recordTitle.trim()}`.trim(),
       details: isDeathRecord
         ? deathDetails
@@ -363,10 +433,13 @@ export default function AddRecordScreen() {
                 ? purchaseDetails
                 : details.trim(),
       medicine: isMedicationRecord || isVaccinationRecord ? medicine.trim() : undefined,
-      dose: isMedicationRecord || isVaccinationRecord ? dose.trim() : isWeightRecord ? weight.trim() : undefined,
-      doseUnit: isMedicationRecord || isVaccinationRecord ? doseUnit : isWeightRecord ? weightUnit : undefined,
+      dose: isMedicationRecord || isVaccinationRecord ? dose.trim() : undefined,
+      doseUnit: isMedicationRecord || isVaccinationRecord ? doseUnit : undefined,
       route: isMedicationRecord || isVaccinationRecord ? route : undefined,
       withdrawal: isMedicationRecord || isVaccinationRecord ? withdrawal.trim() : undefined,
+      batchNumber: isMedicationRecord || isVaccinationRecord ? batchNumber.trim() : undefined,
+      expiryDate: isMedicationRecord || isVaccinationRecord ? expiryDate.trim() : undefined,
+      headCount: isCountRecord ? headCount.trim() : undefined,
       imageUris: imageUris.length > 0 ? imageUris : undefined,
       recordTitle: recordTitle.trim() || undefined,
       weight: isWeightRecord ? weight.trim() : undefined,
@@ -378,10 +451,8 @@ export default function AddRecordScreen() {
       vetSeen: isHealthCheckRecord ? vetSeen : undefined,
       buyer: isSaleRecord ? buyer.trim() : undefined,
       salePrice: isSaleRecord ? salePrice.trim() : undefined,
-      destination: isSaleRecord ? destination.trim() : undefined,
       seller: isPurchaseRecord ? seller.trim() : undefined,
       purchasePrice: isPurchaseRecord ? purchasePrice.trim() : undefined,
-      sourceFarm: isPurchaseRecord ? sourceFarm.trim() : undefined,
       motherName: isBirthRecord ? motherName.trim() : undefined,
       birthTagId: isBirthRecord ? birthTagId.trim() : undefined,
       birthSpecies: isBirthRecord ? birthSpecies.trim() : undefined,
@@ -399,27 +470,27 @@ export default function AddRecordScreen() {
       updateRecord(editingRecord.id, payload);
       router.replace({ pathname: '/view-record', params: { recordId: editingRecord.id } });
       return;
-    } else {
-      if (!isPro && records.length >= FREE_RECORD_LIMIT) {
-        router.push({
-          pathname: '/upgrade-to-pro',
-          params: { limitType: 'records' },
-        });
-        return;
-      }
-
-      if (!isPro && isBirthRecord && animals.length >= FREE_ANIMAL_LIMIT) {
-        router.push({
-          pathname: '/upgrade-to-pro',
-          params: { limitType: 'animals' },
-        });
-        return;
-      }
-
-      addRecord(payload);
     }
 
-    if (isBirthRecord && !isEditing) {
+    if (!isPro && records.length >= FREE_RECORD_LIMIT) {
+      router.push({
+        pathname: '/upgrade-to-pro',
+        params: { limitType: 'records' },
+      });
+      return;
+    }
+
+    if (!isPro && isBirthRecord && animals.length >= FREE_ANIMAL_LIMIT) {
+      router.push({
+        pathname: '/upgrade-to-pro',
+        params: { limitType: 'animals' },
+      });
+      return;
+    }
+
+    addRecord(payload);
+
+    if (isBirthRecord) {
       addAnimal({
         id: birthTagId.trim() || '#UNSET',
         species: birthSpecies.trim() || 'Unknown',
@@ -428,7 +499,7 @@ export default function AddRecordScreen() {
         ageValue: '0',
         ageUnit: 'days old',
         breed: birthBreed.trim(),
-        dateOfBirth: date.trim(),
+        dateOfBirth: storedDate,
         weight: birthWeight.trim(),
         weightUnit: birthWeightUnit,
         status: 'Active',
@@ -471,6 +542,10 @@ export default function AddRecordScreen() {
     doseUnit,
     route,
     withdrawal,
+    batchNumber,
+    expiryDate,
+    headCount,
+    countSpecies,
     fromFarm,
     fromPaddock,
     toFarm,
@@ -495,6 +570,13 @@ export default function AddRecordScreen() {
     const defaultWithdrawal = entry.meatWithdrawalPeriod.trim() || entry.milkWithdrawalPeriod.trim();
     if (defaultWithdrawal) {
       setWithdrawal(defaultWithdrawal);
+    }
+
+    if (entry.batchNumber?.trim()) {
+      setBatchNumber(entry.batchNumber);
+    }
+    if (entry.expiryDate?.trim()) {
+      setExpiryDate(entry.expiryDate);
     }
 
     setShowTreatmentPicker(false);
@@ -528,6 +610,31 @@ export default function AddRecordScreen() {
     }
 
     setSelectedDate(nextDate);
+  };
+
+  const handleExpiryDateChange = (event: DateTimePickerEvent, nextDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowExpiryDatePicker(false);
+    }
+
+    if (event.type === 'dismissed' || !nextDate) {
+      return;
+    }
+
+    setExpiryDate(formatDateForStorage(nextDate));
+  };
+
+  const openExpiryDatePicker = () => {
+    Keyboard.dismiss();
+    setShowExpiryDatePicker(true);
+  };
+
+  const openSetupScreen = (
+    nextPathname: '/setup-farms' | '/setup-paddocks',
+    nextTarget: SetupSelectionTarget,
+  ) => {
+    beginSetupSelection(nextTarget);
+    router.push(nextPathname);
   };
 
   const handleAddImages = async () => {
@@ -630,7 +737,7 @@ export default function AddRecordScreen() {
               <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
             </Pressable>
           </View>
-          {!isBirthRecord ? (
+          {!isBirthRecord && !isCountRecord ? (
             <View style={styles.block}>
               <Text style={styles.label}>Animal(s) *</Text>
               <Pressable
@@ -675,6 +782,7 @@ export default function AddRecordScreen() {
                   <Pressable
                     accessibilityLabel="Add animal"
                     accessibilityRole="button"
+                    hitSlop={10}
                     onPress={() => router.push('/add-animal')}
                   >
                     <Text style={styles.helperLink}>+ Add Animal</Text>
@@ -714,6 +822,7 @@ export default function AddRecordScreen() {
                     <Pressable
                       accessibilityLabel="Add animal"
                       accessibilityRole="button"
+                      hitSlop={10}
                       onPress={() => router.push('/add-animal')}
                     >
                       <Text style={styles.helperLink}>+ Add Animal</Text>
@@ -796,7 +905,7 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <Pressable accessibilityRole="button" onPress={() => router.push('/setup-medicines')}>
+              <Pressable accessibilityLabel="Add medicine" accessibilityRole="button" hitSlop={10} onPress={() => router.push('/setup-medicines')}>
                 <Text style={styles.helperLink}>+ Add Medicine</Text>
               </Pressable>
               <View style={styles.inlineRow}>
@@ -847,6 +956,27 @@ export default function AddRecordScreen() {
                   <Text style={styles.withdrawalSuffix}>days</Text>
                 </View>
               </View>
+              <View style={styles.inlineRow}>
+                <View style={styles.inlineGrow}>
+                  <DesignField value={batchNumber} label="Batch / Lot number" onChangeText={setBatchNumber} />
+                </View>
+                <View style={styles.inlineGrow}>
+                  <View style={styles.block}>
+                    <Text style={styles.label}>Expiry date</Text>
+                    <Pressable
+                      accessibilityLabel="Select expiry date"
+                      accessibilityRole="button"
+                      onPress={openExpiryDatePicker}
+                      style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
+                    >
+                      <Text style={[styles.dateValue, !expiryDate && styles.placeholderValue]}>
+                        {expiryDate ? formatDateForDisplay(expiryDate, profile.dateFormat) : 'Select date'}
+                      </Text>
+                      <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
             </>
           ) : isVaccinationRecord ? (
             <>
@@ -870,7 +1000,7 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <Pressable accessibilityRole="button" onPress={() => router.push('/setup-medicines')}>
+              <Pressable accessibilityLabel="Add vaccine" accessibilityRole="button" hitSlop={10} onPress={() => router.push('/setup-medicines')}>
                 <Text style={styles.helperLink}>+ Add Vaccine</Text>
               </Pressable>
               <View style={styles.inlineRow}>
@@ -921,6 +1051,27 @@ export default function AddRecordScreen() {
                   <Text style={styles.withdrawalSuffix}>days</Text>
                 </View>
               </View>
+              <View style={styles.inlineRow}>
+                <View style={styles.inlineGrow}>
+                  <DesignField value={batchNumber} label="Batch / Lot number" onChangeText={setBatchNumber} />
+                </View>
+                <View style={styles.inlineGrow}>
+                  <View style={styles.block}>
+                    <Text style={styles.label}>Expiry date</Text>
+                    <Pressable
+                      accessibilityLabel="Select expiry date"
+                      accessibilityRole="button"
+                      onPress={openExpiryDatePicker}
+                      style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
+                    >
+                      <Text style={[styles.dateValue, !expiryDate && styles.placeholderValue]}>
+                        {expiryDate ? formatDateForDisplay(expiryDate, profile.dateFormat) : 'Select date'}
+                      </Text>
+                      <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
             </>
           ) : isHealthCheckRecord ? (
             <>
@@ -955,7 +1106,6 @@ export default function AddRecordScreen() {
                 onChangeText={setSalePrice}
                 keyboardType="decimal-pad"
               />
-              <DesignField value={destination} label="Destination" onChangeText={setDestination} />
             </>
           ) : isPurchaseRecord ? (
             <>
@@ -967,7 +1117,6 @@ export default function AddRecordScreen() {
                 onChangeText={setPurchasePrice}
                 keyboardType="decimal-pad"
               />
-              <DesignField value={sourceFarm} label="Source" onChangeText={setSourceFarm} />
             </>
           ) : isMovementRecord ? (
             <>
@@ -978,7 +1127,7 @@ export default function AddRecordScreen() {
                   accessibilityRole="button"
                   onPress={() => {
                     if (farms.length === 0) {
-                      router.push('/setup-farms');
+                      openSetupScreen('/setup-farms', 'fromFarm');
                       return;
                     }
 
@@ -993,16 +1142,16 @@ export default function AddRecordScreen() {
                   </Text>
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
-                <View style={styles.helperRowCompact}>
-                  <Pressable
-                    accessibilityLabel="Add farm"
-                    accessibilityRole="button"
-                    onPress={() => router.push('/setup-farms')}
-                  >
-                    <Text style={styles.helperLink}>+ Add Farm</Text>
-                  </Pressable>
-                </View>
               </View>
+              <Pressable
+                accessibilityLabel="Add farm"
+                accessibilityRole="button"
+                hitSlop={12}
+                onPress={() => openSetupScreen('/setup-farms', 'fromFarm')}
+                style={({ pressed }) => [styles.helperLinkStandalone, pressed && styles.pressed]}
+              >
+                <Text style={styles.helperLinkCompact}>+ Add Farm</Text>
+              </Pressable>
               <View style={styles.block}>
                 <Text style={styles.label}>From Paddock</Text>
                 <Pressable
@@ -1010,7 +1159,7 @@ export default function AddRecordScreen() {
                   accessibilityRole="button"
                   onPress={() => {
                     if (paddocks.length === 0) {
-                      router.push('/setup-paddocks');
+                      openSetupScreen('/setup-paddocks', 'fromPaddock');
                       return;
                     }
 
@@ -1025,16 +1174,16 @@ export default function AddRecordScreen() {
                   </Text>
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
-                <View style={styles.helperRowCompact}>
-                  <Pressable
-                    accessibilityLabel="Add paddock"
-                    accessibilityRole="button"
-                    onPress={() => router.push('/setup-paddocks')}
-                  >
-                    <Text style={styles.helperLink}>+ Add Paddock</Text>
-                  </Pressable>
-                </View>
               </View>
+              <Pressable
+                accessibilityLabel="Add paddock"
+                accessibilityRole="button"
+                hitSlop={12}
+                onPress={() => openSetupScreen('/setup-paddocks', 'fromPaddock')}
+                style={({ pressed }) => [styles.helperLinkStandalone, pressed && styles.pressed]}
+              >
+                <Text style={styles.helperLinkCompact}>+ Add Paddock</Text>
+              </Pressable>
               <View style={styles.block}>
                 <Text style={styles.label}>To Farm *</Text>
                 <Pressable
@@ -1042,7 +1191,7 @@ export default function AddRecordScreen() {
                   accessibilityRole="button"
                   onPress={() => {
                     if (farms.length === 0) {
-                      router.push('/setup-farms');
+                      openSetupScreen('/setup-farms', 'toFarm');
                       return;
                     }
 
@@ -1057,16 +1206,16 @@ export default function AddRecordScreen() {
                   </Text>
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
-                <View style={styles.helperRowCompact}>
-                  <Pressable
-                    accessibilityLabel="Add farm"
-                    accessibilityRole="button"
-                    onPress={() => router.push('/setup-farms')}
-                  >
-                    <Text style={styles.helperLink}>+ Add Farm</Text>
-                  </Pressable>
-                </View>
               </View>
+              <Pressable
+                accessibilityLabel="Add farm"
+                accessibilityRole="button"
+                hitSlop={12}
+                onPress={() => openSetupScreen('/setup-farms', 'toFarm')}
+                style={({ pressed }) => [styles.helperLinkStandalone, pressed && styles.pressed]}
+              >
+                <Text style={styles.helperLinkCompact}>+ Add Farm</Text>
+              </Pressable>
               <View style={styles.block}>
                 <Text style={styles.label}>To Paddock</Text>
                 <Pressable
@@ -1074,7 +1223,7 @@ export default function AddRecordScreen() {
                   accessibilityRole="button"
                   onPress={() => {
                     if (paddocks.length === 0) {
-                      router.push('/setup-paddocks');
+                      openSetupScreen('/setup-paddocks', 'toPaddock');
                       return;
                     }
 
@@ -1089,16 +1238,16 @@ export default function AddRecordScreen() {
                   </Text>
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
-                <View style={styles.helperRowCompact}>
-                  <Pressable
-                    accessibilityLabel="Add paddock"
-                    accessibilityRole="button"
-                    onPress={() => router.push('/setup-paddocks')}
-                  >
-                    <Text style={styles.helperLink}>+ Add Paddock</Text>
-                  </Pressable>
-                </View>
               </View>
+              <Pressable
+                accessibilityLabel="Add paddock"
+                accessibilityRole="button"
+                hitSlop={12}
+                onPress={() => openSetupScreen('/setup-paddocks', 'toPaddock')}
+                style={({ pressed }) => [styles.helperLinkStandalone, pressed && styles.pressed]}
+              >
+                <Text style={styles.helperLinkCompact}>+ Add Paddock</Text>
+              </Pressable>
             </>
           ) : isWeightRecord ? (
             <>
@@ -1140,6 +1289,29 @@ export default function AddRecordScreen() {
                 </Pressable>
               </View>
             </>
+          ) : isCountRecord ? (
+            <>
+              <View style={styles.block}>
+                <Text style={styles.label}>Species</Text>
+                <Pressable
+                  accessibilityLabel="Select counted species"
+                  accessibilityRole="button"
+                  onPress={() => setShowCountSpeciesPicker(true)}
+                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.dateValue, !countSpecies && styles.placeholderValue]}>
+                    {countSpecies || 'All species'}
+                  </Text>
+                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+                </Pressable>
+              </View>
+              <DesignField
+                value={headCount}
+                label="Head count *"
+                onChangeText={setHeadCount}
+                keyboardType="number-pad"
+              />
+            </>
           ) : isOtherRecord ? (
             <DesignField
               value={recordTitle}
@@ -1155,7 +1327,7 @@ export default function AddRecordScreen() {
           )}
             <DesignField
             value={details}
-            label={isOtherRecord ? 'Description' : isMedicationRecord || isVaccinationRecord || isMovementRecord || isWeightRecord || isDeathRecord || isBirthRecord || isHealthCheckRecord || isSaleRecord || isPurchaseRecord ? 'Notes' : 'Details'}
+            label={isOtherRecord ? 'Description' : isMedicationRecord || isVaccinationRecord || isMovementRecord || isWeightRecord || isDeathRecord || isBirthRecord || isHealthCheckRecord || isSaleRecord || isPurchaseRecord || isCountRecord ? 'Notes' : 'Details'}
             large
             onChangeText={setDetails}
           />
@@ -1211,6 +1383,15 @@ export default function AddRecordScreen() {
           display="default"
           value={selectedDate}
           onChange={handleDateChange}
+        />
+      ) : null}
+
+      {showExpiryDatePicker && Platform.OS === 'android' ? (
+        <DateTimePicker
+          mode="date"
+          display="default"
+          value={expiryDate ? parseStoredDate(expiryDate) ?? new Date() : new Date()}
+          onChange={handleExpiryDateChange}
         />
       ) : null}
 
@@ -1271,6 +1452,34 @@ export default function AddRecordScreen() {
               display="spinner"
               value={selectedDate}
               onChange={handleDateChange}
+            />
+          </AnimatedPopupCard>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={showExpiryDatePicker && Platform.OS === 'ios'}
+        onRequestClose={() => setShowExpiryDatePicker(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowExpiryDatePicker(false)}>
+          <AnimatedPopupCard visible={showExpiryDatePicker && Platform.OS === 'ios'} style={styles.modalCard} onPress={() => undefined}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select expiry date</Text>
+              <Pressable
+                accessibilityLabel="Done"
+                accessibilityRole="button"
+                onPress={() => setShowExpiryDatePicker(false)}
+              >
+                <Text style={styles.modalDone}>Done</Text>
+              </Pressable>
+            </View>
+            <DateTimePicker
+              mode="date"
+              display="spinner"
+              value={expiryDate ? parseStoredDate(expiryDate) ?? new Date() : new Date()}
+              onChange={handleExpiryDateChange}
             />
           </AnimatedPopupCard>
         </Pressable>
@@ -1554,6 +1763,15 @@ export default function AddRecordScreen() {
           <AnimatedPopupCard visible={showBirthSpeciesPicker} style={styles.modalCard} onPress={() => undefined}>
             <View style={styles.speciesModalHeader}>
               <Text style={styles.speciesModalTitle}>Select Species</Text>
+              <Pressable
+                accessibilityLabel="Close species selector"
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => setShowBirthSpeciesPicker(false)}
+                style={styles.speciesModalClose}
+              >
+                <AppIcon name="close" size={16} color={tokens.colors.text} />
+              </Pressable>
             </View>
 
             <ScrollView contentContainerStyle={styles.speciesModalGrid} showsVerticalScrollIndicator={false}>
@@ -1577,7 +1795,60 @@ export default function AddRecordScreen() {
                         pressed && styles.speciesModalCardPressed,
                       ]}
                     >
-                      <AppIcon name={item.icon} size={26} color={theme.icon} />
+                      <AppIcon name={item.label === 'Sheep' ? 'sheep-black' : item.icon} size={26} color={item.label === 'Sheep' ? "#171717" : theme.icon} />
+                      <Text style={[styles.speciesModalCardLabel, { color: theme.text }]}>{item.label}</Text>
+                    </Pressable>
+                  );
+                })()
+              ))}
+            </ScrollView>
+          </AnimatedPopupCard>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={showCountSpeciesPicker}
+        onRequestClose={() => setShowCountSpeciesPicker(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowCountSpeciesPicker(false)}>
+          <AnimatedPopupCard visible={showCountSpeciesPicker} style={styles.modalCard} onPress={() => undefined}>
+            <View style={styles.speciesModalHeader}>
+              <Text style={styles.speciesModalTitle}>Select Species</Text>
+              <Pressable
+                accessibilityLabel="Close species selector"
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => setShowCountSpeciesPicker(false)}
+                style={styles.speciesModalClose}
+              >
+                <AppIcon name="close" size={16} color={tokens.colors.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.speciesModalGrid} showsVerticalScrollIndicator={false}>
+              {[{ icon: 'group' as const, label: 'All species' }, ...SPECIES_OPTIONS].map((item) => (
+                (() => {
+                  const theme = getSpeciesThemeByLabel(item.label);
+
+                  return (
+                    <Pressable
+                      key={item.label}
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setCountSpecies(item.label === 'All species' ? '' : item.label);
+                        setShowCountSpeciesPicker(false);
+                      }}
+                      style={({ pressed }) => [
+                        styles.speciesModalCard,
+                        {
+                          backgroundColor: theme.tintBackground,
+                        },
+                        pressed && styles.speciesModalCardPressed,
+                      ]}
+                    >
+                      <AppIcon name={item.label === 'Sheep' ? 'sheep-black' : item.icon} size={26} color={item.label === 'Sheep' ? "#171717" : theme.icon} />
                       <Text style={[styles.speciesModalCardLabel, { color: theme.text }]}>{item.label}</Text>
                     </Pressable>
                   );
@@ -1681,7 +1952,6 @@ const styles = StyleSheet.create({
   },
   typeChipTextActive: {
     color: '#74423F',
-    fontWeight: '700',
   },
   typeChipTextIdle: {
     color: '#555',
@@ -1754,11 +2024,15 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     marginBottom: 10,
   },
-  helperRowCompact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
+  helperLinkStandalone: {
+    alignSelf: 'flex-start',
+    marginTop: -10,
+    paddingVertical: 4,
+  },
+  helperLinkCompact: {
+    color: tokens.colors.accent,
+    fontSize: 13,
+    fontWeight: '700',
   },
   helperText: {
     color: tokens.colors.textSoft,
@@ -1942,6 +2216,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 26,
+    maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -2003,7 +2278,6 @@ const styles = StyleSheet.create({
   },
   selectionTextActive: {
     color: '#74423F',
-    fontWeight: '700',
   },
   speciesModalGrid: {
     flexDirection: 'row',
@@ -2021,6 +2295,15 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
     fontSize: 18,
     fontWeight: '700',
+  },
+  speciesModalClose: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   speciesModalCard: {
     width: '48%',
@@ -2068,9 +2351,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: tokens.colors.text,
   },
-  sexOptionTextActive: {
-    fontWeight: '700',
-  },
+  sexOptionTextActive: {},
   binaryOption: {
     flex: 1,
     minHeight: 52,
@@ -2088,9 +2369,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: tokens.colors.text,
   },
-  binaryOptionTextActive: {
-    fontWeight: '700',
-  },
+  binaryOptionTextActive: {},
   primaryButton: {
     minHeight: 54,
     borderRadius: 27,
@@ -2114,14 +2393,6 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
 });
-
-function formatDate(date: Date) {
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(date);
-}
 
 function getCombinedSpecies(
   selectedAnimals: Array<{ species: string }>,
@@ -2249,6 +2520,10 @@ type DraftRecordState = {
   doseUnit: (typeof DOSE_UNITS)[number];
   route: (typeof ROUTE_OPTIONS)[number];
   withdrawal: string;
+  batchNumber: string;
+  expiryDate: string;
+  headCount: string;
+  countSpecies: string;
   fromFarm: string;
   fromPaddock: string;
   toFarm: string;
@@ -2299,6 +2574,10 @@ type RecordFormState = {
   doseUnit: (typeof DOSE_UNITS)[number];
   route: (typeof ROUTE_OPTIONS)[number];
   withdrawal: string;
+  batchNumber: string;
+  expiryDate: string;
+  headCount: string;
+  countSpecies: string;
   fromFarm: string;
   fromPaddock: string;
   toFarm: string;
@@ -2314,7 +2593,7 @@ function buildFormStateFromRecord(record: RecordEntry): RecordFormState {
   const parsedMovement = parseMovementTitle(record.title);
 
   return {
-    selectedDate: parseDisplayDate(record.date) ?? new Date(),
+    selectedDate: parseStoredDate(record.date) ?? new Date(),
     recordType,
     recordTitle: record.recordTitle ?? stripTypePrefix(record.title, record.type),
     medicine: record.medicine ?? detailMap['Medicine'] ?? detailMap['Vaccine'] ?? '',
@@ -2342,6 +2621,10 @@ function buildFormStateFromRecord(record: RecordEntry): RecordFormState {
     doseUnit: normalizeDoseUnit(recordType === 'Weight' ? undefined : record.doseUnit),
     route: normalizeRoute(record.route),
     withdrawal: record.withdrawal ?? '0',
+    batchNumber: record.batchNumber ?? '',
+    expiryDate: record.expiryDate ?? '',
+    headCount: record.headCount ?? (recordType === 'Count' ? extractLeadingNumber(stripTypePrefix(record.title, record.type)) ?? '' : ''),
+    countSpecies: recordType === 'Count' && record.species !== 'All species' ? record.species : '',
     fromFarm: record.fromFarm ?? parsedMovement.fromFarm,
     fromPaddock: record.fromPaddock ?? parsedMovement.fromPaddock,
     toFarm: record.toFarm ?? parsedMovement.toFarm,
@@ -2369,24 +2652,6 @@ function formatRecordShareText(record: RecordEntry) {
 
 function isKnownRecordType(value: string): value is (typeof RECORD_TYPES)[number] {
   return RECORD_TYPES.includes(value as (typeof RECORD_TYPES)[number]);
-}
-
-function parseDisplayDate(value: string) {
-  const [dayPart, monthPart, yearPart] = value.trim().split(/\s+/);
-
-  if (!dayPart || !monthPart || !yearPart) {
-    return null;
-  }
-
-  const day = Number(dayPart);
-  const month = MONTH_INDEX[monthPart.toLowerCase()];
-  const year = Number(yearPart);
-
-  if (!Number.isFinite(day) || !Number.isFinite(year) || month === undefined) {
-    return null;
-  }
-
-  return new Date(year, month, day);
 }
 
 function stripTypePrefix(title: string, type: string) {
@@ -2450,11 +2715,11 @@ function getStructuredDetailLabels(type: string, detailMap: Record<string, strin
   }
 
   if (type === 'Sale') {
-    return ['Buyer', 'Sale Price', 'Destination'];
+    return ['Buyer', 'Sale Price'];
   }
 
   if (type === 'Purchase') {
-    return ['Seller', 'Purchase Price', 'Source'];
+    return ['Seller', 'Purchase Price'];
   }
 
   return Object.keys(detailMap).length === 0 ? [] : [];

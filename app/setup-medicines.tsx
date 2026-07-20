@@ -9,8 +9,11 @@ import { AppTopBar } from '../src/components/AppTopBar';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
+import { InfoModal } from '../src/components/InfoModal';
+import { useAccount } from '../src/context/AccountContext';
 import { type TreatmentKind, useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
+import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
 
 const DOSE_UNITS = ['ml', 'mg', 'g', 'tablet(s)', 'bolus', 'sachet', 'dose'] as const;
 const ROUTE_OPTIONS = ['Injection', 'Oral', 'Pour-on', 'Drench', 'Topical', 'Feed', 'Water', 'Other'] as const;
@@ -23,6 +26,7 @@ const TREATMENT_TYPES: Array<{ label: string; value: TreatmentKind }> = [
 
 export default function SetupMedicinesScreen() {
   const router = useRouter();
+  const { profile } = useAccount();
   const { medicineEntities, addMedicine, removeMedicine } = useSetup();
   const [treatmentType, setTreatmentType] = useState<TreatmentKind>('medicine');
   const [name, setName] = useState('');
@@ -35,9 +39,13 @@ export default function SetupMedicinesScreen() {
   const [manufacturer, setManufacturer] = useState('');
   const [batchNumber, setBatchNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
+  const [supplier, setSupplier] = useState('');
+  const [purchaseDate, setPurchaseDate] = useState('');
   const [notes, setNotes] = useState('');
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerTarget, setDatePickerTarget] = useState<'expiry' | 'purchase'>('expiry');
+  const [showHelp, setShowHelp] = useState(false);
   const [treatmentPendingDelete, setTreatmentPendingDelete] = useState<string | null>(null);
 
   const groupedTreatments = useMemo(() => ({
@@ -58,6 +66,8 @@ export default function SetupMedicinesScreen() {
       manufacturer,
       batchNumber,
       expiryDate,
+      supplier,
+      purchaseDate,
       notes,
     });
 
@@ -76,8 +86,13 @@ export default function SetupMedicinesScreen() {
     setManufacturer('');
     setBatchNumber('');
     setExpiryDate('');
+    setSupplier('');
+    setPurchaseDate('');
     setNotes('');
   };
+
+  const setPickedDate = datePickerTarget === 'purchase' ? setPurchaseDate : setExpiryDate;
+  const pickedDateValue = datePickerTarget === 'purchase' ? purchaseDate : expiryDate;
 
   const handleDateChange = (event: DateTimePickerEvent, value?: Date) => {
     if (Platform.OS === 'android') {
@@ -86,14 +101,14 @@ export default function SetupMedicinesScreen() {
         return;
       }
       if (value) {
-        setExpiryDate(formatDate(value));
+        setPickedDate(formatDateForStorage(value));
       }
       setShowDatePicker(false);
       return;
     }
 
     if (value) {
-      setExpiryDate(formatDate(value));
+      setPickedDate(formatDateForStorage(value));
     }
 
     setShowDatePicker(false);
@@ -112,11 +127,19 @@ export default function SetupMedicinesScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-      <AppTopBar title="Medicines & Vaccines" leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: () => router.back() }} />
+      <AppTopBar
+        title="Medicines & Vaccines"
+        leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: () => router.back() }}
+        actions={[
+          {
+            icon: 'help-circle',
+            accessibilityLabel: 'About medicines and vaccines',
+            onPress: () => setShowHelp(true),
+          },
+        ]}
+      />
       <ScrollView contentContainerStyle={[styles.content, medicineEntities.length === 0 && styles.emptyContent]} showsVerticalScrollIndicator={false}>
         <View style={styles.editorCard}>
-          <Text style={styles.sectionLabel}>Medicines & Vaccines</Text>
-
           <View style={styles.block}>
             <Text style={styles.label}>Type</Text>
             <View style={styles.typeRow}>
@@ -148,7 +171,25 @@ export default function SetupMedicinesScreen() {
           <DesignField value={milkWithdrawalPeriod} label="Milk withdrawal period" onChangeText={setMilkWithdrawalPeriod} />
           <DesignField value={manufacturer} label="Manufacturer" onChangeText={setManufacturer} />
           <DesignField value={batchNumber} label="Batch / Lot number" onChangeText={setBatchNumber} />
-          <SelectionField label="Expiry date" value={expiryDate} emptyLabel="Select expiry date" onPress={() => setShowDatePicker(true)} />
+          <SelectionField
+            label="Expiry date"
+            value={formatDateForDisplay(expiryDate, profile.dateFormat)}
+            emptyLabel="Select expiry date"
+            onPress={() => {
+              setDatePickerTarget('expiry');
+              setShowDatePicker(true);
+            }}
+          />
+          <DesignField value={supplier} label="Supplier" onChangeText={setSupplier} />
+          <SelectionField
+            label="Purchase date"
+            value={formatDateForDisplay(purchaseDate, profile.dateFormat)}
+            emptyLabel="Select purchase date"
+            onPress={() => {
+              setDatePickerTarget('purchase');
+              setShowDatePicker(true);
+            }}
+          />
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
           <BouncyPressable accessibilityRole="button" accessibilityLabel="Add treatment" onPress={handleAddMedicine} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
@@ -186,9 +227,10 @@ export default function SetupMedicinesScreen() {
                 <View style={styles.metaRow}>
                   {medicine.defaultDose ? <Text style={styles.metaPill}>{`${medicine.defaultDose} ${medicine.doseUnit}`}</Text> : null}
                   {medicine.defaultRoute ? <Text style={styles.metaPill}>{medicine.defaultRoute}</Text> : null}
-                  {medicine.expiryDate ? <Text style={styles.metaPill}>{medicine.expiryDate}</Text> : null}
+                  {medicine.expiryDate ? <Text style={styles.metaPill}>{formatDateForDisplay(medicine.expiryDate, profile.dateFormat)}</Text> : null}
                 </View>
                 {medicine.manufacturer ? <Text style={styles.detailText}>{medicine.manufacturer}</Text> : null}
+                {medicine.supplier ? <Text style={styles.detailText}>Supplier: {medicine.supplier}</Text> : null}
                 {medicine.notes ? <Text style={styles.itemNotes}>{medicine.notes}</Text> : null}
               </View>
             ))}
@@ -251,7 +293,7 @@ export default function SetupMedicinesScreen() {
 
       {showDatePicker && Platform.OS === 'android' ? (
         <DateTimePicker
-          value={expiryDate ? parseDate(expiryDate) : new Date()}
+          value={pickedDateValue ? parseStoredDate(pickedDateValue) ?? new Date() : new Date()}
           mode="date"
           display="default"
           onChange={handleDateChange}
@@ -260,15 +302,15 @@ export default function SetupMedicinesScreen() {
 
       <Modal transparent animationType="fade" visible={showDatePicker && Platform.OS === 'ios'} onRequestClose={() => setShowDatePicker(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setShowDatePicker(false)}>
-          <AnimatedPopupCard visible={showDatePicker && Platform.OS === 'ios'} style={styles.selectionCard} onPress={() => undefined}>
+          <AnimatedPopupCard visible={showDatePicker && Platform.OS === 'ios'} style={styles.modalCard} onPress={() => undefined}>
             <View style={styles.modalHeader}>
-              <Text style={styles.selectionTitle}>Select expiry date</Text>
+              <Text style={styles.selectionTitle}>{datePickerTarget === 'purchase' ? 'Select purchase date' : 'Select expiry date'}</Text>
               <Pressable accessibilityRole="button" accessibilityLabel="Done" onPress={() => setShowDatePicker(false)}>
                 <Text style={styles.modalDone}>Done</Text>
               </Pressable>
             </View>
             <DateTimePicker
-              value={expiryDate ? parseDate(expiryDate) : new Date()}
+              value={pickedDateValue ? parseStoredDate(pickedDateValue) ?? new Date() : new Date()}
               mode="date"
               display="spinner"
               onChange={handleDateChange}
@@ -276,6 +318,12 @@ export default function SetupMedicinesScreen() {
           </AnimatedPopupCard>
         </Pressable>
       </Modal>
+      <InfoModal
+        visible={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Medicines & Vaccines"
+        description="Keep a record of every medicine and vaccine you use, including dose, route and withdrawal periods, so you can quickly reuse the details when logging treatment records and stay on top of meat and milk withdrawal times."
+      />
     </SafeAreaView>
   );
 }
@@ -302,30 +350,16 @@ function SelectionField({
   );
 }
 
-function formatDate(date: Date) {
-  const day = `${date.getDate()}`.padStart(2, '0');
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
-}
-
-function parseDate(value: string) {
-  const [day, month, year] = value.split('/').map(Number);
-  const parsed = new Date(year, (month ?? 1) - 1, day ?? 1);
-  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-}
-
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#fff' },
-  content: { paddingHorizontal: 16, paddingTop: 22, paddingBottom: 120, gap: 16 },
+  content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120, gap: 16 },
   typeRow: { flexDirection: 'row', gap: 10 },
   typeChip: { borderRadius: 999, paddingHorizontal: 18, paddingVertical: 10, backgroundColor: '#FFFFFF' },
   typeChipActive: { backgroundColor: '#FCE5E4' },
   typeChipText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
-  typeChipTextActive: { color: '#74423F', fontWeight: '700' },
+  typeChipTextActive: { color: '#74423F' },
   emptyContent: { flexGrow: 1, justifyContent: 'center' },
   editorCard: { borderRadius: 24, backgroundColor: '#F5F3F7', padding: 16, gap: 14 },
-  sectionLabel: { color: tokens.colors.text, fontSize: 16, fontWeight: '700' },
   block: { gap: 8 },
   label: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
   dateField: {
@@ -468,6 +502,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.28)', justifyContent: 'flex-end' },
+  modalCard: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 26,
+    maxHeight: '80%',
+  },
   selectionCard: {
     marginHorizontal: 18,
     marginBottom: 28,
@@ -492,6 +535,6 @@ const styles = StyleSheet.create({
   },
   selectionRowActive: { backgroundColor: '#FCE5E4' },
   selectionText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
-  selectionTextActive: { color: '#74423F', fontWeight: '700' },
+  selectionTextActive: { color: '#74423F' },
   pressed: { opacity: 0.92 },
 });

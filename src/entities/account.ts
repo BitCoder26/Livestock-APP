@@ -11,6 +11,13 @@ export const MEASUREMENT_UNIT_OPTIONS = [
   'Imperial',
 ] as const;
 
+export const DATE_FORMAT_OPTIONS = [
+  'DD/MM/YYYY',
+  'MM/DD/YYYY',
+  'YYYY-MM-DD',
+  'DD MMM YYYY',
+] as const;
+
 export const PLAN_OPTIONS = [
   'Basic',
   'Pro',
@@ -214,10 +221,6 @@ export const COUNTRY_OPTIONS = [
   'Other',
 ] as const;
 
-export type IndustryOption = typeof INDUSTRY_OPTIONS[number];
-export type MeasurementUnitOption = typeof MEASUREMENT_UNIT_OPTIONS[number];
-export type PlanOption = typeof PLAN_OPTIONS[number];
-export type CountryOption = typeof COUNTRY_OPTIONS[number];
 
 export const COUNTRY_CODE_BY_NAME: Record<CountryOption, string> = {
   'United Kingdom': 'GB',
@@ -436,6 +439,11 @@ export function getCountryFlag(country: string) {
     .join('');
 }
 
+export type IndustryOption = typeof INDUSTRY_OPTIONS[number];
+export type MeasurementUnitOption = typeof MEASUREMENT_UNIT_OPTIONS[number];
+export type AppDateFormat = typeof DATE_FORMAT_OPTIONS[number];
+export type PlanOption = typeof PLAN_OPTIONS[number];
+export type CountryOption = typeof COUNTRY_OPTIONS[number];
 export type IndustryValue = IndustryOption | '';
 export type PlanValue = PlanOption | '';
 
@@ -446,6 +454,7 @@ export type AccountProfile = {
   country: string;
   industry: IndustryValue;
   measurementUnits: MeasurementUnitOption;
+  dateFormat: AppDateFormat;
 };
 
 export const DEFAULT_ACCOUNT_PROFILE: AccountProfile = {
@@ -455,6 +464,7 @@ export const DEFAULT_ACCOUNT_PROFILE: AccountProfile = {
   country: '',
   industry: '',
   measurementUnits: 'Metric',
+  dateFormat: 'DD MMM YYYY',
 };
 
 export function getCurrencyCodeForCountry(country: string) {

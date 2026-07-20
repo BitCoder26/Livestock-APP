@@ -1,3 +1,4 @@
+import type { Ref } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppIcon } from './AppIcon';
@@ -6,14 +7,17 @@ import { tokens } from '../theme/tokens';
 type FloatingActionButtonProps = {
   accessibilityLabel: string;
   onPress?: () => void;
+  /** Exposes the button's positioner so callers can measure it (e.g. onboarding spotlight). */
+  positionerRef?: Ref<View>;
 };
 
 export function FloatingActionButton({
   accessibilityLabel,
   onPress,
+  positionerRef,
 }: FloatingActionButtonProps) {
   return (
-    <View style={styles.positioner}>
+    <View ref={positionerRef} collapsable={false} style={styles.positioner}>
       <Pressable
         accessibilityLabel={accessibilityLabel}
         accessibilityRole="button"
