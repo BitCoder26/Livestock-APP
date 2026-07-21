@@ -145,7 +145,7 @@ h2,
 
 .hero-wordmark,
 .hero-emphasis {
-  color: var(--warm-charcoal);
+  color: #e6c12b;
 }
 
 .hero-text,
@@ -325,15 +325,15 @@ h2,
   width: min(270px, 100%);
   aspect-ratio: 9 / 18;
   position: relative;
-  padding: 10px;
-  border-radius: 42px;
+  padding: 6px;
+  border-radius: 38px;
   background:
     linear-gradient(145deg, #4b4b4f 0%, #161618 24%, #090909 52%, #3f4045 100%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow:
-    0 14px 30px rgba(0, 0, 0, 0.12),
-    0 1px 0 rgba(255, 255, 255, 0.08) inset,
-    0 0 0 1px rgba(0, 0, 0, 0.1);
+    0 10px 22px rgba(0, 0, 0, 0.1),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 .hero-phone-live {
@@ -343,19 +343,7 @@ h2,
 
 .hero-phone::before,
 .phone-placeholder::before {
-  content: "";
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  width: 33%;
-  height: 18px;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: linear-gradient(180deg, #0b0b0d 0%, #16171a 100%);
-  box-shadow:
-    0 1px 1px rgba(255, 255, 255, 0.06) inset,
-    0 1px 6px rgba(0, 0, 0, 0.24);
-  z-index: 2;
+  content: none;
 }
 
 .hero-phone::after,
@@ -390,14 +378,14 @@ h2,
   width: 100%;
   height: calc(100% - 0px);
   object-fit: cover;
-  border-radius: 34px;
+  border-radius: 32px;
 }
 
 .phone-shot {
   width: 100%;
   height: calc(100% - 36px);
   object-fit: cover;
-  border-radius: 34px;
+  border-radius: 32px;
   display: block;
 }
 
@@ -465,7 +453,7 @@ h2,
 
 .feature-story-phone .phone-shot {
   height: 100%;
-  border-radius: 34px;
+  border-radius: 32px;
 }
 
 .feature-story:first-child {
@@ -854,8 +842,8 @@ h2,
   .hero-phone,
   .phone-placeholder {
     width: min(280px, 100%);
-    padding: 8px;
-    border-radius: 34px;
+    padding: 5px;
+    border-radius: 30px;
   }
 
   .hero-phone-stack {
@@ -917,12 +905,6 @@ h2,
   .feature-story-phone {
     width: min(164px, 46vw);
     margin-top: 0;
-  }
-
-  .hero-phone::before,
-  .phone-placeholder::before {
-    top: 10px;
-    height: 14px;
   }
 
   .hero-phone::after,
