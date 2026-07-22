@@ -524,10 +524,10 @@ h2,
 
 .download-app-logo {
   width: 88px;
-  height: auto;
-  aspect-ratio: 1 / 1;
+  height: 88px;
   border-radius: 22px;
   object-fit: contain;
+  display: block;
   box-shadow: 0 0 22px rgba(255, 255, 255, 0.72);
 }
 
@@ -566,12 +566,12 @@ h2,
 }
 
 .facebook-section {
-  background: var(--surface);
-  align-items: center;
+  background: transparent;
+  align-items: start;
   margin-top: 0;
   margin-bottom: 0;
   box-shadow: none;
-  border: 1px solid rgba(33, 29, 24, 0.08);
+  border: 0;
 }
 
 .facebook-section-main {
@@ -582,18 +582,18 @@ h2,
 
 .facebook-section-icon {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  width: 76px;
+  width: 64px;
   min-height: 100%;
-  flex: 0 0 76px;
-  align-self: stretch;
+  flex: 0 0 64px;
+  align-self: start;
   color: var(--warm-charcoal);
 }
 
 .facebook-section-icon svg {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
 }
 
 .facebook-section-copy {
@@ -602,10 +602,10 @@ h2,
 
 .facebook-section-actions {
   display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  align-self: center;
-  height: 100%;
+  justify-content: flex-start;
+  align-items: flex-start;
+  align-self: start;
+  height: auto;
 }
 
 .contact-panel {
@@ -678,15 +678,22 @@ h2,
 }
 
 .site-footer {
-  display: flex;
-  width: min(var(--content-frame-width), calc(100% - 48px));
-  margin: 28px auto 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 24px 0 36px;
+  width: 100%;
+  margin: 28px 0 0;
+  padding: 0;
   background: #ffffff;
   border-top: 1px solid rgba(33, 29, 24, 0.12);
+}
+
+.site-footer-inner {
+  display: flex;
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 24px 0 36px;
 }
 
 .site-footer p {
@@ -810,7 +817,7 @@ h2,
 
 @media (max-width: 680px) {
   .site-header,
-  .site-footer {
+  .site-footer-inner {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -848,7 +855,7 @@ h2,
 
   .download-app-logo {
     width: 72px;
-    height: auto;
+    height: 72px;
     border-radius: 18px;
   }
 
