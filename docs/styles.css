@@ -152,7 +152,7 @@ h2,
 
 .hero-wordmark,
 .hero-emphasis {
-  color: #fff1d6;
+  color: #e6c12b;
 }
 
 .hero-slogan {
@@ -393,10 +393,10 @@ h2,
 .feature-story-list {
   display: grid;
   gap: 42px;
-  background: #fff1d6;
+  background: transparent;
   border: 0;
   box-shadow: none;
-  padding: 28px 0;
+  padding: 0;
   position: relative;
   z-index: 2;
 }
