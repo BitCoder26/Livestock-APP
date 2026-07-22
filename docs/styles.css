@@ -587,9 +587,9 @@ h2,
 .facebook-section-actions {
   display: flex;
   justify-content: flex-end;
-  align-items: flex-start;
-  align-self: start;
-  height: auto;
+  align-items: center;
+  align-self: center;
+  height: 100%;
 }
 
 .contact-panel {
@@ -602,6 +602,10 @@ h2,
 .contact-panel-copy h2 {
   margin-bottom: 24px;
   font-size: clamp(1.8rem, 4vw, 3rem);
+}
+
+.facebook-section-copy h2 {
+  white-space: nowrap;
 }
 
 .facebook-section-copy h2,
@@ -621,8 +625,9 @@ h2,
 }
 
 .contact-actions-grid {
-  align-content: start;
-  justify-items: start;
+  align-content: center;
+  justify-items: end;
+  align-self: center;
   gap: 18px;
 }
 
