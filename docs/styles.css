@@ -10,7 +10,7 @@
   --warm-charcoal: #4d3f39;
   --hero-red: #a93f3a;
   --hero-red-deep: #8b2f2b;
-  --banner-red: #eb4a4e;
+  --banner-red: #dc6560;
   --app-header-red: #dc6560;
   --shadow: 0 20px 50px rgba(31, 27, 23, 0.08);
   --hero-frame-width: 1040px;
@@ -152,7 +152,7 @@ h2,
 
 .hero-wordmark,
 .hero-emphasis {
-  color: #e6c12b;
+  color: #4e1a21;
 }
 
 .hero-slogan {
