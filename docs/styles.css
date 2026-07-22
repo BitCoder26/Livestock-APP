@@ -461,10 +461,10 @@ h2,
   width: min(var(--content-frame-width), calc(100% - 48px));
   margin: 96px auto 88px;
   padding: 44px 28px 46px;
-  background: linear-gradient(90deg, #56b34f 0%, #89cb31 100%);
+  background: var(--warm-charcoal);
   border: 0;
   border-radius: 18px;
-  box-shadow: 0 22px 46px rgba(60, 134, 45, 0.18);
+  box-shadow: 0 22px 46px rgba(31, 27, 23, 0.14);
 }
 
 .download-section-inner,
@@ -507,7 +507,7 @@ h2,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 22px;
 }
 
 .download-app-logo {
@@ -671,8 +671,9 @@ h2,
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 0 0 36px;
-  background: transparent;
+  padding: 24px 0 36px;
+  background: #ffffff;
+  border-top: 1px solid rgba(33, 29, 24, 0.12);
 }
 
 .site-footer p {
