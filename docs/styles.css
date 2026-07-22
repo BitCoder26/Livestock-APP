@@ -645,6 +645,10 @@ h2,
   gap: 10px;
 }
 
+.email-button {
+  gap: 14px;
+}
+
 .facebook-group-button svg,
 .email-button svg {
   width: 22px;
