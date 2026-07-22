@@ -489,10 +489,10 @@ h2,
 }
 
 .download-section-inner {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 36px;
+  gap: 26px;
 }
 
 .download-section .eyebrow,
@@ -507,55 +507,70 @@ h2,
 
 .download-text {
   max-width: 34rem;
-  margin: 14px 0 0;
+  margin: 14px auto 0;
   line-height: 1.65;
 }
 
 .download-copy {
-  text-align: left;
+  text-align: center;
 }
 
 .download-brand-block {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 18px;
 }
 
 .download-app-logo {
-  width: 84px;
-  height: 84px;
-  border-radius: 22px;
+  width: 92px;
+  height: 92px;
+  border-radius: 24px;
   object-fit: cover;
-  box-shadow: 0 16px 36px rgba(31, 27, 23, 0.2);
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.72), 0 16px 36px rgba(31, 27, 23, 0.18);
 }
 
 .download-actions {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   margin-top: 0;
+}
+
+.bottom-info-section {
+  padding: 18px 0 0;
+  background: #ffffff;
+}
+
+.bottom-info-shell {
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
 }
 
 .facebook-section,
 .contact-panel {
   display: grid;
-  width: min(var(--content-frame-width), calc(100% - 48px));
-  margin-left: auto;
-  margin-right: auto;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
   grid-template-columns: minmax(0, 1.18fr) minmax(260px, 0.82fr);
   gap: 38px;
   align-items: start;
-  padding: 34px 24px;
+  padding: 32px 28px;
+  border-radius: 28px;
 }
 
 .facebook-section {
   background: var(--warm-charcoal);
   align-items: center;
-  margin-top: 36px;
-  margin-bottom: 42px;
+  margin-top: 0;
+  margin-bottom: 0;
+  box-shadow: 0 20px 44px rgba(31, 27, 23, 0.08);
 }
 
 .facebook-section-main {
@@ -593,12 +608,9 @@ h2,
 }
 
 .contact-panel {
-  background: transparent;
-  border: 0;
-  border-radius: 18px;
-  box-shadow: none;
-  padding-left: 0;
-  padding-right: 0;
+  background: #fffaf6;
+  border: 1px solid rgba(33, 29, 24, 0.08);
+  box-shadow: 0 18px 40px rgba(31, 27, 23, 0.06);
 }
 
 .facebook-section-copy h2,
@@ -624,6 +636,7 @@ h2,
 
 .contact-actions-grid {
   align-content: start;
+  justify-items: start;
   gap: 18px;
 }
 
@@ -641,15 +654,6 @@ h2,
   background: #ffffff;
   border-color: rgba(33, 29, 24, 0.08);
   color: var(--warm-charcoal);
-}
-
-.button-disabled {
-  min-width: 220px;
-  justify-content: center;
-  border-radius: 999px;
-  opacity: 0.92;
-  cursor: default;
-  pointer-events: none;
 }
 
 .contact-card-item {
@@ -674,10 +678,12 @@ h2,
 
 .site-footer {
   display: flex;
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 28px auto 0;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 0 0 28px;
+  padding: 0 0 36px;
 }
 
 .site-footer p {
@@ -714,23 +720,10 @@ h2,
     grid-template-columns: 1fr;
   }
 
-  .download-section-inner {
-    grid-template-columns: 1fr;
-    gap: 24px;
-  }
-
   .download-copy,
   .download-brand-block {
     text-align: center;
     justify-content: center;
-  }
-
-  .download-brand-block {
-    flex-direction: column;
-  }
-
-  .download-actions {
-    align-items: center;
   }
 
   .hero-phone-stack {
@@ -839,6 +832,10 @@ h2,
     width: 100%;
     gap: 24px;
     padding: 28px 24px;
+  }
+
+  .bottom-info-shell {
+    width: min(var(--content-frame-width), calc(100% - 32px));
   }
 
   .download-section {
