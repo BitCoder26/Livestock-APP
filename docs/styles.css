@@ -523,10 +523,10 @@ h2,
 }
 
 .download-app-logo {
-  width: 88px;
-  height: 88px;
+  width: auto;
+  max-width: 88px;
+  height: auto;
   border-radius: 22px;
-  object-fit: contain;
   display: block;
   box-shadow: 0 0 22px rgba(255, 255, 255, 0.72);
 }
