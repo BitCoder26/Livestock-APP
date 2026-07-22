@@ -474,18 +474,25 @@ h2,
 .download-section {
   width: 100vw;
   margin: 96px calc(50% - 50vw) 88px;
-  padding: 48px 28px;
-  text-align: center;
+  padding: 64px 28px;
   background: var(--banner-red);
   border: 0;
   box-shadow: none;
 }
 
+.download-section-inner,
 .section-heading,
 .download-actions {
   width: min(var(--content-frame-width), calc(100% - 48px));
   margin-left: auto;
   margin-right: auto;
+}
+
+.download-section-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 36px;
 }
 
 .download-section .eyebrow,
@@ -500,17 +507,36 @@ h2,
 
 .download-text {
   max-width: 34rem;
-  margin: 14px auto 0;
+  margin: 14px 0 0;
   line-height: 1.65;
+}
+
+.download-copy {
+  text-align: left;
+}
+
+.download-brand-block {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+}
+
+.download-app-logo {
+  width: 84px;
+  height: 84px;
+  border-radius: 22px;
+  object-fit: cover;
+  box-shadow: 0 16px 36px rgba(31, 27, 23, 0.2);
 }
 
 .download-actions {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin-top: 28px;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 0;
 }
 
 .facebook-section,
@@ -688,6 +714,25 @@ h2,
     grid-template-columns: 1fr;
   }
 
+  .download-section-inner {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .download-copy,
+  .download-brand-block {
+    text-align: center;
+    justify-content: center;
+  }
+
+  .download-brand-block {
+    flex-direction: column;
+  }
+
+  .download-actions {
+    align-items: center;
+  }
+
   .hero-phone-stack {
     width: min(360px, 100%);
     min-height: 420px;
@@ -794,6 +839,16 @@ h2,
     width: 100%;
     gap: 24px;
     padding: 28px 24px;
+  }
+
+  .download-section {
+    padding: 56px 24px;
+  }
+
+  .download-app-logo {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
   }
 
   .facebook-section-main {
