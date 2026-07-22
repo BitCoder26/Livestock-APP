@@ -471,7 +471,7 @@ h2,
 
 .download-section {
   width: min(var(--content-frame-width), calc(100% - 48px));
-  margin: 96px auto 88px;
+  margin: 132px auto 88px;
   padding: 44px 28px 46px;
   background: var(--warm-charcoal);
   border: 0;
