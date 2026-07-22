@@ -513,6 +513,15 @@ h2,
   margin-top: 28px;
 }
 
+.bottom-red-section {
+  background: var(--banner-red);
+  padding: 44px 0 0;
+}
+
+.bottom-red-shell {
+  padding-bottom: 32px;
+}
+
 .facebook-section,
 .contact-panel {
   display: grid;
@@ -528,7 +537,7 @@ h2,
 .facebook-section {
   background: var(--warm-charcoal);
   align-items: center;
-  margin-top: 36px;
+  margin-top: 0;
   margin-bottom: 42px;
 }
 
@@ -648,21 +657,28 @@ h2,
 
 .site-footer {
   display: flex;
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 0 0 28px;
+  padding: 0 0 36px;
 }
 
 .site-footer p {
   margin: 0;
   font-size: 0.98rem;
+  color: #ffffff;
 }
 
 .footer-links {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
+}
+
+.footer-links a {
+  color: #fff6f3;
 }
 
 .legal-shell {
