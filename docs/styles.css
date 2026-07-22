@@ -281,8 +281,20 @@ h2,
   width: auto;
 }
 
+.hero-banner-bridge {
+  width: 100%;
+  margin-top: -6px;
+  overflow: hidden;
+}
+
+.hero-banner-bridge img {
+  width: 100%;
+  display: block;
+  margin-top: -48px;
+}
+
 .page-shell {
-  padding: 24px 0 56px;
+  padding: 0 0 56px;
 }
 
 .feature-story-list,
@@ -397,7 +409,7 @@ h2,
 }
 
 .feature-story:first-child {
-  margin-top: 0;
+  margin-top: -126px;
 }
 
 .feature-story-copy {
