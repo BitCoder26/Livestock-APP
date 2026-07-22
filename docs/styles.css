@@ -481,7 +481,7 @@ h2,
   width: min(var(--content-frame-width), calc(100% - 48px));
   margin: 132px auto 56px;
   padding: 44px 28px 46px;
-  background: var(--warm-charcoal);
+  background: #4e1a21;
   border: 0;
   border-radius: 18px;
   box-shadow: 0 22px 46px rgba(31, 27, 23, 0.14);
