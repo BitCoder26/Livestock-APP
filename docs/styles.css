@@ -601,6 +601,7 @@ h2,
 .facebook-section-copy h2,
 .contact-panel-copy h2 {
   margin-bottom: 24px;
+  font-size: clamp(1.8rem, 4vw, 3rem);
 }
 
 .facebook-section-copy h2,
