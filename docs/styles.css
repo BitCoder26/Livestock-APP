@@ -152,7 +152,7 @@ h2,
 
 .hero-wordmark,
 .hero-emphasis {
-  color: #e6c12b;
+  color: #fff1d6;
 }
 
 .hero-slogan {
@@ -331,8 +331,8 @@ h2,
 
 .hero-phone-stack {
   position: relative;
-  width: min(430px, 100%);
-  min-height: 520px;
+  width: min(510px, 100%);
+  min-height: 610px;
 }
 
 .hero-phone-live,
@@ -347,18 +347,18 @@ h2,
 
 .hero-phone-live {
   position: absolute;
-  width: min(250px, 100%);
+  width: min(300px, 100%);
   transform-origin: 50% 50%;
 }
 
 .hero-phone-back {
-  inset: 30px auto auto 20px;
+  inset: 20px auto auto 10px;
   z-index: 1;
   transform: rotate(-8deg);
 }
 
 .hero-phone-front {
-  inset: 6px 12px auto auto;
+  inset: 0 0 auto auto;
   z-index: 2;
   transform: rotate(8deg);
 }
@@ -393,10 +393,10 @@ h2,
 .feature-story-list {
   display: grid;
   gap: 42px;
-  background: transparent;
+  background: #fff1d6;
   border: 0;
   box-shadow: none;
-  padding: 0;
+  padding: 28px 0;
   position: relative;
   z-index: 2;
 }
