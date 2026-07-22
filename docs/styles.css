@@ -346,13 +346,13 @@ h2,
 .hero-phone-back {
   inset: 30px auto auto 20px;
   z-index: 1;
-  transform: rotate(-15deg);
+  transform: rotate(-5deg);
 }
 
 .hero-phone-front {
   inset: 6px 12px auto auto;
   z-index: 2;
-  transform: rotate(15deg);
+  transform: rotate(5deg);
 }
 
 .hero-phone-live img {
