@@ -394,8 +394,9 @@ h2,
 }
 
 .feature-card {
-  min-height: 210px;
-  padding: 30px 28px;
+  width: min(100%, 360px);
+  min-height: 180px;
+  padding: 24px 22px;
   border-radius: 26px;
   background: var(--warm-charcoal);
   border: 0;
@@ -409,8 +410,8 @@ h2,
 
 .feature-story {
   display: grid;
-  grid-template-columns: minmax(240px, 320px) minmax(320px, 1fr);
-  gap: 36px;
+  grid-template-columns: minmax(220px, 300px) minmax(260px, 360px);
+  gap: 28px;
   align-items: center;
   justify-content: center;
   width: 100%;
@@ -418,7 +419,7 @@ h2,
 }
 
 .feature-story.reverse {
-  grid-template-columns: minmax(320px, 1fr) minmax(240px, 320px);
+  grid-template-columns: minmax(260px, 360px) minmax(220px, 300px);
 }
 
 .feature-story-screen {
@@ -434,6 +435,15 @@ h2,
 
 .feature-story-copy {
   min-height: 0;
+  width: 100%;
+}
+
+.feature-story:not(.reverse) .feature-story-copy {
+  justify-self: start;
+}
+
+.feature-story.reverse .feature-story-copy {
+  justify-self: end;
 }
 
 .feature-story-copy .eyebrow {
