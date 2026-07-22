@@ -576,24 +576,8 @@ h2,
 
 .facebook-section-main {
   display: flex;
-  align-items: stretch;
-  gap: 20px;
-}
-
-.facebook-section-icon {
-  display: flex;
   align-items: flex-start;
-  justify-content: center;
-  width: 64px;
-  min-height: 100%;
-  flex: 0 0 64px;
-  align-self: start;
-  color: var(--warm-charcoal);
-}
-
-.facebook-section-icon svg {
-  width: 48px;
-  height: 48px;
+  gap: 0;
 }
 
 .facebook-section-copy {
@@ -602,7 +586,7 @@ h2,
 
 .facebook-section-actions {
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
   align-items: flex-start;
   align-self: start;
   height: auto;
@@ -648,6 +632,17 @@ h2,
 }
 
 .button-contact-primary:hover {
+  color: #ffffff;
+}
+
+.facebook-group-button {
+  gap: 10px;
+}
+
+.facebook-group-button svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
   color: #ffffff;
 }
 
@@ -860,18 +855,7 @@ h2,
   }
 
   .facebook-section-main {
-    gap: 14px;
-  }
-
-  .facebook-section-icon {
-    width: 58px;
-    min-height: 100%;
-    flex-basis: 58px;
-  }
-
-  .facebook-section-icon svg {
-    width: 42px;
-    height: 42px;
+    gap: 0;
   }
 
   .facebook-section-actions {
