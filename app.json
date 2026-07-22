@@ -10,7 +10,7 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "1",
+      "buildNumber": "2",
       "bundleIdentifier": "app.livestockbook",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
