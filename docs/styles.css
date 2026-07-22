@@ -155,6 +155,10 @@ h2,
   color: #e6c12b;
 }
 
+.hero-slogan {
+  color: #fff9f7;
+}
+
 .hero-text,
 .section-copy p,
 .feature-card p,
@@ -471,7 +475,7 @@ h2,
 
 .download-section {
   width: min(var(--content-frame-width), calc(100% - 48px));
-  margin: 132px auto 88px;
+  margin: 132px auto 56px;
   padding: 44px 28px 46px;
   background: var(--warm-charcoal);
   border: 0;
@@ -519,7 +523,7 @@ h2,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 22px;
+  gap: 30px;
 }
 
 .download-app-logo {
@@ -725,8 +729,23 @@ h2,
 }
 
 .back-link {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
   margin-bottom: 18px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--warm-charcoal);
+  border: 1px solid rgba(33, 29, 24, 0.1);
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.back-link:hover {
+  background: rgba(255, 255, 255, 0.92);
 }
 
 @media (max-width: 900px) {
@@ -856,6 +875,7 @@ h2,
 
   .download-section {
     width: min(var(--content-frame-width), calc(100% - 32px));
+    margin: 132px auto 56px;
     padding: 48px 24px;
   }
 
