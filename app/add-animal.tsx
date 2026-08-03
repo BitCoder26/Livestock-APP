@@ -1,7 +1,7 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -44,7 +44,12 @@ type PickerKey = 'status' | 'weightUnit' | 'farm' | 'paddock' | 'group';
 
 export function AddAnimalScreen() {
   const router = useRouter();
-  const { species, animalId: selectedAnimalId, reveal } = useLocalSearchParams<{ species?: string; animalId?: string; reveal?: string }>();
+  const {
+    species,
+    animalId: selectedAnimalId,
+    reveal,
+    openSpeciesPicker,
+  } = useLocalSearchParams<{ species?: string; animalId?: string; reveal?: string; openSpeciesPicker?: string }>();
   const { profile } = useAccount();
   const { animals, addAnimal, updateAnimal, deleteAnimal } = useAnimals();
   const { farms, paddocks, groups } = useSetup();
@@ -73,6 +78,12 @@ export function AddAnimalScreen() {
   const [showSpeciesPicker, setShowSpeciesPicker] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerKey | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  useEffect(() => {
+    if (openSpeciesPicker === '1') {
+      setShowSpeciesPicker(true);
+    }
+  }, [openSpeciesPicker]);
 
   const parsedDateOfBirth = useMemo(() => parseStoredDate(dateOfBirth), [dateOfBirth]);
   const displayedDateOfBirth = useMemo(() => formatDateForDisplay(dateOfBirth, profile.dateFormat), [dateOfBirth, profile.dateFormat]);

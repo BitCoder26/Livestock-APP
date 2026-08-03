@@ -1,13 +1,15 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
+import { getSpeciesThemeByTone } from '../src/constants/speciesTheme';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useRecords } from '../src/context/RecordsContext';
+import type { AnimalTone } from '../src/entities/animal';
 import type { RecordEntry } from '../src/entities/record';
 import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, parseStoredDate } from '../src/utils/dateFormat';
@@ -36,6 +38,14 @@ export default function AnimalTimelineScreen() {
 
   const primaryImageUri = animal?.imageUris?.[0] ?? null;
   const galleryImageUris = animal?.imageUris?.slice(1) ?? [];
+  const [primaryImageFailed, setPrimaryImageFailed] = useState(false);
+
+  useEffect(() => {
+    setPrimaryImageFailed(false);
+  }, [primaryImageUri, animal?.id]);
+
+  const showPrimaryImage = Boolean(primaryImageUri) && !primaryImageFailed;
+  const speciesTheme = animal ? getSpeciesThemeByTone(animal.tone) : null;
 
   const handleShareAnimal = async () => {
     if (!animal) {
@@ -105,7 +115,29 @@ export default function AnimalTimelineScreen() {
           <View style={styles.summarySection}>
             <View style={styles.summaryHeader}>
               <View style={styles.summaryHeaderMain}>
-                {primaryImageUri ? <Image source={{ uri: primaryImageUri }} style={styles.summaryProfileImage} /> : null}
+                {showPrimaryImage ? (
+                  <Image
+                    source={{ uri: primaryImageUri ?? undefined }}
+                    style={styles.summaryProfileImage}
+                    onError={() => setPrimaryImageFailed(true)}
+                  />
+                ) : (
+                  <View style={styles.summaryProfileFallback}>
+                    <View
+                      style={[
+                        styles.summarySpeciesIconBadge,
+                        { backgroundColor: speciesTheme?.chipBackground ?? tokens.colors.surfaceMuted },
+                      ]}
+                    >
+                      <AppIcon
+                        name={getSpeciesIconName(animal.species, animal.tone)}
+                        size={56}
+                        color={speciesTheme?.icon ?? tokens.colors.text}
+                        opacity={1}
+                      />
+                    </View>
+                  </View>
+                )}
                 <View style={styles.summaryIdentity}>
                   <Text style={styles.summaryId}>{animal.id}</Text>
                   <Text style={styles.summaryName}>{animal.name.trim() || 'Unnamed animal'}</Text>
@@ -263,6 +295,50 @@ function capitalize(value: string) {
   return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : '';
 }
 
+function getSpeciesIconName(species: string, tone: AnimalTone) {
+  const normalized = species.trim().toLowerCase();
+
+  if (normalized.includes('cattle') || normalized.includes('cow')) return 'cow-copy';
+  if (normalized.includes('sheep')) return 'sheep';
+  if (normalized.includes('pig')) return 'pig';
+  if (normalized.includes('goat')) return 'goat';
+  if (normalized.includes('chicken')) return 'chicken';
+  if (normalized.includes('duck')) return 'duck';
+  if (normalized.includes('turkey')) return 'turkey';
+  if (normalized.includes('goose')) return 'goose';
+  if (normalized.includes('donkey')) return 'donkey';
+  if (normalized.includes('horse')) return 'horse';
+  if (normalized.includes('buffalo') || normalized.includes('bison')) return 'bison';
+  if (normalized.includes('rabbit')) return 'rabbit';
+  if (normalized.includes('alpaca')) return 'alpaca';
+  if (normalized.includes('llama')) return 'llama';
+  if (normalized.includes('camel')) return 'camel';
+  if (normalized.includes('ostrich')) return 'ostrich';
+
+  return getToneFallback(tone);
+}
+
+function getToneFallback(tone: AnimalTone) {
+  switch (tone) {
+    case 'pig':
+      return 'pig';
+    case 'sheep':
+      return 'sheep';
+    case 'goat':
+      return 'goat';
+    case 'poultry':
+      return 'chicken';
+    case 'equine':
+      return 'horse';
+    case 'camelid':
+      return 'camel';
+    case 'neutral':
+      return 'animals';
+    default:
+      return 'cow-copy';
+  }
+}
+
 const MONTH_INDEX: Record<string, number> = {
   jan: 0,
   feb: 1,
@@ -322,6 +398,21 @@ const styles = StyleSheet.create({
     height: 116,
     borderRadius: 28,
     backgroundColor: tokens.colors.surfaceMuted,
+  },
+  summaryProfileFallback: {
+    width: 116,
+    height: 116,
+    borderRadius: 28,
+    backgroundColor: tokens.colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summarySpeciesIconBadge: {
+    width: 116,
+    height: 116,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   summaryId: {
     color: tokens.colors.text,

@@ -1,9 +1,10 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,12 +15,14 @@ import { BouncyPressable } from '../../src/components/BouncyPressable';
 import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { DesignField } from '../../src/components/DesignField';
 import { RECORD_TYPES, SPECIES_OPTIONS } from '../../src/constants/records';
+import { getSpeciesThemeByLabel } from '../../src/constants/speciesTheme';
 import { useAccount } from '../../src/context/AccountContext';
 import { useAnimals } from '../../src/context/AnimalsContext';
 import { useRecords } from '../../src/context/RecordsContext';
 import { useSetup } from '../../src/context/SetupContext';
 import type { Animal, AnimalStatus } from '../../src/entities/animal';
 import type { RecordEntry } from '../../src/entities/record';
+import type { AppIconName } from '../../src/components/AppIcon';
 import { tokens } from '../../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../../src/utils/dateFormat';
 
@@ -70,6 +73,7 @@ const DEFAULT_RECORD_FILTERS: RecordExportFilters = {
 
 export default function ExportScreen() {
   const router = useRouter();
+  const { previewPdf, previewTarget } = useLocalSearchParams<{ previewPdf?: string; previewTarget?: string }>();
   const { profile } = useAccount();
   const { animals } = useAnimals();
   const { records } = useRecords();
@@ -82,6 +86,7 @@ export default function ExportScreen() {
   const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(null);
   const [showMoreAnimalFilters, setShowMoreAnimalFilters] = useState(false);
   const [showMoreRecordFilters, setShowMoreRecordFilters] = useState(false);
+  const hasAutoPreviewed = useRef(false);
 
   const availableSpecies = useMemo(
     () => getAvailableSpecies(animals, records),
@@ -133,6 +138,47 @@ export default function ExportScreen() {
       ? getAnimalFilterSummary(animalFilters)
       : getRecordFilterSummary(recordFilters, profile.dateFormat);
 
+  useEffect(() => {
+    if (previewTarget === 'animals') {
+      setTarget('animals');
+    } else if (previewTarget === 'records') {
+      setTarget('records');
+    }
+  }, [previewTarget]);
+
+  useEffect(() => {
+    if (previewPdf !== '1' || hasAutoPreviewed.current) {
+      return;
+    }
+
+    hasAutoPreviewed.current = true;
+
+    const runPreview = async () => {
+      try {
+        const uri =
+          previewTarget === 'animals'
+            ? await createAnimalsPdf(filteredAnimals, animalFilters, profile.dateFormat)
+            : await createRecordsPdf(filteredRecords, animals, recordFilters, profile.dateFormat);
+
+        await Linking.openURL(uri);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Something went wrong while preparing the export.';
+        Alert.alert('Export failed', message);
+      }
+    };
+
+    void runPreview();
+  }, [
+    animalFilters,
+    animals,
+    filteredAnimals,
+    filteredRecords,
+    previewPdf,
+    previewTarget,
+    profile.dateFormat,
+    recordFilters,
+  ]);
+
   async function handleExport(format: ExportFormat) {
     const sharingAvailable = await Sharing.isAvailableAsync();
 
@@ -151,12 +197,14 @@ export default function ExportScreen() {
     try {
       if (target === 'animals') {
         if (format === 'pdf') {
-          await exportAnimalsPdf(filteredAnimals, animalFilters, profile.dateFormat);
+          const uri = await createAnimalsPdf(filteredAnimals, animalFilters, profile.dateFormat);
+          await sharePdf(uri);
         } else {
           await exportAnimalsCsv(filteredAnimals, profile.dateFormat);
         }
       } else if (format === 'pdf') {
-        await exportRecordsPdf(filteredRecords, animals, recordFilters, profile.dateFormat);
+        const uri = await createRecordsPdf(filteredRecords, animals, recordFilters, profile.dateFormat);
+        await sharePdf(uri);
       } else {
         await exportRecordsCsv(filteredRecords, animals, profile.dateFormat);
       }
@@ -180,6 +228,22 @@ export default function ExportScreen() {
       ...current,
       [key]: toggleSelection(current[key], value),
     }));
+  }
+
+  function toggleActiveSelection(selectionKey: MultiSelectKey, option: string) {
+    if (target === 'animals') {
+      if (selectionKey === 'statuses') updateAnimalMultiSelect('statuses', option);
+      if (selectionKey === 'species') updateAnimalMultiSelect('species', option);
+      if (selectionKey === 'farms') updateAnimalMultiSelect('farms', option);
+      if (selectionKey === 'paddocks') updateAnimalMultiSelect('paddocks', option);
+      if (selectionKey === 'groups') updateAnimalMultiSelect('groups', option);
+      return;
+    }
+
+    if (selectionKey === 'species') updateRecordMultiSelect('species', option);
+    if (selectionKey === 'recordTypes') updateRecordMultiSelect('recordTypes', option);
+    if (selectionKey === 'farms') updateRecordMultiSelect('farms', option);
+    if (selectionKey === 'paddocks') updateRecordMultiSelect('paddocks', option);
   }
 
   function handleDateChange(event: DateTimePickerEvent, nextDate?: Date) {
@@ -441,66 +505,115 @@ export default function ExportScreen() {
         onRequestClose={() => setActiveMultiSelect(null)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setActiveMultiSelect(null)}>
-          <AnimatedPopupCard visible={activeMultiSelect !== null} style={styles.selectionCard} onPress={() => undefined}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.selectionTitle}>{getSelectionTitle(activeMultiSelect)}</Text>
-              <Pressable accessibilityLabel="Done" accessibilityRole="button" onPress={() => setActiveMultiSelect(null)}>
-                <Text style={styles.modalDone}>Done</Text>
-              </Pressable>
-            </View>
+          <AnimatedPopupCard
+            visible={activeMultiSelect !== null}
+            style={activeMultiSelect === 'species' ? styles.modalCard : styles.selectionCard}
+            onPress={() => undefined}
+          >
+            {activeMultiSelect === 'species' ? (
+              <>
+                <View style={styles.speciesModalHeader}>
+                  <Text style={styles.speciesModalTitle}>Select Species</Text>
+                  <Pressable
+                    accessibilityLabel="Close species selector"
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    onPress={() => setActiveMultiSelect(null)}
+                    style={styles.speciesModalClose}
+                  >
+                    <AppIcon name="close" size={16} color={tokens.colors.text} />
+                  </Pressable>
+                </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={[styles.modalList, needsExtraDropdownGap(activeMultiSelect) && styles.modalListSpaced]}>
-                {multiSelectOptions.length > 0 ? (
-                  multiSelectOptions.map((option) => {
-                    const selectionKey = activeMultiSelect;
+                <ScrollView contentContainerStyle={styles.speciesModalGrid} showsVerticalScrollIndicator={false}>
+                  {multiSelectOptions.length > 0 ? (
+                    multiSelectOptions.map((option) => {
+                      const selected =
+                        target === 'animals'
+                          ? isSelectedAnimalOption(animalFilters, 'species', option)
+                          : isSelectedRecordOption(recordFilters, 'species', option);
+                      const theme = getSpeciesThemeByLabel(option);
+                      const iconName = getSpeciesIconName(option);
+                      const iconColor = option === 'Sheep' ? '#171717' : theme.icon;
 
-                    if (!selectionKey) {
-                      return null;
-                    }
+                      return (
+                        <Pressable
+                          key={option}
+                          accessibilityLabel={option}
+                          accessibilityRole="button"
+                          onPress={() => toggleActiveSelection('species', option)}
+                          style={({ pressed }) => [
+                            styles.speciesModalCard,
+                            { backgroundColor: theme.tintBackground },
+                            selected && styles.speciesModalCardActive,
+                            pressed && styles.speciesModalCardPressed,
+                          ]}
+                        >
+                          <View style={styles.speciesModalCardContent}>
+                            <AppIcon name={iconName} size={26} color={iconColor} />
+                            <Text style={[styles.speciesModalCardLabel, { color: theme.text }]}>{option}</Text>
+                          </View>
+                          {selected ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                        </Pressable>
+                      );
+                    })
+                  ) : (
+                    <View style={styles.emptyPickerState}>
+                      <Text style={styles.emptyPickerText}>No options yet</Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </>
+            ) : (
+              <>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.selectionTitle}>{getSelectionTitle(activeMultiSelect)}</Text>
+                  <Pressable accessibilityLabel="Done" accessibilityRole="button" onPress={() => setActiveMultiSelect(null)}>
+                    <Text style={styles.modalDone}>Done</Text>
+                  </Pressable>
+                </View>
 
-                    const selected =
-                      target === 'animals'
-                        ? isSelectedAnimalOption(animalFilters, selectionKey, option)
-                        : isSelectedRecordOption(recordFilters, selectionKey, option);
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <View style={[styles.modalList, needsExtraDropdownGap(activeMultiSelect) && styles.modalListSpaced]}>
+                    {multiSelectOptions.length > 0 ? (
+                      multiSelectOptions.map((option) => {
+                        const selectionKey = activeMultiSelect;
 
-                    return (
-                      <Pressable
-                        key={option}
-                        accessibilityLabel={option}
-                        accessibilityRole="button"
-                        onPress={() => {
-                          if (target === 'animals') {
-                            if (selectionKey === 'statuses') updateAnimalMultiSelect('statuses', option);
-                            if (selectionKey === 'species') updateAnimalMultiSelect('species', option);
-                            if (selectionKey === 'farms') updateAnimalMultiSelect('farms', option);
-                            if (selectionKey === 'paddocks') updateAnimalMultiSelect('paddocks', option);
-                            if (selectionKey === 'groups') updateAnimalMultiSelect('groups', option);
-                          } else {
-                            if (selectionKey === 'species') updateRecordMultiSelect('species', option);
-                            if (selectionKey === 'recordTypes') updateRecordMultiSelect('recordTypes', option);
-                            if (selectionKey === 'farms') updateRecordMultiSelect('farms', option);
-                            if (selectionKey === 'paddocks') updateRecordMultiSelect('paddocks', option);
-                          }
-                        }}
-                        style={({ pressed }) => [
-                          styles.selectionRow,
-                          selected && styles.selectionRowActive,
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <Text style={[styles.selectionText, selected && styles.selectionTextActive]}>{option}</Text>
-                        {selected ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
-                      </Pressable>
-                    );
-                  })
-                ) : (
-                  <View style={styles.emptyPickerState}>
-                    <Text style={styles.emptyPickerText}>No options yet</Text>
+                        if (!selectionKey) {
+                          return null;
+                        }
+
+                        const selected =
+                          target === 'animals'
+                            ? isSelectedAnimalOption(animalFilters, selectionKey, option)
+                            : isSelectedRecordOption(recordFilters, selectionKey, option);
+
+                        return (
+                          <Pressable
+                            key={option}
+                            accessibilityLabel={option}
+                            accessibilityRole="button"
+                            onPress={() => toggleActiveSelection(selectionKey, option)}
+                            style={({ pressed }) => [
+                              styles.selectionRow,
+                              selected && styles.selectionRowActive,
+                              pressed && styles.pressed,
+                            ]}
+                          >
+                            <Text style={[styles.selectionText, selected && styles.selectionTextActive]}>{option}</Text>
+                            {selected ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                          </Pressable>
+                        );
+                      })
+                    ) : (
+                      <View style={styles.emptyPickerState}>
+                        <Text style={styles.emptyPickerText}>No options yet</Text>
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
-            </ScrollView>
+                </ScrollView>
+              </>
+            )}
           </AnimatedPopupCard>
         </Pressable>
       </Modal>
@@ -733,7 +846,7 @@ async function exportRecordsCsv(records: RecordEntry[], animals: Animal[], dateF
   await writeAndShareCsv(`records-${createTimestamp()}.csv`, rows);
 }
 
-async function exportAnimalsPdf(animals: Animal[], filters: AnimalExportFilters, dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
+async function createAnimalsPdf(animals: Animal[], filters: AnimalExportFilters, dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
   const rows = animals.map((animal) => [
     animal.id,
     animal.name || '—',
@@ -753,10 +866,10 @@ async function exportAnimalsPdf(animals: Animal[], filters: AnimalExportFilters,
     rows,
   });
 
-  await printAndSharePdf(html);
+  return createPdfFile(html);
 }
 
-async function exportRecordsPdf(records: RecordEntry[], animals: Animal[], filters: RecordExportFilters, dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
+async function createRecordsPdf(records: RecordEntry[], animals: Animal[], filters: RecordExportFilters, dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
   const rows = records.map((record) => {
     const relatedAnimals = findRelatedAnimals(record, animals);
 
@@ -780,11 +893,15 @@ async function exportRecordsPdf(records: RecordEntry[], animals: Animal[], filte
     rows,
   });
 
-  await printAndSharePdf(html);
+  return createPdfFile(html);
 }
 
-async function printAndSharePdf(html: string) {
+async function createPdfFile(html: string) {
   const { uri } = await Print.printToFileAsync({ html });
+  return uri;
+}
+
+async function sharePdf(uri: string) {
   await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
 }
 
@@ -1042,6 +1159,77 @@ function getAvailableSpecies(animals: Animal[], records: RecordEntry[]) {
     .sort((left, right) => left.localeCompare(right));
 
   return [...ordered, ...extras];
+}
+
+function getSpeciesIconName(label: string): AppIconName {
+  const normalized = label.trim().toLowerCase();
+  const known = SPECIES_OPTIONS.find((option) => option.label.trim().toLowerCase() === normalized);
+
+  if (known) {
+    return known.label === 'Sheep' ? 'sheep-black' : known.icon;
+  }
+
+  if (normalized.includes('cow') || normalized.includes('cattle') || normalized.includes('buffalo') || normalized.includes('bison')) {
+    return 'cow-copy';
+  }
+
+  if (normalized.includes('sheep')) {
+    return 'sheep-black';
+  }
+
+  if (normalized.includes('pig')) {
+    return 'pig';
+  }
+
+  if (normalized.includes('goat')) {
+    return 'goat';
+  }
+
+  if (normalized.includes('chicken')) {
+    return 'chicken';
+  }
+
+  if (normalized.includes('duck')) {
+    return 'duck';
+  }
+
+  if (normalized.includes('turkey')) {
+    return 'turkey';
+  }
+
+  if (normalized.includes('goose')) {
+    return 'goose';
+  }
+
+  if (normalized.includes('donkey')) {
+    return 'donkey';
+  }
+
+  if (normalized.includes('horse')) {
+    return 'horse';
+  }
+
+  if (normalized.includes('rabbit')) {
+    return 'rabbit';
+  }
+
+  if (normalized.includes('alpaca')) {
+    return 'alpaca';
+  }
+
+  if (normalized.includes('llama')) {
+    return 'llama';
+  }
+
+  if (normalized.includes('camel')) {
+    return 'camel';
+  }
+
+  if (normalized.includes('ostrich')) {
+    return 'ostrich';
+  }
+
+  return 'tag';
 }
 
 function joinUnique(values: string[]) {
@@ -1345,6 +1533,63 @@ const styles = StyleSheet.create({
   },
   selectionTextActive: {
     color: '#74423F',
+  },
+  speciesModalGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingTop: 18,
+    paddingBottom: 12,
+  },
+  speciesModalHeader: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  speciesModalTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  speciesModalClose: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  speciesModalCard: {
+    width: '48%',
+    minHeight: 74,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingLeft: 20,
+    paddingRight: 14,
+  },
+  speciesModalCardActive: {
+    borderWidth: 1.5,
+    borderColor: tokens.colors.accent,
+  },
+  speciesModalCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  speciesModalCardLabel: {
+    color: '#171717',
+    fontSize: 15,
+    fontWeight: '500',
+    flexShrink: 1,
+  },
+  speciesModalCardPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
   },
   emptyPickerState: {
     minHeight: 72,

@@ -9,8 +9,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true,
-      "buildNumber": "3",
+      "supportsTablet": false,
+      "buildNumber": "7",
       "bundleIdentifier": "app.livestockbook",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
