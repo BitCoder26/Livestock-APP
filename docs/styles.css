@@ -854,6 +854,21 @@ h2,
   max-width: 40rem;
 }
 
+.reviews-rate-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.reviews-rate-link:hover {
+  border-bottom-color: var(--accent);
+}
+
 .reviews-viewport {
   position: relative;
 }
