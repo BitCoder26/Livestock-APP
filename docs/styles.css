@@ -1089,7 +1089,7 @@ h2,
   }
 
   .facebook-section-actions {
-    justify-content: flex-start;
+    justify-content: center;
     align-self: start;
     height: auto;
   }
