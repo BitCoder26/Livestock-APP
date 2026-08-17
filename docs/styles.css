@@ -293,8 +293,10 @@ h2,
    negative margin) keeps this safe when a scrollbar is present. */
 .hero-usp {
   width: 100%;
-  /* Negative offset absorbs the transparent padding baked into the PNG. */
-  margin: -62px 0 0;
+  /* The PNG carries 19.5% transparent padding on top, and its left side (which
+     sits under the hero copy) stays empty until 35.6% down, so it can be
+     pulled up hard without the artwork colliding with the text. */
+  margin: -180px 0 0;
   padding-left: calc((100% - min(var(--content-frame-width), 100% - 48px)) / 2);
 }
 
@@ -917,8 +919,10 @@ h2,
 
   /* Full-bleed on phones: the graphic is a wide 4-across flow, so it needs
      every pixel of viewport width for its labels to stay readable. */
+  /* Less lift than desktop: stacked full-bleed puts the blob's high right
+     shoulder directly under the store badges. */
   .hero-usp {
-    margin-top: -24px;
+    margin-top: -50px;
     padding-left: 0;
   }
 
