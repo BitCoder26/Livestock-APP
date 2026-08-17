@@ -922,7 +922,7 @@ h2,
   /* Less lift than desktop: stacked full-bleed puts the blob's high right
      shoulder directly under the store badges. */
   .hero-usp {
-    margin-top: -50px;
+    margin-top: -20px;
     padding-left: 0;
   }
 
