@@ -293,7 +293,7 @@ h2,
 .hero-usp {
   grid-column: 1 / -1;
   /* Negative offset absorbs the transparent padding baked into the PNG. */
-  margin: -18px 0 0;
+  margin: -80px 0 0;
 }
 
 .hero-usp img {
@@ -921,7 +921,7 @@ h2,
      every pixel of viewport width for its labels to stay readable. */
   .hero-usp {
     width: 100vw;
-    margin: -6px calc(50% - 50vw) 0;
+    margin: -24px calc(50% - 50vw) 0;
   }
 
   .feature-story {
