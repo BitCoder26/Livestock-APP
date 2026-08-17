@@ -60,22 +60,21 @@ h2,
 .site-header {
   width: 100%;
   margin: 0;
+  background: #ffffff;
+  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.25);
+  /* Lift above the hero band so the shadow is not painted over. */
+  position: relative;
+  z-index: 5;
 }
 
-.site-header {
+.site-header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
   width: min(var(--hero-frame-width), calc(100% - 32px));
   padding: 14px 24px;
-  margin-left: auto;
-  margin-right: auto;
-  margin-top: 0;
-  margin-bottom: 0;
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
+  margin: 0 auto;
 }
 
 .brand {
@@ -249,7 +248,8 @@ h2,
 
 .hero-benefits {
   list-style: none;
-  margin: 0;
+  /* Centred in its grid row, so this margin lowers the box by half its value. */
+  margin: 64px 0 0;
   padding: 22px 24px;
   display: grid;
   align-content: center;
@@ -850,7 +850,7 @@ h2,
 }
 
 @media (max-width: 680px) {
-  .site-header,
+  .site-header-inner,
   .site-footer-inner {
     flex-direction: column;
     align-items: flex-start;
