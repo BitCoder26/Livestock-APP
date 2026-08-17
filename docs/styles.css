@@ -120,7 +120,7 @@ h2,
 
 .hero-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.92fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 28px;
   align-items: start;
 }
@@ -151,7 +151,7 @@ h2,
 
 .hero-wordmark,
 .hero-emphasis {
-  color: #4e1a21;
+  color: var(--banner-red);
 }
 
 .hero-text,
@@ -167,7 +167,7 @@ h2,
 
 .hero-text {
   max-width: 34rem;
-  color: #c95656;
+  color: #000000;
   margin-top: 18px;
   font-size: 1.08rem;
 }
@@ -238,18 +238,19 @@ h2,
   height: 48px;
 }
 
+.benefits-section {
+  width: 100%;
+  padding: 0 0 40px;
+  background: #ffffff;
+}
+
 .hero-benefits {
   list-style: none;
-  /* Centred in its grid row, so this margin lowers the box by half its value. */
-  margin: 64px 0 0;
+  margin: 0 auto;
   padding: 22px 24px;
   display: grid;
-  align-content: center;
   gap: 14px;
-  width: 100%;
-  max-width: 26rem;
-  justify-self: center;
-  align-self: center;
+  width: min(26rem, calc(100% - 48px));
   border-radius: 18px;
   background: rgba(201, 86, 86, 0.06);
   border: 1px solid rgba(201, 86, 86, 0.18);
@@ -294,16 +295,15 @@ h2,
   display: block;
 }
 
-.hero-banner-bridge {
-  width: 100%;
-  margin-top: -6px;
-  overflow: hidden;
-}
-
-.hero-banner-bridge img {
+.site-bottom-banner {
   width: 100%;
   display: block;
-  margin-top: -48px;
+  line-height: 0;
+}
+
+.site-bottom-banner img {
+  width: 100%;
+  display: block;
 }
 
 .page-shell {
@@ -387,7 +387,7 @@ h2,
 }
 
 .feature-story:first-child {
-  margin-top: -36px;
+  margin-top: 0;
 }
 
 .feature-story-copy {
@@ -775,11 +775,6 @@ h2,
     padding-top: 40px;
   }
 
-  .hero-benefits {
-    justify-self: start;
-    margin-top: 4px;
-  }
-
   .feature-story {
     width: min(100%, calc(100vw - 32px));
     max-width: 420px;
@@ -833,7 +828,7 @@ h2,
   }
 
   .feature-story:first-child {
-    margin-top: -36px;
+    margin-top: 0;
   }
 
   .offset-card {
@@ -850,10 +845,6 @@ h2,
 
   .hero-band {
     padding: 16px 0 26px;
-  }
-
-  .hero-banner-bridge img {
-    margin-top: -20px;
   }
 
   .feature-story-list,
