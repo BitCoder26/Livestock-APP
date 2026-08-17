@@ -1,17 +1,20 @@
-import { useIsFocused, useRouter } from 'expo-router';
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
+import { Alert, Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../src/components/AppIcon';
 import { AppTopBar } from '../../src/components/AppTopBar';
+import { AnimatedPopupCard } from '../../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../../src/components/BouncyPressable';
 import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { getSpeciesThemeByTone } from '../../src/constants/speciesTheme';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton';
 import { useAnimals } from '../../src/context/AnimalsContext';
 import { useOnboarding, useSpotlightTarget } from '../../src/context/OnboardingContext';
-import type { AnimalTone } from '../../src/entities/animal';
+import { useSetup } from '../../src/context/SetupContext';
+import type { Animal, AnimalTone } from '../../src/entities/animal';
 import { tokens } from '../../src/theme/tokens';
 
 const SPECIES_FILTER_OPTIONS = [
@@ -36,17 +39,83 @@ const SPECIES_FILTER_OPTIONS = [
 const STATUS_FILTER_OPTIONS = ['All', 'Active', 'Sold', 'Dead'] as const;
 const ALL_SPECIES_FILTER = 'All';
 const SPECIES_FILTER_LABELS = [ALL_SPECIES_FILTER, ...SPECIES_FILTER_OPTIONS.map((item) => item.label)] as const;
+type StatusFilter = Exclude<(typeof STATUS_FILTER_OPTIONS)[number], 'All'>;
+type SpeciesFilter = (typeof SPECIES_FILTER_OPTIONS)[number]['label'];
+
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Recently Added (default)' },
+  { value: 'oldest', label: 'Oldest Added' },
+  { value: 'name-asc', label: 'Name (A–Z)' },
+  { value: 'tag-asc', label: 'Tag / ID (A–Z)' },
+  { value: 'status', label: 'Status' },
+] as const;
+type SortOption = (typeof SORT_OPTIONS)[number]['value'];
+const DEFAULT_SORT: SortOption = 'newest';
+const STATUS_SORT_PRIORITY: Record<Animal['status'], number> = { Active: 0, Sold: 1, Deceased: 2 };
+
+// AnimalsContext backfills a real createdAt for every stored animal (see
+// synthesizeCreatedAt in AnimalsContext.tsx), so this should always be
+// populated. The 0 (epoch) fallback only guards truly malformed data.
+function getCreatedAtTime(animal: Animal): number {
+  return animal.createdAt ? Date.parse(animal.createdAt) || 0 : 0;
+}
+
+function sortAnimals(list: Animal[], sort: SortOption): Animal[] {
+  switch (sort) {
+    case 'name-asc':
+      return [...list].sort((a, b) => (a.name.trim() || a.id).localeCompare(b.name.trim() || b.id));
+    case 'tag-asc':
+      return [...list].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' }));
+    case 'status':
+      return [...list].sort((a, b) => STATUS_SORT_PRIORITY[a.status] - STATUS_SORT_PRIORITY[b.status]);
+    case 'oldest':
+      return [...list].sort((a, b) => getCreatedAtTime(a) - getCreatedAtTime(b));
+    case 'newest':
+    default:
+      return [...list].sort((a, b) => getCreatedAtTime(b) - getCreatedAtTime(a));
+  }
+}
+
+const NEW_ANIMAL_CARD_ENTRANCE_DELAY = 700;
+const NEW_ANIMAL_CARD_DURATION = 420;
+let lastAnimatedAnimalUid: string | null = null;
 
 export default function AnimalsScreen() {
   const router = useRouter();
-  const { animals } = useAnimals();
+  const { newAnimalUid, deletingAnimalUid } = useLocalSearchParams<{
+    newAnimalUid?: string;
+    deletingAnimalUid?: string;
+  }>();
+  const { animals, deleteAnimal } = useAnimals();
+  const { groups } = useSetup();
   const { step } = useOnboarding();
   const isFocused = useIsFocused();
   const [showFilterSheet, setShowFilterSheet] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<(typeof STATUS_FILTER_OPTIONS)[number]>('All');
-  const [selectedSpecies, setSelectedSpecies] = useState<(typeof SPECIES_FILTER_LABELS)[number]>('All');
+  const [showSortSheet, setShowSortSheet] = useState(false);
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
+  const [appliedStatus, setAppliedStatus] = useState<StatusFilter[]>([]);
+  const [appliedSpecies, setAppliedSpecies] = useState<SpeciesFilter[]>([]);
+  const [appliedGroups, setAppliedGroups] = useState<string[]>([]);
+  const [appliedSort, setAppliedSort] = useState<SortOption>(DEFAULT_SORT);
+  const [draftSearchQuery, setDraftSearchQuery] = useState('');
+  const [draftStatus, setDraftStatus] = useState<StatusFilter[]>([]);
+  const [draftSpecies, setDraftSpecies] = useState<SpeciesFilter[]>([]);
+  const [draftGroups, setDraftGroups] = useState<string[]>([]);
+  const [showGroupSelector, setShowGroupSelector] = useState(false);
   const sheetEntrance = useRef(new Animated.Value(0)).current;
+  const sortSheetEntrance = useRef(new Animated.Value(0)).current;
+  const availableGroups = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          [...groups, ...animals.map((animal) => animal.group)]
+            .map((group) => group.trim())
+            .filter(Boolean)
+            .map((group) => [group.toLowerCase(), group]),
+        ).values(),
+      ),
+    [animals, groups],
+  );
 
   const fabRef = useRef<View>(null);
   useSpotlightTarget('animal', step === 'animal' && isFocused, fabRef);
@@ -65,10 +134,28 @@ export default function AnimalsScreen() {
     }).start();
   }, [sheetEntrance, showFilterSheet]);
 
-  const hasActiveFilters = searchQuery.trim().length > 0 || selectedStatus !== 'All' || selectedSpecies !== ALL_SPECIES_FILTER;
+  useEffect(() => {
+    if (!showSortSheet) {
+      sortSheetEntrance.setValue(0);
+      return;
+    }
+
+    Animated.timing(sortSheetEntrance, {
+      toValue: 1,
+      duration: 380,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [sortSheetEntrance, showSortSheet]);
+
+  const hasActiveFilters =
+    appliedSearchQuery.trim().length > 0 ||
+    appliedStatus.length > 0 ||
+    appliedSpecies.length > 0 ||
+    appliedGroups.length > 0;
 
   const filteredAnimals = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const normalizedQuery = appliedSearchQuery.trim().toLowerCase();
 
     return animals.filter((animal) => {
       const matchesSearch =
@@ -77,15 +164,56 @@ export default function AnimalsScreen() {
         animal.name.toLowerCase().includes(normalizedQuery);
 
       const matchesStatus =
-        selectedStatus === 'All' ||
-        (selectedStatus === 'Dead' ? animal.status === 'Deceased' : animal.status === selectedStatus);
+        appliedStatus.length === 0 ||
+        appliedStatus.some((status) =>
+          status === 'Dead' ? animal.status === 'Deceased' : animal.status === status,
+        );
 
       const matchesSpecies =
-        selectedSpecies === ALL_SPECIES_FILTER || animal.species.trim().toLowerCase() === selectedSpecies.toLowerCase();
+        appliedSpecies.length === 0 ||
+        appliedSpecies.some((species) => animal.species.trim().toLowerCase() === species.toLowerCase());
 
-      return matchesSearch && matchesStatus && matchesSpecies;
+      const matchesGroup =
+        appliedGroups.length === 0 ||
+        appliedGroups.some((group) => animal.group.trim().toLowerCase() === group.toLowerCase());
+
+      return matchesSearch && matchesStatus && matchesSpecies && matchesGroup;
     });
-  }, [animals, searchQuery, selectedSpecies, selectedStatus]);
+  }, [animals, appliedGroups, appliedSearchQuery, appliedSpecies, appliedStatus]);
+
+  const sortedAnimals = useMemo(
+    () => sortAnimals(filteredAnimals, appliedSort),
+    [filteredAnimals, appliedSort],
+  );
+
+  const openFilters = () => {
+    setDraftSearchQuery(appliedSearchQuery);
+    setDraftStatus([...appliedStatus]);
+    setDraftSpecies([...appliedSpecies]);
+    setDraftGroups([...appliedGroups]);
+    setShowGroupSelector(false);
+    setShowFilterSheet(true);
+  };
+
+  const applyFilters = () => {
+    setAppliedSearchQuery(draftSearchQuery.trim());
+    setAppliedStatus([...draftStatus]);
+    setAppliedSpecies([...draftSpecies]);
+    setAppliedGroups([...draftGroups]);
+    setShowGroupSelector(false);
+    setShowFilterSheet(false);
+  };
+
+  const finishAnimalDeletion = async (animalUid: string) => {
+    const result = await deleteAnimal(animalUid);
+
+    if (!result.ok) {
+      Alert.alert('Animal could not be deleted', 'The animal was left unchanged. Please try again.');
+      return false;
+    }
+
+    return true;
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -94,9 +222,16 @@ export default function AnimalsScreen() {
         title="Animals"
         actions={[
           {
+            icon: 'sort',
+            accessibilityLabel: appliedSort !== DEFAULT_SORT ? 'Sort animals (custom sort applied)' : 'Sort animals',
+            onPress: () => setShowSortSheet(true),
+            badge: appliedSort !== DEFAULT_SORT,
+          },
+          {
             icon: 'filter',
-            accessibilityLabel: 'Filter animals',
-            onPress: () => setShowFilterSheet(true),
+            accessibilityLabel: hasActiveFilters ? 'Filter animals (filters applied)' : 'Filter animals',
+            onPress: openFilters,
+            badge: hasActiveFilters,
           },
           {
             icon: 'profile',
@@ -117,85 +252,87 @@ export default function AnimalsScreen() {
             <Text style={styles.emptyText}>{animals.length === 0 ? 'Add below' : 'No animals match your filters'}</Text>
           </View>
         ) : (
-          filteredAnimals.map((animal) => {
+          sortedAnimals.map((animal) => {
             const theme = getSpeciesThemeByTone(animal.tone);
 
             return (
-            <BouncyPressable
-              key={animal.id}
-              accessibilityRole="button"
-              onPress={() =>
-                router.push({
-                  pathname: '/animal-timeline',
-                  params: { animalId: animal.id },
-                })
-              }
-              style={({ pressed }) => [
-                styles.card,
-                pressed && styles.cardPressed,
-              ]}
-            >
-              <View
-                style={[
-                  styles.speciesIconBadge,
-                  { backgroundColor: theme.chipBackground },
-                ]}
+              <AnimalCardMotion
+                key={animal.uid}
+                animalUid={animal.uid}
+                animate={animal.uid === newAnimalUid}
+                exit={animal.uid === deletingAnimalUid}
+                onExitComplete={finishAnimalDeletion}
               >
-                <AppIcon
-                  name={getSpeciesIconName(animal.species, animal.tone)}
-                  size={26}
-                  color={theme.icon}
-                />
-              </View>
-              <View style={styles.cardCopy}>
-                <View style={styles.headerRow}>
-                  <Text style={styles.cardTitle}>{animal.id}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <View
-                    style={[
-                      styles.speciesChip,
-                      { backgroundColor: theme.chipBackground },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.speciesChipText,
-                        { color: theme.text },
-                      ]}
-                    >
-                      {animal.species}
-                    </Text>
+                <BouncyPressable
+                  accessibilityRole="button"
+                  onPress={() =>
+                    router.push({
+                      pathname: '/animal-timeline',
+                      params: { animalUid: animal.uid },
+                    })
+                  }
+                  style={({ pressed }) => [
+                    styles.card,
+                    pressed && styles.cardPressed,
+                  ]}
+                >
+                <AnimalCardAvatar animal={animal} />
+                <View style={styles.cardCopy}>
+                  <View style={styles.headerRow}>
+                    <Text style={styles.cardTitle}>{animal.id}</Text>
                   </View>
-                  <AppIcon
-                    key={`${animal.id}-${animal.sex}`}
-                    name={getAnimalSexIcon(animal.sex)}
-                    size={14}
-                    color={tokens.colors.text}
-                  />
-                  <Text style={styles.metaText} numberOfLines={1}>
-                    {buildPrimaryMeta(animal.name, animal.ageLabel)}
-                  </Text>
-                </View>
-                <View style={styles.footerRow}>
-                  <View style={styles.statusRow}>
+                  <View style={styles.infoRow}>
                     <View
                       style={[
-                        styles.statusDot,
-                        animal.status === 'Sold'
-                          ? styles.statusSold
-                          : animal.status === 'Deceased'
-                            ? styles.statusDeceased
-                            : styles.statusActive,
+                        styles.speciesChip,
+                        { backgroundColor: theme.chipBackground },
                       ]}
+                    >
+                      <AppIcon
+                        name={getSpeciesIconName(animal.species, animal.tone)}
+                        size={11}
+                        color={theme.icon}
+                      />
+                      <Text
+                        style={[
+                          styles.speciesChipText,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {animal.species}
+                      </Text>
+                    </View>
+                    <AppIcon
+                      key={`${animal.id}-${animal.sex}`}
+                      name={getAnimalSexIcon(animal.sex)}
+                      size={14}
+                      color={tokens.colors.text}
                     />
-                    <Text style={styles.statusText}>{animal.status}</Text>
+                    <Text style={styles.metaText} numberOfLines={1}>
+                      {buildPrimaryMeta(animal.name, animal.ageLabel)}
+                    </Text>
+                  </View>
+                  <View style={styles.footerRow}>
+                    <View style={styles.statusRow}>
+                      <View
+                        style={[
+                          styles.statusDot,
+                          animal.status === 'Sold'
+                            ? styles.statusSold
+                            : animal.status === 'Deceased'
+                              ? styles.statusDeceased
+                              : styles.statusActive,
+                        ]}
+                      />
+                      <Text style={styles.statusText}>{animal.status}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-              <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
-            </BouncyPressable>
-          )})
+                <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
+                </BouncyPressable>
+              </AnimalCardMotion>
+            );
+          })
         )}
       </ScrollView>
       <FloatingActionButton
@@ -258,8 +395,8 @@ export default function AnimalsScreen() {
                     placeholder="Search by ID or name"
                     placeholderTextColor="#7a7a7a"
                     style={styles.searchInput}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
+                    value={draftSearchQuery}
+                    onChangeText={setDraftSearchQuery}
                   />
                 </View>
               </View>
@@ -268,13 +405,25 @@ export default function AnimalsScreen() {
                 <Text style={styles.filterLabel}>Status</Text>
                 <View style={styles.optionRow}>
                   {STATUS_FILTER_OPTIONS.map((status) => {
-                    const active = selectedStatus === status;
+                    const active = status === 'All' ? draftStatus.length === 0 : draftStatus.includes(status);
 
                     return (
                       <Pressable
                         key={status}
-                        accessibilityRole="button"
-                        onPress={() => setSelectedStatus(status)}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: active }}
+                        onPress={() => {
+                          if (status === 'All') {
+                            setDraftStatus([]);
+                            return;
+                          }
+
+                          setDraftStatus((current) =>
+                            current.includes(status)
+                              ? current.filter((item) => item !== status)
+                              : [...current, status],
+                          );
+                        }}
                         style={[styles.filterChip, active && styles.filterChipActive]}
                       >
                         <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{status}</Text>
@@ -288,13 +437,28 @@ export default function AnimalsScreen() {
                 <Text style={styles.filterLabel}>Species</Text>
                 <View style={styles.optionRow}>
                   {SPECIES_FILTER_LABELS.map((species) => {
-                    const active = selectedSpecies === species;
+                    const active =
+                      species === ALL_SPECIES_FILTER
+                        ? draftSpecies.length === 0
+                        : draftSpecies.includes(species);
 
                     return (
                       <Pressable
                         key={species}
-                        accessibilityRole="button"
-                        onPress={() => setSelectedSpecies(species)}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: active }}
+                        onPress={() => {
+                          if (species === ALL_SPECIES_FILTER) {
+                            setDraftSpecies([]);
+                            return;
+                          }
+
+                          setDraftSpecies((current) =>
+                            current.includes(species)
+                              ? current.filter((item) => item !== species)
+                              : [...current, species],
+                          );
+                        }}
                         style={[styles.filterChip, active && styles.filterChipActive]}
                       >
                         <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{species}</Text>
@@ -303,16 +467,36 @@ export default function AnimalsScreen() {
                   })}
                 </View>
               </View>
+              {availableGroups.length > 0 ? (
+                <View style={styles.filterBlock}>
+                  <Text style={styles.filterLabel}>By Group</Text>
+                  <Pressable
+                    accessibilityLabel="Select groups"
+                    accessibilityRole="button"
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      setShowGroupSelector(true);
+                    }}
+                    style={({ pressed }) => [styles.pickerField, pressed && styles.pressed]}
+                  >
+                    <Text style={[styles.fieldValue, draftGroups.length === 0 && styles.placeholderValue]}>
+                      {formatGroupSelection(draftGroups)}
+                    </Text>
+                    <AppIcon name="chevron-down" size={18} color="#7a7a7a" />
+                  </Pressable>
+                </View>
+              ) : null}
               <View style={styles.filterActionsRow}>
                 <BouncyPressable
                   accessibilityLabel="Clear filter"
                   accessibilityRole="button"
                   containerStyle={{ flex: 1 }}
                   onPress={() => {
-                    setSearchQuery('');
-                    setSelectedStatus('All');
-                    setSelectedSpecies('All');
-                    setShowFilterSheet(false);
+                    setDraftSearchQuery('');
+                    setDraftStatus([]);
+                    setDraftSpecies([]);
+                    setDraftGroups([]);
+                    setShowGroupSelector(false);
                   }}
                   style={styles.clearFilterButton}
                 >
@@ -322,7 +506,7 @@ export default function AnimalsScreen() {
                   accessibilityLabel="Apply filter"
                   accessibilityRole="button"
                   containerStyle={{ flex: 1 }}
-                  onPress={() => setShowFilterSheet(false)}
+                  onPress={applyFilters}
                   style={styles.applyButton}
                 >
                   <AppIcon name="check" size={20} color="#fff" />
@@ -332,10 +516,235 @@ export default function AnimalsScreen() {
             </ScrollView>
           </Pressable>
           </Animated.View>
+          {showGroupSelector ? (
+            <Pressable
+              style={styles.selectionBackdrop}
+              onPress={(event) => {
+                event.stopPropagation();
+                setShowGroupSelector(false);
+              }}
+            >
+              <AnimatedPopupCard visible={showGroupSelector} style={styles.selectionCard} onPress={() => undefined}>
+                <View style={styles.selectionHeader}>
+                  <Text style={styles.selectionTitle}>Select groups</Text>
+                  <Pressable
+                    accessibilityLabel="Done"
+                    accessibilityRole="button"
+                    onPress={() => setShowGroupSelector(false)}
+                  >
+                    <Text style={styles.modalDone}>Done</Text>
+                  </Pressable>
+                </View>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {availableGroups.map((group) => {
+                    const isSelected = draftGroups.some((entry) => entry.toLowerCase() === group.toLowerCase());
+
+                    return (
+                      <Pressable
+                        key={group}
+                        accessibilityLabel={group}
+                        accessibilityRole="button"
+                        onPress={() =>
+                          setDraftGroups((current) =>
+                            current.some((entry) => entry.toLowerCase() === group.toLowerCase())
+                              ? current.filter((entry) => entry.toLowerCase() !== group.toLowerCase())
+                              : [...current, group],
+                          )
+                        }
+                        style={({ pressed }) => [
+                          styles.selectionRow,
+                          isSelected && styles.selectionRowActive,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{group}</Text>
+                        {isSelected ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </AnimatedPopupCard>
+            </Pressable>
+          ) : null}
+        </Pressable>
+      </Modal>
+
+      <Modal transparent animationType="none" visible={showSortSheet} onRequestClose={() => setShowSortSheet(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowSortSheet(false)}>
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.modalBackdrop, { opacity: sortSheetEntrance }]}
+          />
+          <Animated.View
+            style={[
+              styles.sheet,
+              {
+                opacity: sortSheetEntrance.interpolate({
+                  inputRange: [0, 0.28, 1],
+                  outputRange: [0, 1, 1],
+                }),
+                transform: [
+                  {
+                    translateY: sortSheetEntrance.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [140, 0],
+                    }),
+                  },
+                  {
+                    scale: sortSheetEntrance.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.985, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+          <Pressable onPress={() => undefined}>
+            <View style={styles.sheetHeader}>
+              <View style={styles.sheetHeaderSpacer} />
+              <Text style={styles.sheetTitle}>Sort animals</Text>
+              <Pressable
+                accessibilityLabel="Close"
+                accessibilityRole="button"
+                onPress={() => setShowSortSheet(false)}
+                style={styles.closeButton}
+              >
+                <AppIcon name="close" size={22} color="#000" />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.sortSheetContent} showsVerticalScrollIndicator={false}>
+              {SORT_OPTIONS.map((option) => {
+                const isSelected = appliedSort === option.value;
+
+                return (
+                  <Pressable
+                    key={option.value}
+                    accessibilityLabel={option.label}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: isSelected }}
+                    onPress={() => {
+                      setAppliedSort(option.value);
+                      setShowSortSheet(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.selectionRow,
+                      isSelected && styles.selectionRowActive,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{option.label}</Text>
+                    {isSelected ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+          </Animated.View>
         </Pressable>
       </Modal>
       </TabSwipeView>
     </SafeAreaView>
+  );
+}
+
+function AnimalCardMotion({
+  animate,
+  animalUid,
+  children,
+  exit,
+  onExitComplete,
+}: PropsWithChildren<{
+  animate: boolean;
+  animalUid: string;
+  exit: boolean;
+  onExitComplete: (animalUid: string) => Promise<boolean>;
+}>) {
+  const shouldAnimate = useRef(animate && lastAnimatedAnimalUid !== animalUid).current;
+  const entrance = useRef(new Animated.Value(shouldAnimate ? 0 : 1)).current;
+  const onExitCompleteRef = useRef(onExitComplete);
+  onExitCompleteRef.current = onExitComplete;
+
+  useEffect(() => {
+    if (!shouldAnimate) {
+      return;
+    }
+
+    lastAnimatedAnimalUid = animalUid;
+    const animation = Animated.sequence([
+      Animated.delay(NEW_ANIMAL_CARD_ENTRANCE_DELAY),
+      Animated.timing(entrance, {
+        toValue: 1,
+        duration: NEW_ANIMAL_CARD_DURATION,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]);
+
+    animation.start();
+    return () => animation.stop();
+  }, [animalUid, entrance, shouldAnimate]);
+
+  useEffect(() => {
+    if (!exit) {
+      return;
+    }
+
+    const animation = Animated.sequence([
+      Animated.delay(NEW_ANIMAL_CARD_ENTRANCE_DELAY),
+      Animated.timing(entrance, {
+        toValue: 0,
+        duration: NEW_ANIMAL_CARD_DURATION,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]);
+
+    animation.start(({ finished }) => {
+      if (!finished) {
+        return;
+      }
+
+      void onExitCompleteRef.current(animalUid).then((didDelete) => {
+        if (didDelete) {
+          return;
+        }
+
+        Animated.timing(entrance, {
+          toValue: 1,
+          duration: NEW_ANIMAL_CARD_DURATION,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+      });
+    });
+
+    return () => animation.stop();
+  }, [animalUid, entrance, exit]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: entrance,
+        transform: [
+          {
+            translateY: entrance.interpolate({
+              inputRange: [0, 1],
+              outputRange: [12, 0],
+            }),
+          },
+          {
+            scale: entrance.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.965, 1],
+            }),
+          },
+        ],
+      }}
+    >
+      {children}
+    </Animated.View>
   );
 }
 
@@ -417,7 +826,7 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingHorizontal: 20,
     paddingBottom: 26,
-    maxHeight: '86%',
+    maxHeight: '94%',
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -430,7 +839,7 @@ const styles = StyleSheet.create({
     width: 30,
   },
   sheetTitle: {
-    color: '#111',
+    color: tokens.colors.text,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -442,7 +851,9 @@ const styles = StyleSheet.create({
   },
   filterContent: {
     gap: 18,
-    paddingHorizontal: 10,
+    paddingBottom: 24,
+  },
+  sortSheetContent: {
     paddingBottom: 24,
   },
   filterBlock: {
@@ -469,6 +880,83 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     paddingVertical: 0,
   },
+  pickerField: {
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#F5F3F7',
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flex: 1,
+  },
+  fieldValue: {
+    color: '#2b2b2b',
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+    paddingRight: 12,
+  },
+  placeholderValue: {
+    color: '#7a7a7a',
+  },
+  selectionBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    justifyContent: 'flex-end',
+    zIndex: 10,
+  },
+  selectionCard: {
+    marginHorizontal: 18,
+    marginBottom: 28,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    gap: 8,
+    maxHeight: '70%',
+  },
+  selectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  selectionTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalDone: {
+    color: tokens.colors.accent,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  selectionRow: {
+    minHeight: 46,
+    borderRadius: 18,
+    backgroundColor: '#F5F3F7',
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  selectionRowActive: {
+    backgroundColor: '#FCE5E4',
+  },
+  selectionText: {
+    color: tokens.colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  selectionTextActive: {
+    color: '#74423F',
+  },
   optionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -490,6 +978,9 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: '#74423F',
+  },
+  pressed: {
+    opacity: 0.9,
   },
   filterActionsRow: {
     marginTop: 8,
@@ -534,6 +1025,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    overflow: 'hidden',
+  },
+  animalProfileImage: {
+    width: '100%',
+    height: '100%',
   },
   cardCopy: {
     flex: 1,
@@ -573,6 +1069,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   speciesChipText: {
     fontSize: 11,
@@ -605,15 +1104,57 @@ const styles = StyleSheet.create({
   },
 });
 
+function AnimalCardAvatar({ animal }: { animal: Animal }) {
+  const imageUri = animal.showImageOnCard ? animal.imageUris?.[0]?.trim() || null : null;
+  const [imageFailed, setImageFailed] = useState(false);
+  const theme = getSpeciesThemeByTone(animal.tone);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [animal.uid, imageUri]);
+
+  return (
+    <View style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}>
+      {imageUri && !imageFailed ? (
+        <Image
+          accessibilityIgnoresInvertColors
+          resizeMode="cover"
+          source={{ uri: imageUri }}
+          style={styles.animalProfileImage}
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <AppIcon
+          name={getSpeciesIconName(animal.species, animal.tone)}
+          size={26}
+          color={theme.icon}
+        />
+      )}
+    </View>
+  );
+}
+
 function buildPrimaryMeta(name: string, ageLabel: string) {
   return [name.trim(), abbreviateAgeLabel(ageLabel)].filter(Boolean).join(' • ');
+}
+
+function formatGroupSelection(groups: string[]) {
+  if (groups.length === 0) {
+    return 'Select groups';
+  }
+
+  if (groups.length === 1) {
+    return groups[0];
+  }
+
+  return `${groups.length} groups selected`;
 }
 
 function getSpeciesIconName(species: string, tone: AnimalTone) {
   const normalized = species.trim().toLowerCase();
 
   if (normalized.includes('cattle') || normalized.includes('cow')) return 'cow-copy';
-  if (normalized.includes('sheep')) return 'sheep';
+  if (normalized.includes('sheep')) return 'sheep-black';
   if (normalized.includes('pig')) return 'pig';
   if (normalized.includes('goat')) return 'goat';
   if (normalized.includes('chicken')) return 'chicken';
@@ -641,7 +1182,7 @@ function getToneFallback(tone: AnimalTone) {
     case 'pig':
       return 'pig';
     case 'sheep':
-      return 'sheep';
+      return 'sheep-black';
     case 'goat':
       return 'goat';
     case 'poultry':

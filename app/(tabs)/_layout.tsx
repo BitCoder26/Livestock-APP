@@ -1,16 +1,20 @@
 import type { ReactNode } from 'react';
 import { useRef } from 'react';
 
-import { Tabs } from 'expo-router';
+import { Tabs, useLocalSearchParams, useNavigation } from 'expo-router';
 import type { ColorValue, GestureResponderEvent } from 'react-native';
-import { Animated, Pressable, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Pressable, View, useWindowDimensions } from 'react-native';
 
 import { AppIcon, AppIconName } from '../../src/components/AppIcon';
+import { CircularRevealView } from '../../src/components/CircularRevealView';
 import { OnboardingSpotlight } from '../../src/components/OnboardingSpotlight';
 import { useOnboarding, type OnboardingStep } from '../../src/context/OnboardingContext';
 import { TAB_BAR_STYLE, tokens } from '../../src/theme/tokens';
 const TAB_ICON_SIZE = 20;
 const ANIMAL_TAB_ICON_SIZE = 21;
+const TAB_TRANSITION_DISTANCE_FACTOR = 0.16;
+const TAB_TRANSITION_DURATION = 320;
+const TAB_TRANSITION_EASING = Easing.bezier(0.2, 0, 0, 1);
 
 type SpotlightCopy = {
   radius: number;
@@ -48,14 +52,59 @@ const SPOTLIGHT_COPY: Partial<Record<OnboardingStep, SpotlightCopy>> = {
 };
 
 export default function TabsLayout() {
+  const rootNavigation = useNavigation('/');
+  const { saveReveal } = useLocalSearchParams<{
+    saveReveal?: string;
+  }>();
   const { width } = useWindowDimensions();
   const { step, spotlightTarget, finishOnboarding } = useOnboarding();
+  const transitionDistance = width * TAB_TRANSITION_DISTANCE_FACTOR;
 
   const spotlightCopy = spotlightTarget?.step === step ? SPOTLIGHT_COPY[step] : undefined;
 
   return (
-    <View style={{ flex: 1 }}>
-    <Tabs
+    <CircularRevealView
+      key={saveReveal ?? 'tabs'}
+      active={Boolean(saveReveal)}
+      onComplete={() => {
+        if (!saveReveal) {
+          return;
+        }
+
+        // The save flow is: existing tabs -> add form -> revealed tabs. Keep the
+        // revealed tabs as the real destination and silently discard the routes
+        // behind them. Popping those routes would trigger iOS's back animation.
+        const rootState = rootNavigation.getState();
+        if (!rootState) {
+          return;
+        }
+
+        const activeRoute = rootState.routes[rootState.index];
+        const activeParams = (activeRoute.params ?? {}) as Record<string, unknown>;
+        const {
+          saveReveal: _saveReveal,
+          saveTarget: _saveTarget,
+          newAnimalUid: _newAnimalUid,
+          newRecordId: _newRecordId,
+          ...retainedParams
+        } = activeParams;
+
+        rootNavigation.dispatch({
+          type: 'RESET',
+          payload: {
+            index: 0,
+            routes: [
+              {
+                ...activeRoute,
+                params: Object.keys(retainedParams).length > 0 ? retainedParams : undefined,
+              },
+            ],
+          },
+        });
+      }}
+    >
+      <View style={{ flex: 1 }}>
+      <Tabs
       detachInactiveScreens={false}
       initialRouteName="records"
       screenOptions={{
@@ -68,11 +117,15 @@ export default function TabsLayout() {
         },
         sceneStyleInterpolator: ({ current }) => ({
           sceneStyle: {
+            opacity: current.progress.interpolate({
+              inputRange: [-1, 0, 1],
+              outputRange: [0.86, 1, 0.86],
+            }),
             transform: [
               {
                 translateX: current.progress.interpolate({
                   inputRange: [-1, 0, 1],
-                  outputRange: [-width, 0, width],
+                  outputRange: [-transitionDistance, 0, transitionDistance],
                 }),
               },
             ],
@@ -81,7 +134,8 @@ export default function TabsLayout() {
         transitionSpec: {
           animation: 'timing',
           config: {
-            duration: 260,
+            duration: TAB_TRANSITION_DURATION,
+            easing: TAB_TRANSITION_EASING,
           },
         },
         tabBarActiveTintColor: tokens.colors.accent,
@@ -123,8 +177,8 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, focused }) => <TabIcon name="export_" color={color} focused={focused} />,
         }}
       />
-    </Tabs>
-      <OnboardingSpotlight
+      </Tabs>
+        <OnboardingSpotlight
         visible={spotlightCopy !== undefined}
         targetRect={spotlightTarget?.rect ?? null}
         radius={spotlightCopy?.radius ?? 18}
@@ -133,8 +187,9 @@ export default function TabsLayout() {
         placement={spotlightCopy?.placement ?? 'below'}
         actionLabel={spotlightCopy?.actionLabel}
         onAction={finishOnboarding}
-      />
-    </View>
+        />
+      </View>
+    </CircularRevealView>
   );
 }
 
@@ -180,8 +235,9 @@ function TabButton({
   const handlePressIn = () => {
     scale.stopAnimation();
     Animated.timing(scale, {
-      toValue: 0.92,
-      duration: 70,
+      toValue: 0.95,
+      duration: 90,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   };
@@ -189,8 +245,9 @@ function TabButton({
   const handlePressOut = () => {
     Animated.spring(scale, {
       toValue: 1,
-      speed: 26,
-      bounciness: 6,
+      stiffness: 420,
+      damping: 30,
+      mass: 0.7,
       useNativeDriver: true,
     }).start();
   };

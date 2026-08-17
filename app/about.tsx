@@ -6,7 +6,7 @@ import { AppTopBar } from '../src/components/AppTopBar';
 import { tokens } from '../src/theme/tokens';
 
 const APP_LOGO = require('../assets/logo/about-logo.png');
-const APP_VERSION = 'v1.0';
+const APP_VERSION = 'v2.0';
 
 export default function AboutScreen() {
   const router = useRouter();

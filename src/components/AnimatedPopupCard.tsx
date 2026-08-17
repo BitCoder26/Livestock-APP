@@ -27,8 +27,9 @@ export function AnimatedPopupCard({
     entrance.setValue(0);
     Animated.spring(entrance, {
       toValue: 1,
-      speed: 20,
-      bounciness: 8,
+      stiffness: 360,
+      damping: 31,
+      mass: 0.8,
       useNativeDriver: true,
     }).start();
 
@@ -46,13 +47,13 @@ export function AnimatedPopupCard({
             {
               translateY: entrance.interpolate({
                 inputRange: [0, 1],
-                outputRange: [18, 0],
+                outputRange: [14, 0],
               }),
             },
             {
               scale: entrance.interpolate({
                 inputRange: [0, 1],
-                outputRange: [0.94, 1],
+                outputRange: [0.97, 1],
               }),
             },
           ],

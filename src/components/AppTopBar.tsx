@@ -11,6 +11,7 @@ type Action = {
   onPress?: () => void;
   color?: string;
   size?: number;
+  badge?: boolean;
 };
 
 type AppTopBarProps = {
@@ -32,6 +33,7 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
               accessibilityRole="button"
               hitSlop={12}
               onPress={leftAction.onPress}
+              pressedScale={0.84}
               style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
             >
               <AppIcon name={leftAction.icon} size={24} />
@@ -48,6 +50,7 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
                 accessibilityRole="button"
                 hitSlop={12}
                 onPress={action.onPress}
+                pressedScale={0.84}
                 style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
               >
                 <AppIcon
@@ -55,6 +58,7 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
                   size={action.size ?? (action.icon === 'filter' ? 28 : 24)}
                   color={action.color ?? '#fff'}
                 />
+                {action.badge ? <View style={styles.badgeDot} accessible={false} /> : null}
               </BouncyPressable>
             );
           })}
@@ -98,6 +102,17 @@ const styles = StyleSheet.create({
     minHeight: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: tokens.colors.accent,
   },
   pressed: {
     opacity: 0.82,

@@ -13,7 +13,7 @@ export default function WelcomeScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.hero}>
         <Image
-          source={require('../assets/icons/goats_coloured.png')}
+          source={require('../assets/icons/goats_coloured.jpg')}
           style={styles.heroImage}
           resizeMode="contain"
         />

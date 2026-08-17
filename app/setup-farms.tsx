@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
@@ -8,55 +8,92 @@ import { AppTopBar } from '../src/components/AppTopBar';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
 import { InfoModal } from '../src/components/InfoModal';
-import { useSetup } from '../src/context/SetupContext';
+import { useAnimals } from '../src/context/AnimalsContext';
+import { type FarmEntity, type PaddockEntity, useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
 
 export default function SetupFarmsScreen() {
   const router = useRouter();
-  const { farmEntities, addFarm, removeFarm, pendingSetupSelectionTarget, resolveSetupSelection } = useSetup();
+  const { animals } = useAnimals();
+  const { farmEntities, paddockEntities, addFarm, updateFarm, removeFarm, pendingSetupSelectionTarget, resolveSetupSelection } = useSetup();
   const [farmName, setFarmName] = useState('');
   const [holdingId, setHoldingId] = useState('');
-  const [address, setAddress] = useState('');
-  const [country, setCountry] = useState('');
   const [notes, setNotes] = useState('');
   const [farmPendingDelete, setFarmPendingDelete] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [editingFarmUid, setEditingFarmUid] = useState<string | null>(null);
+  const isEditingFarm = editingFarmUid !== null;
 
-  const handleAddFarm = () => {
+  const resetFarmForm = () => {
+    setEditingFarmUid(null);
+    setFarmName('');
+    setHoldingId('');
+    setNotes('');
+  };
+
+  const handleStartEditFarm = (farm: (typeof farmEntities)[number]) => {
+    setEditingFarmUid(farm.uid ?? null);
+    setFarmName(farm.name);
+    setHoldingId(farm.holdingId);
+    setNotes(farm.notes);
+  };
+
+  const handleSaveFarm = async () => {
     const nextFarmName = farmName.trim();
 
-    addFarm({
-      name: nextFarmName,
-      holdingId,
-      address,
-      country,
-      notes,
-    });
-
     if (!nextFarmName) {
+      Alert.alert('Farm name required', 'Enter a name for the farm.');
       return;
     }
 
-    if (pendingSetupSelectionTarget === 'fromFarm' || pendingSetupSelectionTarget === 'toFarm') {
+    const result = editingFarmUid
+      ? await updateFarm(editingFarmUid, { name: nextFarmName, holdingId, notes })
+      : await addFarm({ name: nextFarmName, holdingId, notes });
+
+    if (!result.ok) {
+      Alert.alert(
+        result.reason === 'duplicate' ? 'Farm already exists' : 'Farm could not be saved',
+        result.reason === 'duplicate' ? 'Use a different farm name.' : 'Nothing was changed. Please try again.',
+      );
+      return;
+    }
+
+    if (!editingFarmUid && (pendingSetupSelectionTarget === 'fromFarm' || pendingSetupSelectionTarget === 'toFarm')) {
       resolveSetupSelection(nextFarmName);
       router.back();
       return;
     }
 
-    setFarmName('');
-    setHoldingId('');
-    setAddress('');
-    setCountry('');
-    setNotes('');
+    resetFarmForm();
   };
 
-  const confirmDeleteFarm = () => {
+  const confirmDeleteFarm = async () => {
     if (!farmPendingDelete) {
       return;
     }
 
-    removeFarm(farmPendingDelete);
+    if (animals.some((animal) => animal.farm.trim().toLowerCase() === farmPendingDelete.trim().toLowerCase())) {
+      setFarmPendingDelete(null);
+      Alert.alert('Farm is in use', 'Move or edit the animals assigned to this farm before deleting it.');
+      return;
+    }
+
+    const result = await removeFarm(farmPendingDelete);
     setFarmPendingDelete(null);
+
+    if (!result.ok) {
+      Alert.alert(
+        result.reason === 'in-use' ? 'Farm is in use' : 'Farm could not be deleted',
+        result.reason === 'in-use'
+          ? 'Delete or reassign the paddocks and groups belonging to this farm first.'
+          : 'Nothing was changed. Please try again.',
+      );
+      return;
+    }
+
+    if (equalsIgnoreCase(farmName, farmPendingDelete)) {
+      resetFarmForm();
+    }
   };
 
   return (
@@ -81,7 +118,7 @@ export default function SetupFarmsScreen() {
         showsVerticalScrollIndicator={false}
       >
           <View style={styles.editorCard}>
-            <Text style={styles.sectionLabel}>Farm details</Text>
+            <Text style={styles.sectionLabel}>{isEditingFarm ? 'Edit farm' : 'Farm details'}</Text>
 
           <DesignField value={farmName} label="Farm name *" onChangeText={setFarmName} />
 
@@ -91,19 +128,30 @@ export default function SetupFarmsScreen() {
             onChangeText={setHoldingId}
           />
 
-          <DesignField value={address} label="Address" onChangeText={setAddress} />
-          <DesignField value={country} label="Country" onChangeText={setCountry} />
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
-          <BouncyPressable
-            accessibilityLabel="Add farm"
-            accessibilityRole="button"
-            onPress={handleAddFarm}
-            style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-          >
-            <AppIcon name="plus" size={16} color="#fff" />
-            <Text style={styles.addButtonText}>Add Farm</Text>
-          </BouncyPressable>
+          <View style={styles.editorActionsRow}>
+            <BouncyPressable
+              accessibilityLabel={isEditingFarm ? 'Save farm changes' : 'Add farm'}
+              accessibilityRole="button"
+              containerStyle={styles.editorPrimaryButtonWrap}
+              onPress={handleSaveFarm}
+              style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+            >
+              <AppIcon name={isEditingFarm ? 'check' : 'plus'} size={16} color="#fff" />
+              <Text style={styles.addButtonText}>{isEditingFarm ? 'Save Changes' : 'Add Farm'}</Text>
+            </BouncyPressable>
+            {isEditingFarm ? (
+              <BouncyPressable
+                accessibilityLabel="Cancel editing farm"
+                accessibilityRole="button"
+                onPress={resetFarmForm}
+                style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </BouncyPressable>
+            ) : null}
+          </View>
         </View>
 
         {farmEntities.length === 0 ? (
@@ -113,8 +161,11 @@ export default function SetupFarmsScreen() {
           </View>
         ) : (
           <View style={styles.list}>
-            {farmEntities.map((farm) => (
-              <View key={farm.name} style={styles.itemCard}>
+            {farmEntities.map((farm) => {
+              const paddockCount = getFarmPaddockCount(farm, paddockEntities);
+
+              return (
+              <View key={farm.uid ?? farm.name} style={styles.itemCard}>
                 <View style={styles.itemHeader}>
                   <View style={styles.itemTitleRow}>
                     <View style={styles.itemIconBadge}>
@@ -122,48 +173,33 @@ export default function SetupFarmsScreen() {
                     </View>
                     <View style={styles.itemHeadingCopy}>
                       <Text style={styles.itemTitle}>{farm.name}</Text>
-                      <Text style={styles.itemSubtitle}>Livestock holding</Text>
+                      <Text style={styles.itemSubtitle}>{paddockCount} {paddockCount === 1 ? 'paddock' : 'paddocks'}</Text>
+                      {farm.holdingId ? <Text style={styles.itemSubtitle}>{farm.holdingId}</Text> : null}
                     </View>
                   </View>
-                  <BouncyPressable
-                    accessibilityLabel={`Delete ${farm.name}`}
-                    accessibilityRole="button"
-                    onPress={() => setFarmPendingDelete(farm.name)}
-                    style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
-                  >
-                    <AppIcon name="trash" size={28} color="#fff" />
-                  </BouncyPressable>
-                </View>
-
-                <View style={styles.itemBody}>
-                  {farm.holdingId ? (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Registration</Text>
-                      <Text style={styles.detailValue}>{farm.holdingId}</Text>
-                    </View>
-                  ) : null}
-                  {farm.country ? (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Country</Text>
-                      <Text style={styles.detailValue}>{farm.country}</Text>
-                    </View>
-                  ) : null}
-                  {farm.address ? (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Address</Text>
-                      <Text style={styles.detailValue}>{farm.address}</Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                {farm.notes ? (
-                  <View style={styles.notesCard}>
-                    <Text style={styles.notesLabel}>Notes</Text>
-                    <Text style={styles.itemNotes}>{farm.notes}</Text>
+                  <View style={styles.itemActionsRow}>
+                    <BouncyPressable
+                      accessibilityLabel={`Edit ${farm.name}`}
+                      accessibilityRole="button"
+                      onPress={() => handleStartEditFarm(farm)}
+                      style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}
+                    >
+                      <AppIcon name="edit" size={20} color="#171717" />
+                    </BouncyPressable>
+                    <BouncyPressable
+                      accessibilityLabel={`Delete ${farm.name}`}
+                      accessibilityRole="button"
+                      onPress={() => setFarmPendingDelete(farm.name)}
+                      style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
+                    >
+                      <AppIcon name="trash" size={28} color="#fff" />
+                    </BouncyPressable>
                   </View>
-                ) : null}
+                </View>
+                {farm.notes ? <Text style={styles.itemNotes}>{farm.notes}</Text> : null}
               </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -204,10 +240,20 @@ export default function SetupFarmsScreen() {
         visible={showHelp}
         onClose={() => setShowHelp(false)}
         title="Farms"
-        description="Farms are the physical properties where you keep your livestock. Add every farm you manage here so you can tag animals, records, and paddocks to the right location, and filter or export by farm later."
+        description="The properties where you keep your livestock. Assign animals and paddocks to farms so you can track and filter records by location."
       />
     </SafeAreaView>
   );
+}
+
+function equalsIgnoreCase(left: string, right: string) {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+function getFarmPaddockCount(farm: FarmEntity, paddocks: PaddockEntity[]) {
+  return paddocks.filter(
+    (paddock) => (farm.uid && paddock.farmUid === farm.uid) || equalsIgnoreCase(paddock.farm, farm.name),
+  ).length;
 }
 
 const styles = StyleSheet.create({
@@ -251,6 +297,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  editorActionsRow: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  editorPrimaryButtonWrap: {
+    flex: 1,
+  },
+  cancelButton: {
+    minHeight: 50,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    color: tokens.colors.textSoft,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   list: {
     gap: 8,
   },
@@ -285,9 +351,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0E9ED',
   },
   itemTitleRow: {
     flexDirection: 'row',
@@ -320,45 +383,27 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  itemBody: {
-    gap: 6,
-    alignItems: 'flex-start',
-  },
-  detailRow: {
-    gap: 2,
-    alignItems: 'flex-start',
-  },
-  detailLabel: {
-    color: '#8A7F87',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-  },
-  detailValue: {
-    color: tokens.colors.text,
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 18,
-  },
-  notesCard: {
-    borderRadius: 18,
-    backgroundColor: '#F8F6F9',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 2,
-  },
-  notesLabel: {
-    color: '#8A7F87',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-  },
   itemNotes: {
     color: tokens.colors.textSoft,
     fontSize: 12,
     fontWeight: '500',
     lineHeight: 17,
     textAlign: 'left',
+  },
+  itemActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  editButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surfaceMuted,
+    flexShrink: 0,
   },
   deleteButton: {
     width: 38,

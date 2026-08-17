@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,26 +12,156 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppIcon } from '../src/components/AppIcon';
+import { AppIcon, type AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
+import { InfoModal } from '../src/components/InfoModal';
+import {
+  CURRENCY_OPTIONS,
+  formatCurrencyOption,
+  getCurrencyOption,
+} from '../src/constants/currencies';
 import { DATE_FORMAT_OPTIONS, MEASUREMENT_UNIT_OPTIONS, type AppDateFormat } from '../src/entities/account';
 import { useAccount } from '../src/context/AccountContext';
+import { useAnimals } from '../src/context/AnimalsContext';
+import { useRecords } from '../src/context/RecordsContext';
+import { useSetup } from '../src/context/SetupContext';
+import {
+  buildBackup,
+  createBackupFile,
+  describeBackupValidationFailure,
+  pickBackupFile,
+  readBackupFileText,
+  shareBackupFile,
+  validateBackupText,
+  type LivestockBookBackup,
+} from '../src/services/backupService';
 import { tokens } from '../src/theme/tokens';
 
 const ACCOUNT_SURFACE_GREY = '#F1EFF3';
-const CURRENCY_OPTIONS = ['GBP', 'USD', 'EUR', 'AUD', 'CAD', 'NZD', 'ZAR', 'Other'] as const;
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { profile, isLoaded, updateField, resetAppData } = useAccount();
+  const { profile, isLoaded, updateField, resetAppData, restoreFromBackup } = useAccount();
+  const { animals } = useAnimals();
+  const { records } = useRecords();
+  const { farmEntities, paddockEntities, groupEntities, medicineEntities } = useSetup();
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+  const [showCurrencyInfo, setShowCurrencyInfo] = useState(false);
+  const [currencySearch, setCurrencySearch] = useState('');
   const [showDateFormatModal, setShowDateFormatModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedCurrency, setSelectedCurrency] = useState('GBP');
+  const [showBackupInfo, setShowBackupInfo] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isPickingBackup, setIsPickingBackup] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [pendingRestore, setPendingRestore] = useState<LivestockBookBackup | null>(null);
+  const backupInProgress = useRef(false);
+  const restoreInProgress = useRef(false);
+  const selectedCurrency = getCurrencyOption(profile.currency);
+  const selectedCurrencyLabel = selectedCurrency
+    ? formatCurrencyOption(selectedCurrency)
+    : profile.currency;
+
+  async function handleBackUpData() {
+    if (backupInProgress.current) {
+      return;
+    }
+
+    backupInProgress.current = true;
+    setIsBackingUp(true);
+
+    try {
+      const backup = buildBackup({
+        animals,
+        records,
+        farmEntities,
+        paddockEntities,
+        groupEntities,
+        medicineEntities,
+        profile,
+      });
+      // Success is only ever reported once this line has actually completed —
+      // if writing the file throws, control jumps straight to the catch
+      // block below and no confirmation is shown.
+      const uri = await createBackupFile(backup);
+
+      await shareBackupFile(uri);
+      Alert.alert('Backup created', 'Your LivestockBook backup file is ready to save.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Something went wrong while preparing the backup.';
+      Alert.alert('Backup failed', message);
+    } finally {
+      backupInProgress.current = false;
+      setIsBackingUp(false);
+    }
+  }
+
+  async function handleRestoreData() {
+    if (restoreInProgress.current) {
+      return;
+    }
+
+    restoreInProgress.current = true;
+    setIsPickingBackup(true);
+
+    try {
+      const picked = await pickBackupFile();
+
+      if (picked.canceled) {
+        return;
+      }
+
+      const text = await readBackupFileText(picked.uri);
+      const validation = validateBackupText(text);
+
+      if (!validation.ok) {
+        const { title, message } = describeBackupValidationFailure(validation.reason);
+        Alert.alert(title, message);
+        return;
+      }
+
+      // Nothing about the current data has been touched yet — validation
+      // succeeded, so now (and only now) ask for confirmation before
+      // anything is replaced.
+      setPendingRestore(validation.backup);
+    } catch {
+      Alert.alert('Restore failed', 'The selected file could not be read. Please try again.');
+    } finally {
+      setIsPickingBackup(false);
+      restoreInProgress.current = false;
+    }
+  }
+
+  async function handleConfirmRestore() {
+    if (!pendingRestore) {
+      return;
+    }
+
+    setIsRestoring(true);
+
+    try {
+      const result = await restoreFromBackup(pendingRestore);
+
+      if (!result.ok) {
+        Alert.alert(
+          'Restore failed',
+          result.reason === 'integrity-error'
+            ? 'The backup could not be reconstructed reliably. Your existing data was left unchanged.'
+            : 'Your data was left unchanged. Please try again.',
+        );
+        return;
+      }
+
+      setPendingRestore(null);
+      Alert.alert('Restore complete', 'Your LivestockBook data has been restored successfully.');
+    } finally {
+      setIsRestoring(false);
+    }
+  }
 
   async function handleResetAppData() {
     setIsSubmitting(true);
@@ -40,6 +170,8 @@ export default function SettingsScreen() {
       await resetAppData();
       setShowResetModal(false);
       Alert.alert('App data reset', 'Your local livestock data has been removed from this device.');
+    } catch {
+      Alert.alert('Reset failed', 'Your data was not completely removed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -78,20 +210,35 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Preferences</Text>
           <View style={styles.block}>
-            <Text style={styles.optionLabel}>Currency</Text>
+            <View style={styles.optionLabelRow}>
+              <Text style={styles.optionLabel}>Currency</Text>
+              <BouncyPressable
+                accessibilityLabel="About record currency"
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={() => setShowCurrencyInfo(true)}
+                pressedScale={0.88}
+                style={styles.optionInfoButton}
+              >
+                <AppIcon name="info" size={16} color={tokens.colors.textSoft} />
+              </BouncyPressable>
+            </View>
             <Pressable
               accessibilityLabel="Select currency"
               accessibilityRole="button"
-              onPress={() => setShowCurrencyModal(true)}
+              onPress={() => {
+                setCurrencySearch('');
+                setShowCurrencyModal(true);
+              }}
               style={({ pressed }) => [styles.selectField, pressed && styles.pressed]}
             >
-              <Text style={styles.selectValue}>{selectedCurrency}</Text>
+              <Text numberOfLines={1} style={styles.selectValue}>{selectedCurrencyLabel}</Text>
               <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
             </Pressable>
           </View>
 
           <View style={styles.block}>
-            <Text style={styles.optionLabel}>Default units</Text>
+            <Text style={styles.optionLabel}>Default weight units</Text>
             <View style={styles.optionWrap}>
               {MEASUREMENT_UNIT_OPTIONS.map((option) => (
                 <Pressable
@@ -133,6 +280,36 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <View style={styles.optionLabelRow}>
+            <Text style={styles.sectionTitle}>Data & Backup</Text>
+            <BouncyPressable
+              accessibilityLabel="About backup and restore"
+              accessibilityRole="button"
+              hitSlop={10}
+              onPress={() => setShowBackupInfo(true)}
+              pressedScale={0.88}
+              style={styles.optionInfoButton}
+            >
+              <AppIcon name="info" size={16} color={tokens.colors.textSoft} />
+            </BouncyPressable>
+          </View>
+          <DataRow
+            icon="export-outline"
+            label="Back Up Data"
+            busy={isBackingUp}
+            busyLabel="Preparing backup..."
+            onPress={() => void handleBackUpData()}
+          />
+          <DataRow
+            icon="export-download-outline"
+            label="Restore Data"
+            busy={isPickingBackup}
+            busyLabel="Opening file..."
+            onPress={() => void handleRestoreData()}
+          />
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Danger Zone</Text>
           <ActionButton
             label="Reset app data"
@@ -145,13 +322,19 @@ export default function SettingsScreen() {
       <SelectionModal
         visible={showCurrencyModal}
         title="Select currency"
-        options={[...CURRENCY_OPTIONS]}
-        selectedValue={selectedCurrency}
+        options={CURRENCY_OPTIONS.map(formatCurrencyOption)}
+        selectedValue={selectedCurrencyLabel}
+        searchValue={currencySearch}
+        onSearchValueChange={setCurrencySearch}
         onSelect={(value) => {
-          setSelectedCurrency(value);
+          updateField('currency', value.slice(0, 3));
+          setCurrencySearch('');
           setShowCurrencyModal(false);
         }}
-        onClose={() => setShowCurrencyModal(false)}
+        onClose={() => {
+          setCurrencySearch('');
+          setShowCurrencyModal(false);
+        }}
       />
 
       <SelectionModal
@@ -165,6 +348,50 @@ export default function SettingsScreen() {
         }}
         onClose={() => setShowDateFormatModal(false)}
       />
+
+      <InfoModal
+        visible={showCurrencyInfo}
+        onClose={() => setShowCurrencyInfo(false)}
+        title="Record currency"
+        description="Changes apply to new records only. Existing records keep the currency they were created with."
+      />
+
+      <InfoModal
+        visible={showBackupInfo}
+        onClose={() => setShowBackupInfo(false)}
+        title="Backup & Restore"
+        description="Back up all your LivestockBook data to a file so it can be restored later or moved to another device. Restoring replaces the data currently stored in the app."
+      />
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={pendingRestore !== null}
+        onRequestClose={() => setPendingRestore(null)}
+      >
+        <Pressable style={styles.overlay} onPress={() => setPendingRestore(null)}>
+          <AnimatedPopupCard visible={pendingRestore !== null} style={styles.sheet} onPress={() => undefined}>
+            <Text style={styles.sheetTitle}>Restore backup?</Text>
+            <Text style={styles.sheetBody}>
+              Restoring this backup will replace the LivestockBook data currently stored on this device. This cannot be undone unless you have another backup.
+            </Text>
+            <View style={styles.sheetButtons}>
+              <SheetButton
+                label="Cancel"
+                variant="secondary"
+                onPress={() => setPendingRestore(null)}
+                disabled={isRestoring}
+              />
+              <SheetButton
+                label={isRestoring ? 'Restoring...' : 'Restore'}
+                variant="danger"
+                onPress={() => void handleConfirmRestore()}
+                disabled={isRestoring}
+              />
+            </View>
+          </AnimatedPopupCard>
+        </Pressable>
+      </Modal>
 
       <Modal transparent animationType="fade" visible={showResetModal} onRequestClose={() => setShowResetModal(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowResetModal(false)}>
@@ -229,6 +456,7 @@ function SelectionModal({ visible, title, options, selectedValue, onSelect, onCl
               <View style={styles.selectionSearchBlock}>
                 <DesignField
                   label="Search"
+                  icon="search"
                   value={searchValue ?? ''}
                   onChangeText={onSearchValueChange}
                   fieldStyle={styles.formField}
@@ -351,6 +579,36 @@ function ActionButton({ label, onPress, variant = 'default' }: ActionButtonProps
   );
 }
 
+type DataRowProps = {
+  icon: AppIconName;
+  label: string;
+  onPress: () => void;
+  busy?: boolean;
+  busyLabel?: string;
+};
+
+function DataRow({ icon, label, onPress, busy = false, busyLabel }: DataRowProps) {
+  return (
+    <BouncyPressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      disabled={busy}
+      onPress={onPress}
+      style={({ pressed }) => [styles.dataRow, pressed && !busy && styles.actionButtonPressed, busy && styles.dataRowBusy]}
+    >
+      <View style={styles.dataRowIconWrap}>
+        {busy ? (
+          <ActivityIndicator color={tokens.colors.accent} size="small" />
+        ) : (
+          <AppIcon name={icon} size={28} color={tokens.colors.accent} />
+        )}
+      </View>
+      <Text style={styles.dataRowLabel}>{busy && busyLabel ? busyLabel : label}</Text>
+      <AppIcon name="chevron-right" size={12} color={tokens.colors.textSoft} />
+    </BouncyPressable>
+  );
+}
+
 type SheetButtonProps = {
   label: string;
   onPress: () => void;
@@ -412,6 +670,17 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
     fontSize: 14,
     fontWeight: '500',
+  },
+  optionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  optionInfoButton: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   formField: {
     backgroundColor: ACCOUNT_SURFACE_GREY,
@@ -625,5 +894,28 @@ const styles = StyleSheet.create({
     height: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dataRow: {
+    minHeight: 54,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: ACCOUNT_SURFACE_GREY,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 18,
+  },
+  dataRowBusy: {
+    opacity: 0.7,
+  },
+  dataRowIconWrap: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dataRowLabel: {
+    flex: 1,
+    color: tokens.colors.text,
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

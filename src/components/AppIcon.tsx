@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import type { SvgProps } from 'react-native-svg';
 
 import AlertIcon from '../../assets/icons/svg/alert.svg';
+import BarChartIcon from '../../assets/icons/svg/bar-chart.svg';
 import AnimalTabIcon from '../../assets/icons/svg/animal_.svg';
 import ArrowRightCircleIcon from '../../assets/icons/svg/arrow-right-circle.svg';
 import ArrowRightIcon from '../../assets/icons/svg/arrow-right.svg';
@@ -73,7 +74,9 @@ import MailIcon from '../../assets/icons/svg/mail.svg';
 import MedalIcon from '../../assets/icons/svg/medal.svg';
 import SheepIcon from '../../assets/icons/svg/sheep.svg';
 import SheepBlackIcon from '../../assets/icons/svg/sheep-black.svg';
+import SortIcon from '../../assets/icons/svg/sort.svg';
 import SproutIcon from '../../assets/icons/svg/sprout.svg';
+import StarIcon from '../../assets/icons/svg/star.svg';
 import TagIcon from '../../assets/icons/svg/tag.svg';
 import TrashIcon from '../../assets/icons/svg/trash.svg';
 import ToolsIcon from '../../assets/icons/svg/tools.svg';
@@ -89,6 +92,7 @@ import EnterArrowIcon from '../../assets/icons/svg/enter-arrow.svg';
 
 const icons = {
   alert: AlertIcon,
+  'bar-chart': BarChartIcon,
   animal_: AnimalTabIcon,
   alpaca: AlpacaIcon,
   animals: CowHeadIcon,
@@ -168,7 +172,9 @@ const icons = {
   spanner2: Spanner2Icon,
   sheep: SheepIcon,
   'sheep-black': SheepBlackIcon,
+  sort: SortIcon,
   sprout: SproutIcon,
+  star: StarIcon,
   tag: TagIcon,
   trash: TrashIcon,
   tools: ToolsIcon,
@@ -185,7 +191,7 @@ type AppIconProps = {
   color?: ColorValue;
 };
 
-const mirroredIcons = new Set<AppIconName>(['sheep']);
+const mirroredIcons = new Set<AppIconName>(['sheep', 'sheep-black']);
 
 export function AppIcon({ name, size = 22, opacity = 1, color }: AppIconProps) {
   const Icon = icons[name];

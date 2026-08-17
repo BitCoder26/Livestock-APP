@@ -3,28 +3,50 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import Svg, { Circle, Polyline } from 'react-native-svg';
+
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { getSpeciesThemeByTone } from '../src/constants/speciesTheme';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useRecords } from '../src/context/RecordsContext';
+import { type FarmEntity, type PaddockEntity, useSetup } from '../src/context/SetupContext';
 import type { AnimalTone } from '../src/entities/animal';
 import type { RecordEntry } from '../src/entities/record';
 import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, parseStoredDate } from '../src/utils/dateFormat';
+import { resolveRecordAnimalUids } from '../src/utils/recordAnimals';
+import {
+  resolveAnimalFarmName,
+  resolveAnimalGroupName,
+  resolveAnimalPaddockName,
+  resolveMovementSummary,
+} from '../src/utils/recordLocations';
+import { buildWeightHistory, type WeightHistoryPoint } from '../src/utils/reports';
 
 export default function AnimalTimelineScreen() {
   const router = useRouter();
-  const { animalId } = useLocalSearchParams<{ animalId?: string }>();
+  const { animalUid, animalId } = useLocalSearchParams<{ animalUid?: string; animalId?: string }>();
   const { profile } = useAccount();
   const { animals } = useAnimals();
   const { records } = useRecords();
+  const { farmEntities, paddockEntities, groupEntities } = useSetup();
 
   const animal = useMemo(
-    () => (animalId ? animals.find((entry) => entry.id === animalId) ?? null : null),
-    [animalId, animals],
+    () =>
+      animalUid
+        ? animals.find((entry) => entry.uid === animalUid) ?? null
+        : animalId
+          ? animals.find((entry) => entry.id === animalId) ?? null
+          : null,
+    [animalId, animalUid, animals],
   );
+  // Resolved live via uid rather than trusting animal.farm/paddock directly,
+  // so a farm/paddock rename in Setup shows up here immediately.
+  const animalFarmName = animal ? resolveAnimalFarmName(animal, farmEntities) : '';
+  const animalPaddockName = animal ? resolveAnimalPaddockName(animal, paddockEntities) : '';
+  const animalGroupName = animal ? resolveAnimalGroupName(animal, groupEntities) : '';
 
   const timelineRecords = useMemo(() => {
     if (!animal) {
@@ -32,9 +54,14 @@ export default function AnimalTimelineScreen() {
     }
 
     return records
-      .filter((record) => recordBelongsToAnimal(record, animal.id, animal.name))
+      .filter((record) => resolveRecordAnimalUids(record, animals).includes(animal.uid))
       .sort((left, right) => getRecordTimestamp(right.date) - getRecordTimestamp(left.date));
-  }, [animal, records]);
+  }, [animal, animals, records]);
+
+  const weightHistory = useMemo(
+    () => (animal ? buildWeightHistory(animal, records) : []),
+    [animal, records],
+  );
 
   const primaryImageUri = animal?.imageUris?.[0] ?? null;
   const galleryImageUris = animal?.imageUris?.slice(1) ?? [];
@@ -42,7 +69,7 @@ export default function AnimalTimelineScreen() {
 
   useEffect(() => {
     setPrimaryImageFailed(false);
-  }, [primaryImageUri, animal?.id]);
+  }, [primaryImageUri, animal?.uid]);
 
   const showPrimaryImage = Boolean(primaryImageUri) && !primaryImageFailed;
   const speciesTheme = animal ? getSpeciesThemeByTone(animal.tone) : null;
@@ -60,9 +87,11 @@ export default function AnimalTimelineScreen() {
       animal.breed.trim() ? `Breed: ${animal.breed.trim()}` : '',
       animal.ageLabel.trim() ? `Age: ${animal.ageLabel.trim()}` : '',
       animal.weight.trim() ? `Weight: ${formatAnimalWeight(animal.weight, animal.weightUnit)}` : '',
-      animal.farm.trim() ? `Farm: ${animal.farm.trim()}` : '',
-      animal.paddock.trim() ? `Paddock: ${animal.paddock.trim()}` : '',
-      animal.group.trim() ? `Group: ${animal.group.trim()}` : '',
+      animalFarmName ? `Farm: ${animalFarmName}` : '',
+      animalPaddockName ? `Paddock: ${animalPaddockName}` : '',
+      animalGroupName ? `Group: ${animalGroupName}` : '',
+      animal.source.trim() ? `Source: ${animal.source.trim()}` : '',
+      animal.farmEntryDate.trim() ? `Farm entry date: ${formatDateForDisplay(animal.farmEntryDate, profile.dateFormat)}` : '',
       `Status: ${animal.status}`,
       animal.notes.trim() ? `Notes: ${animal.notes.trim()}` : '',
       `Timeline records: ${timelineRecords.length}`,
@@ -102,7 +131,7 @@ export default function AnimalTimelineScreen() {
                   onPress: () =>
                     router.push({
                       pathname: '/add-animal',
-                      params: { animalId: animal.id },
+                      params: { animalUid: animal.uid },
                     }),
                   size: 24,
                 },
@@ -165,9 +194,14 @@ export default function AnimalTimelineScreen() {
               <SummaryDetail label="Weight" value={formatAnimalWeight(animal.weight, animal.weightUnit)} />
               <SummaryDetail label="Age" value={animal.ageLabel} />
               <SummaryDetail label="Date of birth" value={formatDateForDisplay(animal.dateOfBirth, profile.dateFormat)} />
-              <SummaryDetail label="Farm" value={animal.farm} />
-              <SummaryDetail label="Paddock" value={animal.paddock} />
-              <SummaryDetail label="Group" value={animal.group} />
+              <SummaryDetail label="Farm" value={animalFarmName} />
+              <SummaryDetail label="Paddock" value={animalPaddockName} />
+              <SummaryDetail label="Group" value={animalGroupName} />
+              <SummaryDetail label="Source" value={animal.source} />
+              <SummaryDetail
+                label="Farm entry date"
+                value={formatDateForDisplay(animal.farmEntryDate, profile.dateFormat)}
+              />
             </View>
 
             {animal.notes.trim() ? (
@@ -187,6 +221,8 @@ export default function AnimalTimelineScreen() {
                 </ScrollView>
               </View>
             ) : null}
+
+            <WeightHistorySection points={weightHistory} />
           </View>
         ) : null}
 
@@ -204,13 +240,23 @@ export default function AnimalTimelineScreen() {
           </View>
         ) : (
           <View style={styles.timelineList}>
+            <Text style={styles.timelineListHeading}>
+              Timeline · {timelineRecords.length} {timelineRecords.length === 1 ? 'Record' : 'Records'}
+            </Text>
             {timelineRecords.map((record, index) => {
               const isLast = index === timelineRecords.length - 1;
-              const details = getTimelineDetails(record);
+              const details = getTimelineDetails(record, farmEntities, paddockEntities);
 
               return (
                 <View key={record.id} style={styles.timelineRow}>
-                  <Text style={styles.recordDate}>{formatDateForDisplay(record.date, profile.dateFormat)}</Text>
+                  <Text
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.9}
+                    numberOfLines={1}
+                    style={styles.recordDate}
+                  >
+                    {formatDateForDisplay(record.date, profile.dateFormat)}
+                  </Text>
                   <View style={styles.railColumn}>
                     {!isLast ? <View style={styles.railLine} /> : null}
                     <View style={styles.railDot} />
@@ -246,27 +292,16 @@ function SummaryDetail({ label, value }: { label: string; value: string }) {
   );
 }
 
-function recordBelongsToAnimal(record: RecordEntry, animalId: string, animalName: string) {
-  const normalizedId = animalId.trim().toLowerCase();
-  const normalizedName = animalName.trim().toLowerCase();
-  const recordIds = [record.animalTag, ...(record.animalIds ?? [])]
-    .flatMap((value) => value.split(','))
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-  const recordNames = record.animal
-    .split(',')
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-
-  return recordIds.includes(normalizedId) || (normalizedName.length > 0 && recordNames.includes(normalizedName));
-}
-
 function getRecordTimestamp(value: string) {
   return parseStoredDate(value)?.getTime() ?? 0;
 }
 
-function getTimelineDetails(record: RecordEntry) {
-  const titleDetails = stripRecordType(record.title, record.type);
+function getTimelineDetails(record: RecordEntry, farms: FarmEntity[], paddocks: PaddockEntity[]) {
+  // Movement's location summary is resolved fresh from the current
+  // farm/paddock names rather than the frozen title text, so a rename
+  // shows up here too.
+  const titleDetails =
+    record.type === 'Movement' ? resolveMovementSummary(record, farms, paddocks) : stripRecordType(record.title, record.type);
   const detailSections = [titleDetails, record.details.trim()].filter(Boolean);
 
   if (detailSections.length > 0) {
@@ -291,6 +326,93 @@ function formatAnimalWeight(weight: string, unit: string) {
   return weight.trim() ? `${weight.trim()} ${unit}`.trim() : '';
 }
 
+// Optional Weight History block: only rendered once the animal has at least
+// one Weight record. Follows the 1/2/3+ display rules from the Reports V1
+// scope — a line chart only makes sense once there's genuine time-series
+// data, so 1-2 points show as plain text instead.
+function WeightHistorySection({ points }: { points: WeightHistoryPoint[] }) {
+  if (points.length === 0) {
+    return null;
+  }
+
+  const latest = points[points.length - 1];
+
+  if (points.length === 1) {
+    return (
+      <View style={styles.summaryNotes}>
+        <Text style={styles.summaryLabel}>Weight History</Text>
+        <Text style={styles.summaryNotesText}>Latest: {formatWeightValue(latest)}</Text>
+      </View>
+    );
+  }
+
+  const first = points[0];
+  const change = latest.value - first.value;
+
+  return (
+    <View style={styles.summaryNotes}>
+      <Text style={styles.summaryLabel}>Weight History</Text>
+      <Text style={styles.summaryNotesText}>
+        Start: {formatWeightValue(first)} · Latest: {formatWeightValue(latest)} · Change:{' '}
+        {formatSignedWeightChange(change, latest.unit)}
+      </Text>
+      {points.length >= 3 ? <WeightLineChart points={points} /> : null}
+    </View>
+  );
+}
+
+const WEIGHT_CHART_WIDTH = 300;
+const WEIGHT_CHART_HEIGHT = 100;
+const WEIGHT_CHART_PADDING = 10;
+
+function WeightLineChart({ points }: { points: WeightHistoryPoint[] }) {
+  const values = points.map((point) => point.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const valueRange = maxValue - minValue || 1;
+  const usableWidth = WEIGHT_CHART_WIDTH - WEIGHT_CHART_PADDING * 2;
+  const usableHeight = WEIGHT_CHART_HEIGHT - WEIGHT_CHART_PADDING * 2;
+
+  const coords = points.map((point, index) => ({
+    x: WEIGHT_CHART_PADDING + (index / (points.length - 1)) * usableWidth,
+    y: WEIGHT_CHART_HEIGHT - WEIGHT_CHART_PADDING - ((point.value - minValue) / valueRange) * usableHeight,
+  }));
+
+  return (
+    <Svg
+      width="100%"
+      height={WEIGHT_CHART_HEIGHT}
+      viewBox={`0 0 ${WEIGHT_CHART_WIDTH} ${WEIGHT_CHART_HEIGHT}`}
+      style={styles.weightChart}
+    >
+      <Polyline
+        points={coords.map((coord) => `${coord.x},${coord.y}`).join(' ')}
+        fill="none"
+        stroke={tokens.colors.accent}
+        strokeWidth={2}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      {coords.map((coord, index) => (
+        <Circle key={points[index].recordId} cx={coord.x} cy={coord.y} r={3} fill={tokens.colors.accent} />
+      ))}
+    </Svg>
+  );
+}
+
+function formatWeightValue(point: WeightHistoryPoint) {
+  return `${trimTrailingZeros(point.value)} ${point.unit}`.trim();
+}
+
+function formatSignedWeightChange(change: number, unit: string) {
+  const sign = change > 0 ? '+' : '';
+  return `${sign}${trimTrailingZeros(change)} ${unit}`.trim();
+}
+
+function trimTrailingZeros(value: number) {
+  return Number(value.toFixed(2)).toString();
+}
+
 function capitalize(value: string) {
   return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : '';
 }
@@ -299,7 +421,7 @@ function getSpeciesIconName(species: string, tone: AnimalTone) {
   const normalized = species.trim().toLowerCase();
 
   if (normalized.includes('cattle') || normalized.includes('cow')) return 'cow-copy';
-  if (normalized.includes('sheep')) return 'sheep';
+  if (normalized.includes('sheep')) return 'sheep-black';
   if (normalized.includes('pig')) return 'pig';
   if (normalized.includes('goat')) return 'goat';
   if (normalized.includes('chicken')) return 'chicken';
@@ -323,7 +445,7 @@ function getToneFallback(tone: AnimalTone) {
     case 'pig':
       return 'pig';
     case 'sheep':
-      return 'sheep';
+      return 'sheep-black';
     case 'goat':
       return 'goat';
     case 'poultry':
@@ -488,6 +610,9 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontWeight: '500',
   },
+  weightChart: {
+    marginTop: 6,
+  },
   summaryImages: {
     gap: 8,
   },
@@ -522,13 +647,19 @@ const styles = StyleSheet.create({
   timelineList: {
     gap: 14,
   },
+  timelineListHeading: {
+    color: tokens.colors.text,
+    fontSize: 17,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
   timelineRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: 12,
   },
   recordDate: {
-    width: 74,
+    width: 92,
     paddingTop: 14,
     color: tokens.colors.text,
     fontSize: 12,

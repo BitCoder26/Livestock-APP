@@ -1,27 +1,56 @@
 import AsyncStorage from 'expo-sqlite/kv-store';
 import type { PropsWithChildren } from 'react';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Animal, AnimalTone } from '../entities/animal';
+import { createUniqueUuid } from '../utils/createLocalId';
+import { filterAccessibleImageUris } from '../utils/imageStorage';
+import { type FarmEntity, type GroupEntity, type PaddockEntity, useSetup } from './SetupContext';
 
-type CreateAnimalInput = Omit<Animal, 'tone' | 'ageLabel'>;
+export type CreateAnimalInput = Omit<Animal, 'uid' | 'tone' | 'ageLabel'>;
+
+export type AnimalMutationResult =
+  | { ok: true; animal: Animal }
+  | { ok: false; reason: 'duplicate-tag' | 'invalid-tag' | 'not-found' | 'storage-error' };
+
+export type AnimalDeleteResult =
+  | { ok: true }
+  | { ok: false; reason: 'storage-error' };
 
 type AnimalsContextValue = {
   animals: Animal[];
-  addAnimal: (animal: CreateAnimalInput) => void;
-  updateAnimal: (originalId: string, animal: CreateAnimalInput) => void;
-  deleteAnimal: (animalId: string) => void;
-  resetAnimals: () => void;
+  isLoaded: boolean;
+  addAnimal: (animal: CreateAnimalInput) => Promise<AnimalMutationResult>;
+  updateAnimal: (animalUid: string, animal: CreateAnimalInput) => Promise<AnimalMutationResult>;
+  deleteAnimal: (animalUid: string) => Promise<AnimalDeleteResult>;
+  resetAnimals: () => Promise<AnimalDeleteResult>;
+  prepareAnimalAddition: (animal: CreateAnimalInput) => AnimalMutationResult;
+  prepareAnimalUpdate: (animalUid: string, animal: CreateAnimalInput) => AnimalMutationResult;
+  getAnimalsSnapshot: () => Animal[];
+  replaceAnimalsFromTransaction: (nextAnimals: Animal[]) => void;
 };
 
 const AnimalsContext = createContext<AnimalsContextValue | null>(null);
-const ANIMALS_STORAGE_KEY = 'livestockbook.animals.v1';
+export const ANIMALS_STORAGE_KEY = 'livestockbook.animals.v1';
 
 export function AnimalsProvider({ children }: PropsWithChildren) {
+  const {
+    farmEntities,
+    paddockEntities,
+    groupEntities,
+    isLoaded: setupLoaded,
+  } = useSetup();
   const [animals, setAnimals] = useState<Animal[]>([]);
+  const animalsRef = useRef<Animal[]>([]);
+  const hasStartedRestore = useRef(false);
   const [hasLoadedStoredAnimals, setHasLoadedStoredAnimals] = useState(false);
 
   useEffect(() => {
+    if (!setupLoaded || hasStartedRestore.current) {
+      return;
+    }
+    hasStartedRestore.current = true;
+
     let isActive = true;
 
     const restoreAnimals = async () => {
@@ -32,12 +61,24 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
           const parsedAnimals: unknown = JSON.parse(storedAnimals);
 
           if (Array.isArray(parsedAnimals)) {
-            const validAnimals = parsedAnimals
-              .filter(isStoredAnimal)
-              .map(normalizeStoredAnimal);
+            const usedUids = new Set<string>();
+            const storedAnimalsList = parsedAnimals.filter(isStoredAnimal);
+            const validAnimals = storedAnimalsList.map((animal, index) =>
+              normalizeStoredAnimal(
+                animal,
+                usedUids,
+                farmEntities,
+                paddockEntities,
+                groupEntities,
+                index,
+                storedAnimalsList.length,
+              ),
+            );
 
             if (validAnimals.length > 0 || parsedAnimals.length === 0) {
+              animalsRef.current = validAnimals;
               setAnimals(validAnimals);
+              await AsyncStorage.setItem(ANIMALS_STORAGE_KEY, JSON.stringify(validAnimals));
             }
           }
         }
@@ -55,50 +96,119 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
     return () => {
       isActive = false;
     };
-  }, []);
-
-  useEffect(() => {
-    if (!hasLoadedStoredAnimals) {
-      return;
-    }
-
-    void AsyncStorage.setItem(ANIMALS_STORAGE_KEY, JSON.stringify(animals));
-  }, [animals, hasLoadedStoredAnimals]);
+  }, [farmEntities, groupEntities, paddockEntities, setupLoaded]);
 
   const value = useMemo<AnimalsContextValue>(
-    () => ({
-      animals,
-      addAnimal: (animal) => {
-        setAnimals((current) => [
-          {
-            ...animal,
-            ageLabel: formatAgeLabel(animal.ageValue, animal.ageUnit),
-            tone: inferAnimalTone(animal.species),
-          },
-          ...current,
-        ]);
-      },
-      updateAnimal: (originalId, animal) => {
-        setAnimals((current) =>
-          current.map((entry) =>
-            entry.id === originalId
-              ? {
-                  ...animal,
-                  ageLabel: formatAgeLabel(animal.ageValue, animal.ageUnit),
-                  tone: inferAnimalTone(animal.species),
-                }
-              : entry,
+    () => {
+      const replaceAnimals = (nextAnimals: Animal[]) => {
+        animalsRef.current = nextAnimals;
+        setAnimals(nextAnimals);
+      };
+
+      const persistAndReplaceAnimals = async (nextAnimals: Animal[]) => {
+        try {
+          await AsyncStorage.setItem(ANIMALS_STORAGE_KEY, JSON.stringify(nextAnimals));
+        } catch {
+          return false;
+        }
+
+        replaceAnimals(nextAnimals);
+        return true;
+      };
+
+      const prepareAnimalAddition = (animal: CreateAnimalInput): AnimalMutationResult => {
+        const current = animalsRef.current;
+
+        if (!animal.id.trim()) {
+          return { ok: false, reason: 'invalid-tag' };
+        }
+
+        if (hasDuplicateTag(current, animal.id)) {
+          return { ok: false, reason: 'duplicate-tag' };
+        }
+
+        return {
+          ok: true,
+          animal: buildAnimal(
+            // Stamp createdAt once, here, rather than trusting the caller to
+            // supply it — it should only ever be set at true creation time.
+            { ...animal, createdAt: animal.createdAt ?? new Date().toISOString() },
+            createUniqueUuid(current.map((entry) => entry.uid)),
           ),
-        );
-      },
-      deleteAnimal: (animalId) => {
-        setAnimals((current) => current.filter((entry) => entry.id !== animalId));
-      },
-      resetAnimals: () => {
-        setAnimals([]);
-      },
-    }),
-    [animals],
+        };
+      };
+
+      const prepareAnimalUpdate = (animalUid: string, animal: CreateAnimalInput): AnimalMutationResult => {
+        const current = animalsRef.current;
+        const existing = current.find((entry) => entry.uid === animalUid);
+
+        if (!existing) {
+          return { ok: false, reason: 'not-found' };
+        }
+
+        if (!animal.id.trim()) {
+          return { ok: false, reason: 'invalid-tag' };
+        }
+
+        if (hasDuplicateTag(current, animal.id, animalUid)) {
+          return { ok: false, reason: 'duplicate-tag' };
+        }
+
+        // Edits never change createdAt, regardless of what the form sends —
+        // it always keeps whatever it was stamped with at creation.
+        return { ok: true, animal: buildAnimal({ ...animal, createdAt: existing.createdAt }, existing.uid) };
+      };
+
+      return {
+        animals,
+        isLoaded: hasLoadedStoredAnimals,
+        prepareAnimalAddition,
+        prepareAnimalUpdate,
+        getAnimalsSnapshot: () => animalsRef.current,
+        replaceAnimalsFromTransaction: replaceAnimals,
+        addAnimal: async (animal) => {
+          const result = prepareAnimalAddition(animal);
+
+          if (result.ok) {
+            const didPersist = await persistAndReplaceAnimals([result.animal, ...animalsRef.current]);
+
+            if (!didPersist) {
+              return { ok: false, reason: 'storage-error' };
+            }
+          }
+
+          return result;
+        },
+        updateAnimal: async (animalUid, animal) => {
+          const result = prepareAnimalUpdate(animalUid, animal);
+
+          if (result.ok) {
+            const didPersist = await persistAndReplaceAnimals(
+              animalsRef.current.map((entry) =>
+                entry.uid === animalUid ? result.animal : entry,
+              ),
+            );
+
+            if (!didPersist) {
+              return { ok: false, reason: 'storage-error' };
+            }
+          }
+
+          return result;
+        },
+        deleteAnimal: async (animalUid) => {
+          const didPersist = await persistAndReplaceAnimals(
+            animalsRef.current.filter((entry) => entry.uid !== animalUid),
+          );
+          return didPersist ? { ok: true } : { ok: false, reason: 'storage-error' };
+        },
+        resetAnimals: async () => {
+          const didPersist = await persistAndReplaceAnimals([]);
+          return didPersist ? { ok: true } : { ok: false, reason: 'storage-error' };
+        },
+      };
+    },
+    [animals, hasLoadedStoredAnimals],
   );
 
   return <AnimalsContext.Provider value={value}>{children}</AnimalsContext.Provider>;
@@ -124,7 +234,25 @@ function formatAgeLabel(value: string, unit: Animal['ageUnit']) {
   return `${trimmedValue} ${unit}`.trim();
 }
 
-function isStoredAnimal(value: unknown): value is Animal {
+function isValidCreatedAt(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0 && !Number.isNaN(Date.parse(value));
+}
+
+// Animals stored before createdAt existed (or restored from data that never
+// set it) have no real timestamp to sort by, so "Recently/Oldest Added"
+// collapses them all into the same bucket. Back-fill one derived from the
+// animal's position in the stored list instead — storage is always
+// newest-first (new animals are unshifted onto the front, see addAnimal),
+// so index 0 gets the latest synthetic time and the last index gets the
+// earliest, preserving whatever order already existed. These values are
+// tiny relative to a real Date.now() timestamp, so any animal with a
+// genuine createdAt still always sorts as more recent than a backfilled one.
+function synthesizeCreatedAt(index: number, total: number): string {
+  const syntheticMs = (total - index) * 1000;
+  return new Date(syntheticMs).toISOString();
+}
+
+export function isStoredAnimal(value: unknown): value is Animal {
   if (!value || typeof value !== 'object') {
     return false;
   }
@@ -133,14 +261,75 @@ function isStoredAnimal(value: unknown): value is Animal {
   return typeof animal.id === 'string' && typeof animal.species === 'string';
 }
 
-function normalizeStoredAnimal(animal: Animal): Animal {
+export function normalizeStoredAnimal(
+  animal: Animal,
+  usedUids: Set<string>,
+  farms: FarmEntity[],
+  paddocks: PaddockEntity[],
+  groups: GroupEntity[],
+  // Position of this animal in the stored (newest-first) list, used to
+  // backfill a real createdAt for animals that never had one — see
+  // synthesizeCreatedAt below.
+  index: number,
+  total: number,
+): Animal {
+  const imageUris = filterAccessibleImageUris(animal.imageUris);
+  const storedUid = typeof animal.uid === 'string' ? animal.uid.trim() : '';
+  const uid = storedUid && !usedUids.has(storedUid)
+    ? storedUid
+    : createUniqueUuid(usedUids);
+  usedUids.add(uid);
+  const farm = farms.find((entry) => entry.uid === animal.farmUid || equalsIgnoreCase(entry.name, animal.farm));
+  const paddock = paddocks.find(
+    (entry) =>
+      (entry.uid === animal.paddockUid || equalsIgnoreCase(entry.name, animal.paddock)) &&
+      (!farm?.uid || entry.farmUid === farm.uid || equalsIgnoreCase(entry.farm, farm.name)),
+  );
+  const group = groups.find(
+    (entry) => entry.uid === animal.groupUid || equalsIgnoreCase(entry.name, animal.group),
+  );
+
   return {
     ...animal,
+    uid,
+    farmUid: farm?.uid,
+    paddockUid: paddock?.uid,
+    groupUid: group?.uid,
     sex: animal.sex === 'male' ? 'male' : 'female',
     ageLabel: formatAgeLabel(animal.ageValue ?? '', animal.ageUnit ?? 'years old'),
-    imageUris: animal.imageUris?.slice(0, 1),
+    imageUris,
+    showImageOnCard: imageUris.length > 0 && animal.showImageOnCard === true,
+    tone: inferAnimalTone(animal.species),
+    createdAt: isValidCreatedAt(animal.createdAt) ? animal.createdAt : synthesizeCreatedAt(index, total),
+    // Animals stored before these fields existed won't have them at all.
+    source: animal.source ?? '',
+    farmEntryDate: animal.farmEntryDate ?? '',
+  };
+}
+
+function buildAnimal(animal: CreateAnimalInput, uid: string): Animal {
+  return {
+    ...animal,
+    uid,
+    id: animal.id.trim(),
+    ageLabel: formatAgeLabel(animal.ageValue, animal.ageUnit),
     tone: inferAnimalTone(animal.species),
   };
+}
+
+function hasDuplicateTag(animals: Animal[], tag: string, excludingUid?: string) {
+  const normalizedTag = normalizeTag(tag);
+  return animals.some(
+    (animal) => animal.uid !== excludingUid && normalizeTag(animal.id) === normalizedTag,
+  );
+}
+
+function equalsIgnoreCase(left: string, right: string) {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+function normalizeTag(tag: string) {
+  return tag.trim().toLowerCase();
 }
 
 function inferAnimalTone(species: string): AnimalTone {

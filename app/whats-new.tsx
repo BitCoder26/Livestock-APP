@@ -6,11 +6,13 @@ import { AppTopBar } from '../src/components/AppTopBar';
 import { tokens } from '../src/theme/tokens';
 
 const UPDATES = [
-  'Refreshed bottom tab icons, including updated Animals, Setup, Export, and Records tab styling.',
-  'Added a real About page with app information, version details, developer info, and support links.',
-  'Added a dedicated What\'s New page so new features can be viewed inside the app instead of a popup.',
-  'Improved the Settings screen with cleaner divider spacing and updated icons such as Web Portal and Upgrade to Pro.',
-  'Updated export action buttons and support actions to feel more polished and easier to use.',
+  'Added a new Reports screen with Herd Overview, Activity, Financial, and Health summaries, filterable by All time, This year, or This month.',
+  'You can now add a photo to animal profiles, individual records, and your business logo.',
+  'Your business name, address, and logo now appear at the top of exported PDFs.',
+  'Added new checks to catch mistakes before they\'re saved, including duplicate animal IDs, paddocks that don\'t belong to the selected farm, and Movement records with the same source and destination.',
+  'Added a sort control to the Animals tab: Recently Added, Oldest Added, Name (A–Z), Tag / ID (A–Z), or Status.',
+  'Added Backup & Restore, so you can save your farm data and bring it back on this or a new device.',
+  'General bug fixes and stability improvements.',
 ];
 
 export default function WhatsNewScreen() {

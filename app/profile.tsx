@@ -1,25 +1,31 @@
-import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
+import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
+import { InfoModal } from '../src/components/InfoModal';
 import { COUNTRY_OPTIONS, INDUSTRY_OPTIONS, getCountryFlag } from '../src/entities/account';
 import { useAccount } from '../src/context/AccountContext';
 import { useSubscription } from '../src/context/SubscriptionContext';
 import { tokens } from '../src/theme/tokens';
+import { filterAccessibleImageUris, persistBusinessLogo } from '../src/utils/imageStorage';
 
 const ACCOUNT_SURFACE_GREY = '#F1EFF3';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { previewPro } = useLocalSearchParams<{ previewPro?: string }>();
   const { profile, isLoaded, updateField } = useAccount();
-  const { isPro, loading: subscriptionLoading } = useSubscription();
+  const { customerInfo, isPro, loading: subscriptionLoading } = useSubscription();
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showIndustryModal, setShowIndustryModal] = useState(false);
+  const [showBrandingInfo, setShowBrandingInfo] = useState(false);
   const [countrySearchQuery, setCountrySearchQuery] = useState('');
   const [customIndustry, setCustomIndustry] = useState('');
 
@@ -36,6 +42,46 @@ export default function ProfileScreen() {
 
     setCustomIndustry(profile.industry);
   }, [profile.industry, showIndustryModal]);
+
+  const logoUri = filterAccessibleImageUris([profile.businessLogoUri])[0];
+
+  const handleAddLogo = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Permission to access the photo library is required.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 1,
+      allowsMultipleSelection: false,
+      selectionLimit: 1,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const nextUri = result.assets[0]?.uri;
+
+    if (!nextUri) {
+      return;
+    }
+
+    try {
+      const storedUri = await persistBusinessLogo(nextUri);
+      updateField('businessLogoUri', storedUri);
+    } catch {
+      Alert.alert('Image unavailable', 'The selected image could not be saved. Please choose it again.');
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    updateField('businessLogoUri', undefined);
+  };
 
   if (!isLoaded || subscriptionLoading) {
     return (
@@ -56,7 +102,27 @@ export default function ProfileScreen() {
     );
   }
 
-  const planLabel = isPro ? 'Pro' : profile.plan?.trim() || 'Basic';
+  const displayedIsPro = isPro || (__DEV__ && previewPro === '1');
+
+  const handleManageSubscription = async () => {
+    const managementURL = customerInfo?.managementURL;
+
+    if (!managementURL) {
+      Alert.alert(
+        'Manage Subscription',
+        __DEV__ && previewPro === '1'
+          ? 'This is a Pro layout preview. No subscription was purchased.'
+          : 'Your subscription management page is unavailable right now. Please try again later.',
+      );
+      return;
+    }
+
+    try {
+      await Linking.openURL(managementURL);
+    } catch {
+      Alert.alert('Manage Subscription', 'Unable to open your subscription management page right now.');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -69,21 +135,24 @@ export default function ProfileScreen() {
         }}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.section}>
-          <View style={styles.planSummary}>
-            <Text style={styles.planLabel}>Plan: {planLabel}</Text>
+        {displayedIsPro ? (
+          <View style={styles.section}>
+            <Pressable
+              accessibilityLabel="Manage subscription"
+              accessibilityRole="link"
+              onPress={() => void handleManageSubscription()}
+              style={({ pressed }) => [styles.premiumRow, pressed && styles.pressed]}
+            >
+              <View style={styles.premiumLeftGroup}>
+                <AppIcon name="settings" size={20} color={tokens.colors.accent} />
+                <Text style={styles.manageSubscriptionLabel}>Manage Subscription</Text>
+              </View>
+            </Pressable>
           </View>
-          <Pressable
-            accessibilityLabel="Open upgrade to pro page"
-            accessibilityRole="button"
-            onPress={() => router.push('/upgrade-to-pro')}
-            style={({ pressed }) => [styles.premiumRow, pressed && styles.pressed]}
-          >
-            <View style={styles.premiumLeftGroup}>
-              <AppIcon name="crown" size={20} color="#C8A24A" />
-              <Text style={styles.premiumLabel}>Go Pro</Text>
-            </View>
-          </Pressable>
+        ) : null}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Personal details</Text>
           <DesignField
             label="Name"
             value={profile.name}
@@ -118,6 +187,62 @@ export default function ProfileScreen() {
               <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
             </Pressable>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.optionLabelRow}>
+            <Text style={styles.sectionTitle}>Branding</Text>
+            <BouncyPressable
+              accessibilityLabel="About branding"
+              accessibilityRole="button"
+              hitSlop={10}
+              onPress={() => setShowBrandingInfo(true)}
+              pressedScale={0.88}
+              style={styles.optionInfoButton}
+            >
+              <AppIcon name="info" size={16} color={tokens.colors.textSoft} />
+            </BouncyPressable>
+          </View>
+          <DesignField
+            label="Business / Farm name"
+            value={profile.businessName ?? ''}
+            onChangeText={(value) => updateField('businessName', value)}
+            fieldStyle={styles.formField}
+          />
+          <DesignField
+            label="Address"
+            value={profile.businessAddress ?? ''}
+            onChangeText={(value) => updateField('businessAddress', value)}
+            fieldStyle={styles.formField}
+            large
+          />
+          <Pressable
+            accessibilityLabel="Add business logo"
+            accessibilityRole="button"
+            onPress={() => void handleAddLogo()}
+            style={({ pressed }) => [styles.photoButton, pressed && styles.pressed]}
+          >
+            <View style={styles.photoCopy}>
+              <AppIcon name="image-add" size={22} color={tokens.colors.accent} />
+              <Text style={styles.photoText}>{logoUri ? 'Change logo' : 'Add logo'}</Text>
+            </View>
+            <View style={styles.fieldChevron}>
+              <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
+            </View>
+          </Pressable>
+          {logoUri ? (
+            <View style={styles.imageCard}>
+              <Image source={{ uri: logoUri }} style={styles.imagePreview} onError={handleRemoveLogo} />
+              <Pressable
+                accessibilityLabel="Remove logo"
+                accessibilityRole="button"
+                onPress={handleRemoveLogo}
+                style={styles.removeImageButton}
+              >
+                <AppIcon name="close" size={14} color="#fff" />
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -274,6 +399,13 @@ export default function ProfileScreen() {
           </AnimatedPopupCard>
         </Pressable>
       </Modal>
+
+      <InfoModal
+        visible={showBrandingInfo}
+        onClose={() => setShowBrandingInfo(false)}
+        title="Branding"
+        description="Shown on the header of your exported PDFs alongside LivestockBook. Leave blank to keep the header LivestockBook-only."
+      />
     </SafeAreaView>
   );
 }
@@ -292,8 +424,72 @@ const styles = StyleSheet.create({
   section: {
     gap: 14,
   },
+  sectionTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  optionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  optionInfoButton: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   block: {
     gap: 8,
+  },
+  fieldChevron: {
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoButton: {
+    minHeight: 54,
+    borderRadius: 22,
+    backgroundColor: ACCOUNT_SURFACE_GREY,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  photoCopy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  photoText: {
+    color: tokens.colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  imageCard: {
+    width: 108,
+    height: 108,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: ACCOUNT_SURFACE_GREY,
+    position: 'relative',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   optionLabel: {
     color: tokens.colors.text,
@@ -322,15 +518,6 @@ const styles = StyleSheet.create({
   placeholderValue: {
     color: '#7a7a7a',
   },
-  planSummary: {
-    paddingHorizontal: 0,
-    marginTop: 8,
-  },
-  planLabel: {
-    color: '#666666',
-    fontSize: 15,
-    fontWeight: '400',
-  },
   premiumRow: {
     minHeight: 52,
     paddingHorizontal: 2,
@@ -343,8 +530,8 @@ const styles = StyleSheet.create({
     gap: 14,
     flexShrink: 1,
   },
-  premiumLabel: {
-    color: '#C8A24A',
+  manageSubscriptionLabel: {
+    color: tokens.colors.accent,
     fontSize: 15,
     fontWeight: '400',
   },

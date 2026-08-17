@@ -1,66 +1,70 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { GestureResponderEvent, PressableProps, StyleProp, ViewStyle } from 'react-native';
-import { Animated, Pressable } from 'react-native';
+import { Animated, Easing, Pressable } from 'react-native';
 
 type BouncyPressableProps = PressableProps & {
   containerStyle?: StyleProp<ViewStyle>;
+  pressedScale?: number;
+  onPressDelayMs?: number;
 };
 
 export function BouncyPressable({
   containerStyle,
   onPress,
+  onPressDelayMs = 0,
   onPressIn,
   onPressOut,
+  pressedScale = 0.97,
   ...props
 }: BouncyPressableProps) {
   const scale = useRef(new Animated.Value(1)).current;
-  const isAnimatingRef = useRef(false);
+  const delayedPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (delayedPressRef.current) {
+        clearTimeout(delayedPressRef.current);
+      }
+    };
+  }, []);
 
   const handlePressIn = (event: GestureResponderEvent) => {
-    if (!isAnimatingRef.current) {
-      scale.stopAnimation();
-      Animated.timing(scale, {
-        toValue: 0.965,
-        duration: 70,
-        useNativeDriver: true,
-      }).start();
-    }
+    scale.stopAnimation();
+    Animated.timing(scale, {
+      toValue: pressedScale,
+      duration: 90,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
     onPressIn?.(event);
   };
 
   const handlePressOut = (event: GestureResponderEvent) => {
-    if (!isAnimatingRef.current) {
-      Animated.spring(scale, {
-        toValue: 1,
-        speed: 28,
-        bounciness: 8,
-        useNativeDriver: true,
-      }).start();
-    }
+    scale.stopAnimation();
+    Animated.spring(scale, {
+      toValue: 1,
+      stiffness: 420,
+      damping: 30,
+      mass: 0.7,
+      useNativeDriver: true,
+    }).start();
     onPressOut?.(event);
   };
 
   const handlePress = (event: GestureResponderEvent) => {
-    if (!isAnimatingRef.current) {
-      isAnimatingRef.current = true;
-      scale.stopAnimation();
-      Animated.sequence([
-        Animated.timing(scale, {
-          toValue: 1.035,
-          duration: 75,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scale, {
-          toValue: 1,
-          duration: 70,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        isAnimatingRef.current = false;
-      });
+    if (!onPress || delayedPressRef.current) {
+      return;
     }
 
-    onPress?.(event);
+    if (onPressDelayMs <= 0) {
+      onPress(event);
+      return;
+    }
+
+    delayedPressRef.current = setTimeout(() => {
+      delayedPressRef.current = null;
+      onPress(event);
+    }, onPressDelayMs);
   };
 
   return (

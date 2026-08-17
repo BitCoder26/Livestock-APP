@@ -10,13 +10,12 @@ export const RECORD_TYPES = [
   'Health Check',
   'Sale',
   'Purchase',
-  'Count',
   'Other',
 ] as const;
 
 export const SPECIES_OPTIONS: Array<{ icon: AppIconName; label: string }> = [
   { icon: 'cow-copy', label: 'Cattle' },
-  { icon: 'sheep', label: 'Sheep' },
+  { icon: 'sheep-black', label: 'Sheep' },
   { icon: 'pig', label: 'Pig' },
   { icon: 'goat', label: 'Goat' },
   { icon: 'chicken', label: 'Chicken' },

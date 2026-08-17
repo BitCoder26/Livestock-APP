@@ -14,6 +14,7 @@ type DesignFieldProps = {
   keyboardType?: KeyboardTypeOptions;
   onChangeText?: (value: string) => void;
   fieldStyle?: StyleProp<ViewStyle>;
+  editable?: boolean;
 };
 
 export function DesignField({
@@ -26,6 +27,7 @@ export function DesignField({
   keyboardType,
   onChangeText,
   fieldStyle,
+  editable = true,
 }: DesignFieldProps) {
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -36,7 +38,13 @@ export function DesignField({
       <Pressable
         accessibilityRole="button"
         onPress={() => inputRef.current?.focus()}
-        style={[styles.field, fieldStyle, large && styles.fieldLarge, focused && styles.fieldFocused]}
+        style={[
+          styles.field,
+          fieldStyle,
+          large && styles.fieldLarge,
+          focused && styles.fieldFocused,
+          !editable && styles.fieldDisabled,
+        ]}
       >
         <View style={styles.fieldValueWrap}>
           {left ?? (icon ? <AppIcon name={icon} size={17} /> : null)}
@@ -53,6 +61,7 @@ export function DesignField({
             selectionColor="#000"
             value={onChangeText ? value : undefined}
             onChangeText={onChangeText}
+            editable={editable}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
           />
@@ -85,6 +94,9 @@ const styles = StyleSheet.create({
   },
   fieldFocused: {
     borderColor: tokens.colors.accent,
+  },
+  fieldDisabled: {
+    backgroundColor: '#F0EEF1',
   },
   fieldLarge: {
     minHeight: 98,

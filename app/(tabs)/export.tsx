@@ -2,7 +2,6 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -19,12 +18,23 @@ import { getSpeciesThemeByLabel } from '../../src/constants/speciesTheme';
 import { useAccount } from '../../src/context/AccountContext';
 import { useAnimals } from '../../src/context/AnimalsContext';
 import { useRecords } from '../../src/context/RecordsContext';
-import { useSetup } from '../../src/context/SetupContext';
+import { type FarmEntity, type GroupEntity, type PaddockEntity, useSetup } from '../../src/context/SetupContext';
+import type { AccountProfile } from '../../src/entities/account';
 import type { Animal, AnimalStatus } from '../../src/entities/animal';
 import type { RecordEntry } from '../../src/entities/record';
 import type { AppIconName } from '../../src/components/AppIcon';
 import { tokens } from '../../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../../src/utils/dateFormat';
+import { buildPdfDocument, createPdfFile, escapeHtml, resolveBusinessBranding, sharePdf } from '../../src/utils/pdfExport';
+import { findRecordAnimals, resolveRecordDisplayNames, resolveRecordDisplayTags } from '../../src/utils/recordAnimals';
+import {
+  getRecordDisplayTitle,
+  resolveAnimalFarmName,
+  resolveAnimalGroupName,
+  resolveAnimalPaddockName,
+  resolveFarmName,
+  resolvePaddockName,
+} from '../../src/utils/recordLocations';
 
 type ExportTarget = 'animals' | 'records';
 type ExportFormat = 'pdf' | 'spreadsheet';
@@ -74,10 +84,10 @@ const DEFAULT_RECORD_FILTERS: RecordExportFilters = {
 export default function ExportScreen() {
   const router = useRouter();
   const { previewPdf, previewTarget } = useLocalSearchParams<{ previewPdf?: string; previewTarget?: string }>();
-  const { profile } = useAccount();
+  const { profile, updateField } = useAccount();
   const { animals } = useAnimals();
   const { records } = useRecords();
-  const { farms, paddocks, groups } = useSetup();
+  const { farms, farmEntities, paddocks, paddockEntities, groups, groupEntities } = useSetup();
   const [target, setTarget] = useState<ExportTarget>('records');
   const [animalFilters, setAnimalFilters] = useState<AnimalExportFilters>(DEFAULT_ANIMAL_FILTERS);
   const [recordFilters, setRecordFilters] = useState<RecordExportFilters>(DEFAULT_RECORD_FILTERS);
@@ -103,10 +113,10 @@ export default function ExportScreen() {
     () => animals.filter((animal) => animalMatchesFilters(animal, animalFilters)),
     [animalFilters, animals],
   );
-  const filteredRecords = useMemo(
-    () => records.filter((record) => recordMatchesFilters(record, recordFilters, animals)),
-    [animals, recordFilters, records],
-  );
+  const filteredRecords = useMemo(() => {
+    const lookup = buildAnimalLookup(animals);
+    return records.filter((record) => recordMatchesFilters(record, recordFilters, animals, lookup));
+  }, [animals, recordFilters, records]);
 
   const selectedDate = useMemo(() => {
     const value = activeDateField === 'startDate' ? recordFilters.startDate : recordFilters.endDate;
@@ -157,8 +167,8 @@ export default function ExportScreen() {
       try {
         const uri =
           previewTarget === 'animals'
-            ? await createAnimalsPdf(filteredAnimals, animalFilters, profile.dateFormat)
-            : await createRecordsPdf(filteredRecords, animals, recordFilters, profile.dateFormat);
+            ? await createAnimalsPdf(filteredAnimals, animalFilters, profile, farmEntities, paddockEntities, groupEntities)
+            : await createRecordsPdf(filteredRecords, animals, recordFilters, profile, farmEntities, paddockEntities);
 
         await Linking.openURL(uri);
       } catch (error) {
@@ -171,8 +181,11 @@ export default function ExportScreen() {
   }, [
     animalFilters,
     animals,
+    farmEntities,
     filteredAnimals,
     filteredRecords,
+    groupEntities,
+    paddockEntities,
     previewPdf,
     previewTarget,
     profile.dateFormat,
@@ -197,17 +210,22 @@ export default function ExportScreen() {
     try {
       if (target === 'animals') {
         if (format === 'pdf') {
-          const uri = await createAnimalsPdf(filteredAnimals, animalFilters, profile.dateFormat);
+          const uri = await createAnimalsPdf(filteredAnimals, animalFilters, profile, farmEntities, paddockEntities, groupEntities);
           await sharePdf(uri);
         } else {
-          await exportAnimalsCsv(filteredAnimals, profile.dateFormat);
+          await exportAnimalsCsv(filteredAnimals, profile.dateFormat, farmEntities, paddockEntities, groupEntities);
         }
       } else if (format === 'pdf') {
-        const uri = await createRecordsPdf(filteredRecords, animals, recordFilters, profile.dateFormat);
+        const uri = await createRecordsPdf(filteredRecords, animals, recordFilters, profile, farmEntities, paddockEntities);
         await sharePdf(uri);
       } else {
-        await exportRecordsCsv(filteredRecords, animals, profile.dateFormat);
+        await exportRecordsCsv(filteredRecords, animals, profile.dateFormat, farmEntities, paddockEntities);
       }
+
+      // Drives the "back up your data" reminder on the Account screen —
+      // only a completed export (shared or written to disk) counts, not a
+      // cancelled or failed one.
+      updateField('lastExportedAt', new Date().toISOString());
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Something went wrong while preparing the export.';
       Alert.alert('Export failed', message);
@@ -735,20 +753,30 @@ function animalMatchesFilters(animal: Animal, filters: AnimalExportFilters) {
   return true;
 }
 
-function recordMatchesFilters(record: RecordEntry, filters: RecordExportFilters, animals: Animal[]) {
-  const relatedAnimals = findRelatedAnimals(record, animals);
+// Precomputed once per export/filter pass and threaded through instead of
+// rebuilding a Set/scanning the full animals array inside findRelatedAnimals
+// for every single record — with hundreds of animals and thousands of
+// records that per-record rebuild is the difference between an export that
+// feels instant and one that visibly stalls.
+type AnimalLookup = { animalUidSet: Set<string>; animalsByUid: Map<string, Animal> };
+
+function buildAnimalLookup(animals: Animal[]): AnimalLookup {
+  return {
+    animalUidSet: new Set(animals.map((animal) => animal.uid)),
+    animalsByUid: new Map(animals.map((animal) => [animal.uid, animal])),
+  };
+}
+
+function recordMatchesFilters(
+  record: RecordEntry,
+  filters: RecordExportFilters,
+  animals: Animal[],
+  lookup: AnimalLookup,
+) {
   const searchQuery = filters.searchQuery.trim().toLowerCase();
   const recordDate = parseStoredDate(record.date);
   const startDate = parseStoredDate(filters.startDate);
   const endDate = parseStoredDate(filters.endDate);
-
-  if (
-    searchQuery &&
-    ![record.animalTag, record.animal, ...relatedAnimals.map((animal) => animal.id), ...relatedAnimals.map((animal) => animal.name)]
-      .some((value) => value.toLowerCase().includes(searchQuery))
-  ) {
-    return false;
-  }
 
   if (startDate && recordDate && recordDate < startDate) {
     return false;
@@ -763,6 +791,20 @@ function recordMatchesFilters(record: RecordEntry, filters: RecordExportFilters,
   }
 
   if (filters.recordTypes.length > 0 && !filters.recordTypes.some((value) => equalsIgnoreCase(value, record.type))) {
+    return false;
+  }
+
+  // Only resolve the record's related animals when a filter that actually
+  // needs them is active — cheap checks above already reject most records
+  // in a typical filtered/searched pass.
+  const needsRelatedAnimals = Boolean(searchQuery) || filters.farms.length > 0 || filters.paddocks.length > 0;
+  const relatedAnimals = needsRelatedAnimals ? findRelatedAnimals(record, animals, lookup) : [];
+
+  if (
+    searchQuery &&
+    ![record.animalTag, record.animal, ...relatedAnimals.map((animal) => animal.id), ...relatedAnimals.map((animal) => animal.name)]
+      .some((value) => value.toLowerCase().includes(searchQuery))
+  ) {
     return false;
   }
 
@@ -783,22 +825,46 @@ function recordMatchesFilters(record: RecordEntry, filters: RecordExportFilters,
   return true;
 }
 
-function findRelatedAnimals(record: RecordEntry, animals: Animal[]) {
-  const idParts = new Set(splitValues(record.animalTag));
-  const nameParts = new Set(splitValues(record.animal));
-
-  if (record.animalIds?.length) {
-    for (const id of record.animalIds) {
-      idParts.add(id.toLowerCase());
-    }
+function findRelatedAnimals(record: RecordEntry, animals: Animal[], lookup?: AnimalLookup) {
+  if (record.animalUids) {
+    const { animalUidSet, animalsByUid } = lookup ?? buildAnimalLookup(animals);
+    const uids = new Set(record.animalUids.filter((uid) => animalUidSet.has(uid)));
+    return Array.from(uids)
+      .map((uid) => animalsByUid.get(uid))
+      .filter((animal): animal is Animal => Boolean(animal));
   }
 
-  return animals.filter((animal) => idParts.has(animal.id.toLowerCase()) || nameParts.has(animal.name.toLowerCase()));
+  // Rare legacy path — a record without animalUids that couldn't be
+  // backfilled on restore. Falls back to the general, slower name/tag
+  // matching resolver.
+  return findRecordAnimals(record, animals);
 }
 
-async function exportAnimalsCsv(animals: Animal[], dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
+async function exportAnimalsCsv(
+  animals: Animal[],
+  dateFormat: Parameters<typeof formatDateForDisplay>[1],
+  farms: FarmEntity[],
+  paddocks: PaddockEntity[],
+  groups: GroupEntity[],
+) {
   const rows = [
-    ['Animal ID', 'Name', 'Species', 'Sex', 'Date of Birth', 'Status', 'Farm', 'Paddock', 'Group', 'Weight', 'Notes'],
+    ['LivestockBook'],
+    [],
+    [
+      'Animal ID',
+      'Name',
+      'Species',
+      'Sex',
+      'Date of Birth',
+      'Status',
+      'Farm',
+      'Paddock',
+      'Group',
+      'Weight',
+      'Source',
+      'Farm Entry Date',
+      'Notes',
+    ],
     ...animals.map((animal) => [
       animal.id,
       animal.name,
@@ -806,10 +872,12 @@ async function exportAnimalsCsv(animals: Animal[], dateFormat: Parameters<typeof
       animal.sex,
       formatDateForDisplay(animal.dateOfBirth, dateFormat),
       animal.status,
-      animal.farm,
-      animal.paddock,
-      animal.group,
+      resolveAnimalFarmName(animal, farms),
+      resolveAnimalPaddockName(animal, paddocks),
+      resolveAnimalGroupName(animal, groups),
       formatWeight(animal.weight, animal.weightUnit),
+      animal.source,
+      formatDateForDisplay(animal.farmEntryDate, dateFormat),
       animal.notes,
     ]),
   ];
@@ -817,27 +885,39 @@ async function exportAnimalsCsv(animals: Animal[], dateFormat: Parameters<typeof
   await writeAndShareCsv(`animal-register-${createTimestamp()}.csv`, rows);
 }
 
-async function exportRecordsCsv(records: RecordEntry[], animals: Animal[], dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
+async function exportRecordsCsv(
+  records: RecordEntry[],
+  animals: Animal[],
+  dateFormat: Parameters<typeof formatDateForDisplay>[1],
+  farms: FarmEntity[],
+  paddocks: PaddockEntity[],
+) {
+  const lookup = buildAnimalLookup(animals);
   const rows = [
-    ['Date', 'Record Type', 'Title', 'Animal ID', 'Animal Name', 'Species', 'Farm', 'Paddock', 'Medicine', 'Dose', 'Withdrawal', 'Batch No.', 'Expiry', 'Head Count', 'Details'],
+    ['LivestockBook'],
+    [],
+    ['Date', 'Record Type', 'Title', 'Animal ID', 'Animal Name', 'Species', 'Farm', 'Paddock', 'Medicine', 'Dose', 'Withdrawal', 'Batch No.', 'Expiry', 'Details'],
     ...records.map((record) => {
-      const relatedAnimals = findRelatedAnimals(record, animals);
+      const relatedAnimals = findRelatedAnimals(record, animals, lookup);
 
       return [
         formatDateForDisplay(record.date, dateFormat),
         record.type,
-        record.title,
-        record.animalTag,
-        record.animal,
+        getRecordDisplayTitle(record, farms, paddocks),
+        resolveRecordDisplayTags(record, animals).filter(Boolean).join(', ') || record.animalTag,
+        resolveRecordDisplayNames(record, animals).filter(Boolean).join(', ') || record.animal,
         record.species,
-        joinUnique(relatedAnimals.map((animal) => animal.farm)),
-        joinUnique(relatedAnimals.map((animal) => animal.paddock)),
+        record.type === 'Movement'
+          ? resolveFarmName(record.toFarmUid, record.toFarm, farms)
+          : joinUnique(relatedAnimals.map((animal) => resolveAnimalFarmName(animal, farms))),
+        record.type === 'Movement'
+          ? resolvePaddockName(record.toPaddockUid, record.toPaddock, paddocks)
+          : joinUnique(relatedAnimals.map((animal) => resolveAnimalPaddockName(animal, paddocks))),
         record.medicine ?? '',
         [record.dose, record.doseUnit].filter(Boolean).join(' '),
         record.withdrawal ?? '',
         record.batchNumber ?? '',
         record.expiryDate ?? '',
-        record.headCount ?? '',
         record.details,
       ];
     }),
@@ -846,20 +926,27 @@ async function exportRecordsCsv(records: RecordEntry[], animals: Animal[], dateF
   await writeAndShareCsv(`records-${createTimestamp()}.csv`, rows);
 }
 
-async function createAnimalsPdf(animals: Animal[], filters: AnimalExportFilters, dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
+async function createAnimalsPdf(
+  animals: Animal[],
+  filters: AnimalExportFilters,
+  profile: AccountProfile,
+  farms: FarmEntity[],
+  paddocks: PaddockEntity[],
+  groups: GroupEntity[],
+) {
   const rows = animals.map((animal) => [
     animal.id,
     animal.name || '—',
     animal.species || '—',
     animal.status,
-    animal.farm || '—',
-    animal.paddock || '—',
-    animal.group || '—',
+    resolveAnimalFarmName(animal, farms) || '—',
+    resolveAnimalPaddockName(animal, paddocks) || '—',
+    resolveAnimalGroupName(animal, groups) || '—',
   ]);
 
   const html = buildPdfHtml({
     title: 'Animal Register',
-    subtitle: 'Livestock export',
+    branding: await resolveBusinessBranding(profile),
     countLabel: `${animals.length} ${animals.length === 1 ? 'animal' : 'animals'}`,
     filterSummary: getAnimalFilterSummary(filters),
     headers: ['Animal ID', 'Name', 'Species', 'Status', 'Farm', 'Paddock', 'Group'],
@@ -869,24 +956,37 @@ async function createAnimalsPdf(animals: Animal[], filters: AnimalExportFilters,
   return createPdfFile(html);
 }
 
-async function createRecordsPdf(records: RecordEntry[], animals: Animal[], filters: RecordExportFilters, dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
+async function createRecordsPdf(
+  records: RecordEntry[],
+  animals: Animal[],
+  filters: RecordExportFilters,
+  profile: AccountProfile,
+  farms: FarmEntity[],
+  paddocks: PaddockEntity[],
+) {
+  const dateFormat = profile.dateFormat;
+  const lookup = buildAnimalLookup(animals);
   const rows = records.map((record) => {
-    const relatedAnimals = findRelatedAnimals(record, animals);
+    const relatedAnimals = findRelatedAnimals(record, animals, lookup);
 
     return [
       formatDateForDisplay(record.date, dateFormat),
       record.type,
-      record.title,
-      record.animalTag || '—',
-      record.animal || '—',
-      joinUnique(relatedAnimals.map((animal) => animal.farm)) || '—',
-      joinUnique(relatedAnimals.map((animal) => animal.paddock)) || '—',
+      getRecordDisplayTitle(record, farms, paddocks),
+      resolveRecordDisplayTags(record, animals).filter(Boolean).join(', ') || record.animalTag || '—',
+      resolveRecordDisplayNames(record, animals).filter(Boolean).join(', ') || record.animal || '—',
+      (record.type === 'Movement'
+        ? resolveFarmName(record.toFarmUid, record.toFarm, farms)
+        : joinUnique(relatedAnimals.map((animal) => resolveAnimalFarmName(animal, farms)))) || '—',
+      (record.type === 'Movement'
+        ? resolvePaddockName(record.toPaddockUid, record.toPaddock, paddocks)
+        : joinUnique(relatedAnimals.map((animal) => resolveAnimalPaddockName(animal, paddocks)))) || '—',
     ];
   });
 
   const html = buildPdfHtml({
     title: 'Records Export',
-    subtitle: 'Livestock export',
+    branding: await resolveBusinessBranding(profile),
     countLabel: `${records.length} ${records.length === 1 ? 'record' : 'records'}`,
     filterSummary: getRecordFilterSummary(filters, dateFormat),
     headers: ['Date', 'Type', 'Title', 'Animal ID', 'Animal Name', 'Farm', 'Paddock'],
@@ -894,15 +994,6 @@ async function createRecordsPdf(records: RecordEntry[], animals: Animal[], filte
   });
 
   return createPdfFile(html);
-}
-
-async function createPdfFile(html: string) {
-  const { uri } = await Print.printToFileAsync({ html });
-  return uri;
-}
-
-async function sharePdf(uri: string) {
-  await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
 }
 
 async function writeAndShareCsv(fileName: string, rows: string[][]) {
@@ -921,75 +1012,20 @@ async function writeAndShareCsv(fileName: string, rows: string[][]) {
 
 function buildPdfHtml({
   title,
-  subtitle,
+  branding,
   countLabel,
   filterSummary,
   headers,
   rows,
 }: {
   title: string;
-  subtitle: string;
+  branding: { businessName: string; businessAddress: string; logoDataUri: string };
   countLabel: string;
   filterSummary: string[];
   headers: string[];
   rows: string[][];
 }) {
-  const generatedOn = new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date());
-
-  const filterTags = filterSummary.length > 0 ? filterSummary : ['No filters applied'];
-
-  return `<!DOCTYPE html>
-  <html>
-    <head>
-      <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <style>
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-          color: #171717;
-          padding: 28px;
-        }
-        .header {
-          background: #f5f3f7;
-          border-radius: 24px;
-          padding: 24px;
-          margin-bottom: 20px;
-        }
-        .eyebrow {
-          color: #dd6560;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          margin: 0 0 8px;
-        }
-        h1 {
-          margin: 0;
-          font-size: 28px;
-          line-height: 1.2;
-        }
-        .meta {
-          margin-top: 10px;
-          color: #5f5f5f;
-          font-size: 14px;
-        }
-        .filters {
-          margin-top: 16px;
-        }
-        .filter-tag {
-          display: inline-block;
-          background: #f7e3e1;
-          color: #74423f;
-          border-radius: 999px;
-          padding: 7px 12px;
-          font-size: 12px;
-          font-weight: 700;
-          margin: 0 8px 8px 0;
-        }
+  const tableStyles = `
         table {
           width: 100%;
           border-collapse: collapse;
@@ -1013,18 +1049,9 @@ function buildPdfHtml({
         tbody tr:nth-child(even) td {
           background: #faf8fb;
         }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <p class="eyebrow">${escapeHtml(subtitle)}</p>
-        <h1>${escapeHtml(title)}</h1>
-        <div class="meta">${escapeHtml(countLabel)} • Generated ${escapeHtml(generatedOn)}</div>
-        <div class="filters">
-          ${filterTags.map((tag) => `<span class="filter-tag">${escapeHtml(tag)}</span>`).join('')}
-        </div>
-      </div>
+  `;
 
+  const tableHtml = `
       <table>
         <thead>
           <tr>
@@ -1040,8 +1067,9 @@ function buildPdfHtml({
             .join('')}
         </tbody>
       </table>
-    </body>
-  </html>`;
+  `;
+
+  return buildPdfDocument({ title, branding, countLabel, filterSummary, extraStyles: tableStyles, bodyHtml: tableHtml });
 }
 
 function isSelectedAnimalOption(filters: AnimalExportFilters, key: MultiSelectKey, value: string) {
@@ -1248,15 +1276,6 @@ function equalsIgnoreCase(left: string, right: string) {
 function escapeCsv(value: string) {
   const normalized = String(value ?? '').replace(/\r?\n/g, ' ').trim();
   return `"${normalized.replace(/"/g, '""')}"`;
-}
-
-function escapeHtml(value: string) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 function createTimestamp() {

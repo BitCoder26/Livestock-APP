@@ -4,14 +4,15 @@
     "owner": "diogenistom",
     "slug": "livestock-app",
     "scheme": "app.livestockbook",
-    "version": "1.0",
+    "version": "2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "7",
+      "buildNumber": "10",
       "bundleIdentifier": "app.livestockbook",
+      "appStoreUrl": "https://apps.apple.com/gb/app/livestockbook-animal-records/id6790605803",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -24,11 +25,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 1,
-      "package": "app.livestockbook",
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "versionCode": 3,
+      "package": "app.livestockbook"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -52,7 +50,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow LivestockBook to access your photos to attach images to animals and records."
+          "photosPermission": "Allow LivestockBook to access your photos to attach images to animals and records.",
+          "microphonePermission": false
         }
       ]
     ],

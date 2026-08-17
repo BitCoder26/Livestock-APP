@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from './AppIcon';
@@ -21,6 +21,14 @@ export function SetupCollectionScreen({ title, icon, collection }: SetupCollecti
   const [draftValue, setDraftValue] = useState('');
   const itemsByCollection = { paddocks, groups, medicines } satisfies Record<Exclude<SetupCollectionKey, 'farms'>, string[]>;
   const items = collection === 'farms' ? [] : itemsByCollection[collection];
+  const handleAdd = async () => {
+    const result = await addItem(collection, draftValue);
+    if (!result.ok) {
+      Alert.alert('Item could not be added', 'Check the value and try again.');
+      return;
+    }
+    setDraftValue('');
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -46,19 +54,13 @@ export function SetupCollectionScreen({ title, icon, collection }: SetupCollecti
               style={styles.input}
               value={draftValue}
               onChangeText={setDraftValue}
-              onSubmitEditing={() => {
-                addItem(collection, draftValue);
-                setDraftValue('');
-              }}
+              onSubmitEditing={() => void handleAdd()}
               returnKeyType="done"
             />
             <BouncyPressable
               accessibilityLabel={`Add ${title}`}
               accessibilityRole="button"
-              onPress={() => {
-                addItem(collection, draftValue);
-                setDraftValue('');
-              }}
+              onPress={() => void handleAdd()}
               style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
             >
               <AppIcon name="plus" size={16} color="#fff" />
@@ -82,7 +84,7 @@ export function SetupCollectionScreen({ title, icon, collection }: SetupCollecti
                 <BouncyPressable
                   accessibilityLabel={`Remove ${item}`}
                   accessibilityRole="button"
-                  onPress={() => removeItem(collection, item)}
+                  onPress={() => void removeItem(collection, item)}
                   style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}
                 >
                   <AppIcon name="trash" size={28} color="#fff" />

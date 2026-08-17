@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
@@ -9,68 +9,109 @@ import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
 import { InfoModal } from '../src/components/InfoModal';
+import { useAnimals } from '../src/context/AnimalsContext';
 import { useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
 
-const AREA_UNITS = ['hectares', 'acres'] as const;
-
-type PickerKey = 'farm' | 'areaUnit' | null;
+type PickerKey = 'farm' | null;
 
 export default function SetupPaddocksScreen() {
   const router = useRouter();
-  const { farms, paddockEntities, addPaddock, removePaddock, pendingSetupSelectionTarget, resolveSetupSelection } = useSetup();
+  const { animals } = useAnimals();
+  const {
+    farms,
+    paddockEntities,
+    addPaddock,
+    updatePaddock,
+    removePaddock,
+    pendingSetupSelectionTarget,
+    resolveSetupSelection,
+  } = useSetup();
   const [name, setName] = useState('');
   const [farm, setFarm] = useState('');
-  const [area, setArea] = useState('');
-  const [areaUnit, setAreaUnit] = useState<(typeof AREA_UNITS)[number]>('hectares');
   const [notes, setNotes] = useState('');
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
   const [paddockPendingDelete, setPaddockPendingDelete] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [editingPaddockUid, setEditingPaddockUid] = useState<string | null>(null);
+  const isEditingPaddock = editingPaddockUid !== null;
 
-  const handleAddPaddock = () => {
+  const resetPaddockForm = () => {
+    setEditingPaddockUid(null);
+    setName('');
+    setFarm('');
+    setNotes('');
+  };
+
+  const handleStartEditPaddock = (paddock: (typeof paddockEntities)[number]) => {
+    setEditingPaddockUid(paddock.uid ?? null);
+    setName(paddock.name);
+    setFarm(paddock.farm);
+    setNotes(paddock.notes);
+  };
+
+  const handleSavePaddock = async () => {
     const nextPaddockName = name.trim();
 
-    addPaddock({
-      name: nextPaddockName,
-      farm,
-      area,
-      areaUnit,
-      notes,
-    });
-
-    if (!nextPaddockName) {
+    if (!nextPaddockName || !farm.trim()) {
+      Alert.alert('Required fields missing', 'Enter a paddock name and select its farm.');
       return;
     }
 
-    if (pendingSetupSelectionTarget === 'fromPaddock' || pendingSetupSelectionTarget === 'toPaddock') {
+    const result = editingPaddockUid
+      ? await updatePaddock(editingPaddockUid, { name: nextPaddockName, farm, notes })
+      : await addPaddock({ name: nextPaddockName, farm, notes });
+
+    if (!result.ok) {
+      Alert.alert(
+        result.reason === 'duplicate' ? 'Paddock already exists' : 'Paddock could not be saved',
+        result.reason === 'duplicate' ? 'Use a different paddock name.' : 'Nothing was changed. Please try again.',
+      );
+      return;
+    }
+
+    if (
+      !editingPaddockUid &&
+      (pendingSetupSelectionTarget === 'fromPaddock' || pendingSetupSelectionTarget === 'toPaddock')
+    ) {
       resolveSetupSelection(nextPaddockName);
       router.back();
       return;
     }
 
-    setName('');
-    setFarm('');
-    setArea('');
-    setAreaUnit('hectares');
-    setNotes('');
+    resetPaddockForm();
   };
 
-  const confirmDeletePaddock = () => {
+  const confirmDeletePaddock = async () => {
     if (!paddockPendingDelete) {
       return;
     }
 
-    removePaddock(paddockPendingDelete);
+    if (animals.some((animal) => animal.paddock.trim().toLowerCase() === paddockPendingDelete.trim().toLowerCase())) {
+      setPaddockPendingDelete(null);
+      Alert.alert('Paddock is in use', 'Move or edit the animals assigned to this paddock before deleting it.');
+      return;
+    }
+
+    const result = await removePaddock(paddockPendingDelete);
     setPaddockPendingDelete(null);
+
+    if (!result.ok) {
+      Alert.alert(
+        result.reason === 'in-use' ? 'Paddock is in use' : 'Paddock could not be deleted',
+        result.reason === 'in-use'
+          ? 'Remove this paddock from its groups before deleting it.'
+          : 'Nothing was changed. Please try again.',
+      );
+      return;
+    }
+
+    if (equalsIgnoreCase(name, paddockPendingDelete)) {
+      resetPaddockForm();
+    }
   };
 
-  const pickerOptions =
-    activePicker === 'farm'
-      ? farms
-      : activePicker === 'areaUnit'
-        ? [...AREA_UNITS]
-        : [];
+  const pickerOptions = activePicker === 'farm' ? farms : [];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -87,7 +128,7 @@ export default function SetupPaddocksScreen() {
       />
       <ScrollView contentContainerStyle={[styles.content, paddockEntities.length === 0 && styles.emptyContent]} showsVerticalScrollIndicator={false}>
         <View style={styles.editorCard}>
-          <Text style={styles.sectionLabel}>Paddocks</Text>
+          <Text style={styles.sectionLabel}>{isEditingPaddock ? 'Edit paddock' : 'Paddocks'}</Text>
 
           <DesignField value={name} label="Paddock name *" onChangeText={setName} />
           <SelectionField
@@ -96,20 +137,30 @@ export default function SetupPaddocksScreen() {
             emptyLabel={farms.length === 0 ? 'No farms available' : 'Select farm'}
             onPress={() => setActivePicker('farm')}
           />
-          <View style={styles.inlineRow}>
-            <View style={styles.inlineGrow}>
-              <DesignField value={area} label="Area" onChangeText={setArea} keyboardType="decimal-pad" />
-            </View>
-            <View style={styles.inlineUnit}>
-              <SelectionField label="Area unit" value={areaUnit} emptyLabel="Select unit" onPress={() => setActivePicker('areaUnit')} />
-            </View>
-          </View>
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
-          <BouncyPressable accessibilityRole="button" accessibilityLabel="Add paddock" onPress={handleAddPaddock} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
-            <AppIcon name="plus" size={16} color="#fff" />
-            <Text style={styles.addButtonText}>Add Paddock</Text>
-          </BouncyPressable>
+          <View style={styles.editorActionsRow}>
+            <BouncyPressable
+              accessibilityRole="button"
+              accessibilityLabel={isEditingPaddock ? 'Save paddock changes' : 'Add paddock'}
+              containerStyle={styles.editorPrimaryButtonWrap}
+              onPress={handleSavePaddock}
+              style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+            >
+              <AppIcon name={isEditingPaddock ? 'check' : 'plus'} size={16} color="#fff" />
+              <Text style={styles.addButtonText}>{isEditingPaddock ? 'Save Changes' : 'Add Paddock'}</Text>
+            </BouncyPressable>
+            {isEditingPaddock ? (
+              <BouncyPressable
+                accessibilityRole="button"
+                accessibilityLabel="Cancel editing paddock"
+                onPress={resetPaddockForm}
+                style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </BouncyPressable>
+            ) : null}
+          </View>
         </View>
 
         {paddockEntities.length === 0 ? (
@@ -120,7 +171,7 @@ export default function SetupPaddocksScreen() {
         ) : (
           <View style={styles.list}>
             {paddockEntities.map((paddock) => (
-              <View key={paddock.name} style={styles.itemCard}>
+              <View key={paddock.uid ?? paddock.name} style={styles.itemCard}>
                 <View style={styles.itemHeader}>
                   <View style={styles.itemTitleRow}>
                     <View style={styles.itemIconBadge}>
@@ -131,12 +182,14 @@ export default function SetupPaddocksScreen() {
                       <Text style={styles.itemSubtitle}>{paddock.farm || 'No farm selected'}</Text>
                     </View>
                   </View>
-                  <BouncyPressable accessibilityRole="button" accessibilityLabel={`Delete ${paddock.name}`} onPress={() => setPaddockPendingDelete(paddock.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
-                    <AppIcon name="trash" size={28} color="#fff" />
-                  </BouncyPressable>
-                </View>
-                <View style={styles.metaRow}>
-                  {paddock.area ? <Text style={styles.metaPill}>{`${paddock.area} ${paddock.areaUnit}`}</Text> : null}
+                  <View style={styles.itemActionsRow}>
+                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Edit ${paddock.name}`} onPress={() => handleStartEditPaddock(paddock)} style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
+                      <AppIcon name="edit" size={18} color="#171717" />
+                    </BouncyPressable>
+                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Delete ${paddock.name}`} onPress={() => setPaddockPendingDelete(paddock.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                      <AppIcon name="trash" size={28} color="#fff" />
+                    </BouncyPressable>
+                  </View>
                 </View>
                 {paddock.notes ? <Text style={styles.itemNotes}>{paddock.notes}</Text> : null}
               </View>
@@ -172,21 +225,17 @@ export default function SetupPaddocksScreen() {
       <Modal transparent animationType="fade" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
           <AnimatedPopupCard visible={activePicker !== null} style={styles.selectionCard} onPress={() => {}}>
-            <Text style={styles.selectionTitle}>
-              {activePicker === 'farm' ? 'Select farm' : 'Select area unit'}
-            </Text>
+            <Text style={styles.selectionTitle}>Select farm</Text>
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalList}>
                 {pickerOptions.map((option) => {
-                  const isSelected =
-                    activePicker === 'farm' ? farm === option : areaUnit === option;
+                  const isSelected = farm === option;
                   return (
                     <Pressable
                       key={option}
                       accessibilityRole="button"
                       onPress={() => {
-                        if (activePicker === 'farm') setFarm(option);
-                        if (activePicker === 'areaUnit') setAreaUnit(option as (typeof AREA_UNITS)[number]);
+                        setFarm(option);
                         setActivePicker(null);
                       }}
                       style={({ pressed }) => [styles.selectionRow, isSelected && styles.selectionRowActive, pressed && styles.pressed]}
@@ -205,7 +254,7 @@ export default function SetupPaddocksScreen() {
         visible={showHelp}
         onClose={() => setShowHelp(false)}
         title="Paddocks"
-        description="Paddocks are the fields or enclosures within a farm. Add paddocks here so you can track exactly where each animal or group is grazing, and filter records by location."
+        description="The fields or enclosures within a farm. Use paddocks to track where animals are kept or grazing and filter records by location."
       />
     </SafeAreaView>
   );
@@ -233,6 +282,10 @@ function SelectionField({
   );
 }
 
+function equalsIgnoreCase(left: string, right: string) {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#fff' },
   content: { paddingHorizontal: 16, paddingTop: 22, paddingBottom: 120, gap: 16 },
@@ -252,9 +305,6 @@ const styles = StyleSheet.create({
   },
   dateValue: { color: '#2b2b2b', fontSize: 13, fontWeight: '500', flex: 1, paddingRight: 10 },
   placeholderValue: { color: '#7a7a7a' },
-  inlineRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-end' },
-  inlineGrow: { flex: 1 },
-  inlineUnit: { width: 140 },
   addButton: {
     marginTop: 4,
     minHeight: 50,
@@ -266,6 +316,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   addButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  editorActionsRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  editorPrimaryButtonWrap: { flex: 1 },
+  cancelButton: { minHeight: 50, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  cancelButtonText: { color: tokens.colors.textSoft, fontSize: 14, fontWeight: '700' },
   list: { gap: 10 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingTop: 72 },
   emptyTitle: { marginTop: 18, color: '#E5E0E7', fontSize: 29, fontWeight: '700' },
@@ -294,6 +348,15 @@ const styles = StyleSheet.create({
   itemHeadingCopy: { flex: 1, gap: 2, minWidth: 0 },
   itemTitle: { color: tokens.colors.text, fontSize: 16, fontWeight: '700' },
   itemSubtitle: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '600' },
+  itemActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  editButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surfaceMuted,
+  },
   deleteButton: {
     width: 38,
     height: 38,
@@ -301,16 +364,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.colors.accent,
-  },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  metaPill: {
-    borderRadius: 999,
-    backgroundColor: '#F8F6F9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    color: '#74423F',
-    fontSize: 12,
-    fontWeight: '700',
   },
   itemNotes: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '500', lineHeight: 17 },
   centeredModalBackdrop: {

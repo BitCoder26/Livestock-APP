@@ -452,9 +452,23 @@ export type AccountProfile = {
   email: string;
   plan: PlanValue;
   country: string;
+  currency: string;
   industry: IndustryValue;
   measurementUnits: MeasurementUnitOption;
   dateFormat: AppDateFormat;
+  /** ISO timestamp of the last time the user completed an Export (CSV/PDF).
+   * Drives the "back up your data" reminder — unset until their first export. */
+  lastExportedAt?: string;
+  /** ISO timestamp until which the backup reminder should stay hidden,
+   * set when the user dismisses it with "Remind me later". */
+  backupNudgeSnoozedUntil?: string;
+  /** Business/farm identity shown on exported PDFs — separate from the
+   * operational Farm entities used for animal locations. Falls back to
+   * "LivestockBook" branding on exports when unset. */
+  businessName?: string;
+  businessAddress?: string;
+  /** Local file URI of the persisted logo image, or unset. */
+  businessLogoUri?: string;
 };
 
 export const DEFAULT_ACCOUNT_PROFILE: AccountProfile = {
@@ -462,45 +476,55 @@ export const DEFAULT_ACCOUNT_PROFILE: AccountProfile = {
   email: '',
   plan: 'Basic',
   country: '',
+  currency: 'GBP',
   industry: '',
   measurementUnits: 'Metric',
   dateFormat: 'DD MMM YYYY',
 };
 
-export function getCurrencyCodeForCountry(country: string) {
-  switch (country.trim().toLowerCase()) {
-    case 'united kingdom':
-    case 'ireland':
-      return 'GBP';
-    case 'united states':
-      return 'USD';
-    case 'canada':
-      return 'CAD';
-    case 'australia':
-      return 'AUD';
-    case 'new zealand':
-      return 'NZD';
-    case 'south africa':
-      return 'ZAR';
-    default:
-      return 'GBP';
+export function formatCurrencyPrefix(currencyCode: string) {
+  const normalizedCode = currencyCode.trim().toUpperCase() || 'GBP';
+
+  try {
+    const currencyPart = new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: normalizedCode,
+      currencyDisplay: 'narrowSymbol',
+    })
+      .formatToParts(0)
+      .find((part) => part.type === 'currency')?.value;
+
+    if (currencyPart && currencyPart !== normalizedCode) {
+      return currencyPart;
+    }
+  } catch {
+    // Fall through to the unambiguous ISO code.
   }
+
+  return `${normalizedCode} `;
 }
 
-export function formatCurrencyPrefix(country: string) {
-  const code = getCurrencyCodeForCountry(country);
+export function formatCurrencyAmount(value: string, currencyCode: string) {
+  const normalizedCode = currencyCode.trim().toUpperCase() || 'GBP';
+  const numericValue = Number(value.replace(/,/g, '').trim());
 
-  switch (code) {
-    case 'GBP':
-      return '£';
-    case 'USD':
-    case 'CAD':
-    case 'AUD':
-    case 'NZD':
-      return '$';
-    case 'ZAR':
-      return 'R';
-    default:
-      return '£';
+  if (Number.isFinite(numericValue)) {
+    try {
+      const formattedValue = new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: normalizedCode,
+        currencyDisplay: 'narrowSymbol',
+      }).format(numericValue);
+
+      return `${formattedValue} ${normalizedCode}`;
+    } catch {
+      // Fall through to formatting the original text value.
+    }
   }
+
+  const prefix = formatCurrencyPrefix(normalizedCode);
+
+  return prefix.trim() === normalizedCode
+    ? `${normalizedCode} ${value}`
+    : `${prefix}${value} ${normalizedCode}`;
 }

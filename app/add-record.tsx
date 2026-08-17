@@ -1,9 +1,9 @@
 import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Image, Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
@@ -11,46 +11,84 @@ import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { CircularRevealView } from '../src/components/CircularRevealView';
 import { DesignField } from '../src/components/DesignField';
+import { FloatingActionButton } from '../src/components/FloatingActionButton';
 import { RECORD_TYPES, SPECIES_OPTIONS } from '../src/constants/records';
 import { FREE_ANIMAL_LIMIT, FREE_RECORD_LIMIT } from '../src/constants/subscription';
 import { useAccount } from '../src/context/AccountContext';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useRecords } from '../src/context/RecordsContext';
-import { type MedicineEntity, type SetupSelectionTarget, useSetup } from '../src/context/SetupContext';
+import type { RecordImpactChange } from '../src/context/RecordsContext';
+import type { CreateAnimalInput } from '../src/context/AnimalsContext';
+import {
+  type FarmEntity,
+  type MedicineEntity,
+  type PaddockEntity,
+  type SetupSelectionTarget,
+  useSetup,
+} from '../src/context/SetupContext';
 import { useSubscription } from '../src/context/SubscriptionContext';
-import { formatCurrencyPrefix, getCurrencyCodeForCountry } from '../src/entities/account';
-import type { AnimalSex } from '../src/entities/animal';
+import { formatCurrencyAmount, formatCurrencyPrefix } from '../src/entities/account';
+import type { Animal, AnimalAgeUnit, AnimalSex, AnimalWeightUnit } from '../src/entities/animal';
 import type { RecordEntry } from '../src/entities/record';
 import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
+import { filterAccessibleImageUris, persistRecordImage } from '../src/utils/imageStorage';
+import { findRecordAnimals, resolveRecordAnimalUids } from '../src/utils/recordAnimals';
+import {
+  resolveAnimalFarmName,
+  resolveAnimalPaddockName,
+  resolveFarmName,
+  resolvePaddockName,
+} from '../src/utils/recordLocations';
 
 const DOSE_UNITS = ['ml', 'mg', 'g', 'tablet(s)', 'bolus', 'sachet', 'dose'] as const;
 const WEIGHT_UNITS = ['kg', 'lb'] as const;
 const HEALTH_STATUSES = ['Healthy', 'Under Observation', 'Sick', 'Injured', 'Recovering', 'Other'] as const;
 const ROUTE_OPTIONS = ['Injection', 'Oral', 'Pour-on', 'Drench', 'Topical', 'Feed', 'Water', 'Other'] as const;
 const DISPOSAL_METHOD_OPTIONS = ['Burial', 'Rendering', 'Incineration', 'Collection', 'Other'] as const;
+const CAUSE_OF_DEATH_OPTIONS = [
+  'Illness',
+  'Injury',
+  'Predation',
+  'Birthing Complications',
+  'Old Age',
+  'Poisoning',
+  'Unknown',
+  'Other',
+] as const;
 const MOVEMENT_PICKERS = ['fromFarm', 'fromPaddock', 'toFarm', 'toPaddock'] as const;
 
 type MovementPickerKey = (typeof MOVEMENT_PICKERS)[number];
 
 export default function AddRecordScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
-  const { selectedAnimalIds, selectedMotherName, recordId, draftRecord, reveal } = useLocalSearchParams<{
+  const { selectedAnimalIds, selectedMotherUid, selectedMotherName, recordId, draftRecord, reveal } = useLocalSearchParams<{
     selectedAnimalIds?: string;
+    selectedMotherUid?: string;
     selectedMotherName?: string;
     recordId?: string;
     draftRecord?: string;
     reveal?: string;
   }>();
   const { profile } = useAccount();
-  const { animals, addAnimal } = useAnimals();
-  const { addRecord, updateRecord, deleteRecord, records } = useRecords();
+  const { animals } = useAnimals();
+  const {
+    addBirthRecord,
+    addRecord,
+    records,
+    updateBirthRecord,
+    updateRecord,
+    previewUpdateRecordImpact,
+    previewDeleteRecordImpact,
+    previewAnimalLocationAsOf,
+  } = useRecords();
   const {
     farms,
-    paddocks,
-    groups,
+    farmEntities,
+    paddockEntities,
     medicineEntities,
     pendingSetupSelectionResult,
     beginSetupSelection,
@@ -60,13 +98,16 @@ export default function AddRecordScreen() {
   const editingRecord = useMemo(() => (recordId ? records.find((record) => record.id === recordId) ?? null : null), [recordId, records]);
   const isEditing = Boolean(editingRecord);
   const isEditRoute = pathname === '/edit-record';
+  const preferredWeightUnit: (typeof WEIGHT_UNITS)[number] = profile.measurementUnits === 'Imperial' ? 'lb' : 'kg';
+  const previousPreferredWeightUnit = useRef<(typeof WEIGHT_UNITS)[number]>(preferredWeightUnit);
+  const saveInProgress = useRef(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [recordType, setRecordType] = useState<(typeof RECORD_TYPES)[number]>('Movement');
   const [recordTitle, setRecordTitle] = useState('');
   const [medicine, setMedicine] = useState('');
   const [weight, setWeight] = useState('');
-  const [weightUnit, setWeightUnit] = useState<(typeof WEIGHT_UNITS)[number]>('kg');
+  const [weightUnit, setWeightUnit] = useState<(typeof WEIGHT_UNITS)[number]>(preferredWeightUnit);
   const [causeOfDeath, setCauseOfDeath] = useState('');
   const [disposalMethod, setDisposalMethod] = useState('');
   const [healthStatus, setHealthStatus] = useState<(typeof HEALTH_STATUSES)[number]>('Healthy');
@@ -78,21 +119,20 @@ export default function AddRecordScreen() {
   const [seller, setSeller] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('');
   const [sourceFarm, setSourceFarm] = useState('');
+  const [motherUid, setMotherUid] = useState('');
   const [motherName, setMotherName] = useState('');
   const [birthTagId, setBirthTagId] = useState('');
   const [birthSpecies, setBirthSpecies] = useState('');
   const [birthBreed, setBirthBreed] = useState('');
   const [birthSex, setBirthSex] = useState<AnimalSex>('female');
   const [birthWeight, setBirthWeight] = useState('');
-  const [birthWeightUnit, setBirthWeightUnit] = useState<(typeof WEIGHT_UNITS)[number]>('kg');
+  const [birthWeightUnit, setBirthWeightUnit] = useState<(typeof WEIGHT_UNITS)[number]>(preferredWeightUnit);
   const [dose, setDose] = useState('12');
   const [doseUnit, setDoseUnit] = useState<(typeof DOSE_UNITS)[number]>('ml');
   const [route, setRoute] = useState<(typeof ROUTE_OPTIONS)[number]>('Injection');
   const [withdrawal, setWithdrawal] = useState('0');
   const [batchNumber, setBatchNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
-  const [headCount, setHeadCount] = useState('');
-  const [countSpecies, setCountSpecies] = useState('');
   const [fromFarm, setFromFarm] = useState('');
   const [fromPaddock, setFromPaddock] = useState('');
   const [toFarm, setToFarm] = useState('');
@@ -108,16 +148,27 @@ export default function AddRecordScreen() {
   const [showRoutePicker, setShowRoutePicker] = useState(false);
   const [showTreatmentPicker, setShowTreatmentPicker] = useState(false);
   const [showDisposalMethodPicker, setShowDisposalMethodPicker] = useState(false);
+  const [showCauseOfDeathPicker, setShowCauseOfDeathPicker] = useState(false);
   const [showBirthSpeciesPicker, setShowBirthSpeciesPicker] = useState(false);
-  const [showCountSpeciesPicker, setShowCountSpeciesPicker] = useState(false);
   const [showExpiryDatePicker, setShowExpiryDatePicker] = useState(false);
   const [activeMovementPicker, setActiveMovementPicker] = useState<MovementPickerKey | null>(null);
   const [imageUris, setImageUris] = useState<string[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteImpact, setDeleteImpact] = useState<RecordImpactChange[]>([]);
+  const [showUpdateImpactConfirm, setShowUpdateImpactConfirm] = useState(false);
+  const [updateImpact, setUpdateImpact] = useState<RecordImpactChange[]>([]);
+  const pendingUpdatePayloadRef = useRef<Parameters<typeof updateRecord>[1] | null>(null);
 
   const date = formatDateForDisplay(selectedDate, profile.dateFormat);
   const storedDate = formatDateForStorage(selectedDate);
-  const selectedAnimals = animals.filter((animal) => chosenAnimalIds.includes(animal.id));
+  const selectedAnimals = animals.filter((animal) => chosenAnimalIds.includes(animal.uid));
+  const editingBirthAnimal = useMemo(
+    () =>
+      editingRecord?.type === 'Birth'
+        ? findRecordAnimals(editingRecord, animals)[0] ?? null
+        : null,
+    [animals, editingRecord],
+  );
   const isMedicationRecord = recordType === 'Medication';
   const isVaccinationRecord = recordType === 'Vaccination';
   const isMovementRecord = recordType === 'Movement';
@@ -127,14 +178,58 @@ export default function AddRecordScreen() {
   const isHealthCheckRecord = recordType === 'Health Check';
   const isSaleRecord = recordType === 'Sale';
   const isPurchaseRecord = recordType === 'Purchase';
-  const isCountRecord = recordType === 'Count';
   const isOtherRecord = recordType === 'Other';
-  const currencyPrefix = formatCurrencyPrefix(profile.country);
-  const currencyCode = getCurrencyCodeForCountry(profile.country);
+  const selectedMother = motherUid ? animals.find((animal) => animal.uid === motherUid) ?? null : null;
+  const eligibleMothers = useMemo(
+    () =>
+      birthSpecies.trim()
+        ? animals.filter(
+            (animal) => animal.sex === 'female' && equalsIgnoreCase(animal.species, birthSpecies),
+          )
+        : [],
+    [animals, birthSpecies],
+  );
+  const inheritedMother =
+    selectedMother?.sex === 'female' && equalsIgnoreCase(selectedMother.species, birthSpecies)
+      ? selectedMother
+      : null;
+  const inheritedLocation = formatAnimalLocation(inheritedMother, farmEntities, paddockEntities);
+  const displayedNewbornLocation = isEditing
+    ? formatAnimalLocation(editingBirthAnimal, farmEntities, paddockEntities)
+    : inheritedLocation;
+  const currencyCode = profile.currency;
+  const currencyPrefix = formatCurrencyPrefix(currencyCode);
   const availableTreatments = useMemo(
     () => medicineEntities.filter((entry) => entry.treatmentType === (isVaccinationRecord ? 'vaccine' : 'medicine')),
     [isVaccinationRecord, medicineEntities],
   );
+  const fromPaddockOptions = useMemo(
+    () =>
+      paddockEntities
+        .filter((paddock) => !fromFarm.trim() || equalsIgnoreCase(paddock.farm, fromFarm))
+        .map((paddock) => paddock.name),
+    [fromFarm, paddockEntities],
+  );
+  const toPaddockOptions = useMemo(
+    () =>
+      paddockEntities
+        .filter((paddock) => !toFarm.trim() || equalsIgnoreCase(paddock.farm, toFarm))
+        .map((paddock) => paddock.name),
+    [paddockEntities, toFarm],
+  );
+
+  useEffect(() => {
+    if (!isEditing && !draftRecord) {
+      setWeightUnit((current) =>
+        current === previousPreferredWeightUnit.current ? preferredWeightUnit : current,
+      );
+      setBirthWeightUnit((current) =>
+        current === previousPreferredWeightUnit.current ? preferredWeightUnit : current,
+      );
+    }
+
+    previousPreferredWeightUnit.current = preferredWeightUnit;
+  }, [draftRecord, isEditing, preferredWeightUnit]);
 
   useEffect(() => {
     if (selectedAnimalIds !== undefined) {
@@ -143,10 +238,25 @@ export default function AddRecordScreen() {
   }, [selectedAnimalIds]);
 
   useEffect(() => {
-    if (selectedMotherName) {
+    if (selectedMotherUid) {
+      const mother = animals.find((animal) => animal.uid === selectedMotherUid);
+      setMotherUid(selectedMotherUid);
+      setMotherName(mother?.name ?? selectedMotherName ?? '');
+    } else if (selectedMotherName) {
       setMotherName(selectedMotherName);
     }
-  }, [selectedMotherName]);
+  }, [animals, selectedMotherName, selectedMotherUid]);
+
+  useEffect(() => {
+    if (
+      selectedMother &&
+      birthSpecies.trim() &&
+      (selectedMother.sex !== 'female' || !equalsIgnoreCase(selectedMother.species, birthSpecies))
+    ) {
+      setMotherUid('');
+      setMotherName('');
+    }
+  }, [birthSpecies, selectedMother]);
 
   useEffect(() => {
     if (!draftRecord) {
@@ -176,6 +286,7 @@ export default function AddRecordScreen() {
     setSeller(draft.seller);
     setPurchasePrice(draft.purchasePrice);
     setSourceFarm(draft.sourceFarm);
+    setMotherUid(selectedMotherUid ?? draft.motherUid ?? '');
     setMotherName(selectedMotherName ?? draft.motherName);
     setBirthTagId(draft.birthTagId);
     setBirthSpecies(draft.birthSpecies);
@@ -189,8 +300,6 @@ export default function AddRecordScreen() {
     setWithdrawal(draft.withdrawal);
     setBatchNumber(draft.batchNumber);
     setExpiryDate(draft.expiryDate);
-    setHeadCount(draft.headCount);
-    setCountSpecies(draft.countSpecies);
     setFromFarm(draft.fromFarm);
     setFromPaddock(draft.fromPaddock);
     setToFarm(draft.toFarm);
@@ -201,15 +310,15 @@ export default function AddRecordScreen() {
         ? selectedAnimalIds.split(',').filter(Boolean)
         : draft.chosenAnimalIds,
     );
-    setImageUris(draft.imageUris);
-  }, [draftRecord, selectedAnimalIds, selectedMotherName]);
+    setImageUris(filterAccessibleImageUris(draft.imageUris));
+  }, [draftRecord, selectedAnimalIds, selectedMotherName, selectedMotherUid]);
 
   useEffect(() => {
     if (!editingRecord || draftRecord) {
       return;
     }
 
-    const formState = buildFormStateFromRecord(editingRecord);
+    const formState = buildFormStateFromRecord(editingRecord, animals, farmEntities, paddockEntities);
     setSelectedDate(formState.selectedDate);
     setRecordType(formState.recordType);
     setRecordTitle(formState.recordTitle);
@@ -227,6 +336,7 @@ export default function AddRecordScreen() {
     setSeller(formState.seller);
     setPurchasePrice(formState.purchasePrice);
     setSourceFarm(formState.sourceFarm);
+    setMotherUid(formState.motherUid);
     setMotherName(formState.motherName);
     setBirthTagId(formState.birthTagId);
     setBirthSpecies(formState.birthSpecies);
@@ -240,16 +350,14 @@ export default function AddRecordScreen() {
     setWithdrawal(formState.withdrawal);
     setBatchNumber(formState.batchNumber);
     setExpiryDate(formState.expiryDate);
-    setHeadCount(formState.headCount);
-    setCountSpecies(formState.countSpecies);
     setFromFarm(formState.fromFarm);
     setFromPaddock(formState.fromPaddock);
     setToFarm(formState.toFarm);
     setToPaddock(formState.toPaddock);
     setDetails(formState.details);
     setChosenAnimalIds(formState.chosenAnimalIds);
-    setImageUris(formState.imageUris);
-  }, [draftRecord, editingRecord]);
+    setImageUris(filterAccessibleImageUris(formState.imageUris));
+  }, [animals, draftRecord, editingRecord, farmEntities, paddockEntities]);
 
   useEffect(() => {
     if (!pendingSetupSelectionResult) {
@@ -259,9 +367,11 @@ export default function AddRecordScreen() {
     switch (pendingSetupSelectionResult.target) {
       case 'fromFarm':
         setFromFarm(pendingSetupSelectionResult.value);
+        setFromPaddock('');
         break;
       case 'toFarm':
         setToFarm(pendingSetupSelectionResult.value);
+        setToPaddock('');
         break;
       case 'fromPaddock':
         setFromPaddock(pendingSetupSelectionResult.value);
@@ -281,15 +391,24 @@ export default function AddRecordScreen() {
     );
   };
 
-  const handleSave = () => {
-    const missingFields: string[] = [];
-
-    if (!isBirthRecord && !isCountRecord && chosenAnimalIds.length === 0) {
-      missingFields.push('Animal(s)');
+  const handleSave = async () => {
+    if (saveInProgress.current) {
+      return;
     }
 
-    if (isCountRecord && !headCount.trim()) {
-      missingFields.push('Head Count');
+    // Applies to every record type — the native picker already clamps to
+    // today via maximumDate, but that's UI-level only; this is the
+    // authoritative check that also catches dates that reached this state
+    // some other way (e.g. an already future-dated record loaded for edit).
+    if (storedDate > formatDateForStorage(new Date())) {
+      Alert.alert('Date is in the future', 'Choose a date that is today or earlier.');
+      return;
+    }
+
+    const missingFields: string[] = [];
+
+    if (!isBirthRecord && chosenAnimalIds.length === 0) {
+      missingFields.push('Animal(s)');
     }
 
     if (isBirthRecord) {
@@ -336,8 +455,20 @@ export default function AddRecordScreen() {
       missingFields.push('Weight');
     }
 
+    if (isSaleRecord && !salePrice.trim()) {
+      missingFields.push('Sale Price');
+    }
+
+    if (isPurchaseRecord && !purchasePrice.trim()) {
+      missingFields.push('Purchase Price');
+    }
+
     if (isOtherRecord && !recordTitle.trim()) {
       missingFields.push('Title');
+    }
+
+    if (isDeathRecord && !causeOfDeath.trim()) {
+      missingFields.push('Cause of Death');
     }
 
     if (missingFields.length > 0) {
@@ -345,14 +476,186 @@ export default function AddRecordScreen() {
       return;
     }
 
+    const invalidFields: string[] = [];
+
+    if ((isMedicationRecord || isVaccinationRecord) && dose.trim() && !isValidPositiveNumber(dose)) {
+      invalidFields.push('Dose (number greater than 0)');
+    }
+
+    if ((isMedicationRecord || isVaccinationRecord) && withdrawal.trim() && !isValidNonNegativeInteger(withdrawal)) {
+      invalidFields.push('Withdrawal Period (whole number of days, 0 or greater)');
+    }
+
+    if (isSaleRecord && salePrice.trim() && !isValidNonNegativeNumber(salePrice)) {
+      invalidFields.push('Sale Price (number, 0 or greater)');
+    }
+
+    if (isPurchaseRecord && purchasePrice.trim() && !isValidNonNegativeNumber(purchasePrice)) {
+      invalidFields.push('Purchase Price (number, 0 or greater)');
+    }
+
+    if (isWeightRecord && weight.trim() && !isValidPositiveNumber(weight)) {
+      invalidFields.push('Weight (number greater than 0)');
+    }
+
+    if (isBirthRecord && birthWeight.trim() && !isValidPositiveNumber(birthWeight)) {
+      invalidFields.push('Birth Weight (number greater than 0)');
+    }
+
+    if (invalidFields.length > 0) {
+      Alert.alert(
+        'Check your entries',
+        `The following field${invalidFields.length > 1 ? 's need' : ' needs'} a valid value: ${invalidFields.join('; ')}.`,
+      );
+      return;
+    }
+
+    if (
+      isMovementRecord &&
+      equalsIgnoreCase(fromFarm, toFarm) &&
+      equalsIgnoreCase(fromPaddock, toPaddock)
+    ) {
+      Alert.alert('Location unchanged', 'Choose a different destination for this Movement record.');
+      return;
+    }
+
+    if (
+      isMovementRecord &&
+      ((fromPaddock.trim() &&
+        !paddockEntities.some(
+          (entry) => equalsIgnoreCase(entry.name, fromPaddock) && equalsIgnoreCase(entry.farm, fromFarm),
+        )) ||
+        (toPaddock.trim() &&
+          !paddockEntities.some(
+            (entry) => equalsIgnoreCase(entry.name, toPaddock) && equalsIgnoreCase(entry.farm, toFarm),
+          )))
+    ) {
+      Alert.alert('Paddock does not match farm', 'Select paddocks belonging to their chosen farms.');
+      return;
+    }
+
+    if (!isEditing) {
+      const animalsWithInvalidStatus = selectedAnimals.filter((animal) => {
+        // Movement is exempt: an animal that's since been Sold or marked
+        // Deceased can still get a backdated Movement logged for a date
+        // while it was genuinely still Active and on the farm.
+        if (
+          isDeathRecord ||
+          isSaleRecord ||
+          isWeightRecord ||
+          isVaccinationRecord ||
+          isMedicationRecord ||
+          isHealthCheckRecord
+        ) {
+          return animal.status !== 'Active';
+        }
+        if (isPurchaseRecord) {
+          return animal.status === 'Deceased';
+        }
+        return false;
+      });
+
+      if (animalsWithInvalidStatus.length > 0) {
+        Alert.alert(
+          'Animal status does not allow this record',
+          `${formatAnimalReferences(animalsWithInvalidStatus)} cannot be used for this ${recordType} record in its current status.`,
+        );
+        return;
+      }
+    }
+
+    if (
+      isBirthRecord &&
+      animals.some(
+        (animal) =>
+          animal.uid !== editingBirthAnimal?.uid &&
+          equalsIgnoreCase(animal.id, birthTagId),
+      )
+    ) {
+      Alert.alert(
+        'Animal ID already in use',
+        'Each animal needs a unique ID / tag. Enter a different tag for the newborn.',
+      );
+      return;
+    }
+
+    // inheritedMother is null whenever the selected mother no longer
+    // qualifies (wrong sex/species) — this can only happen when editing an
+    // older Birth record whose referenced mother animal was itself edited
+    // afterwards (e.g. its sex or species was corrected). The save payload
+    // silently drops a mismatched mother rather than saving something wrong,
+    // so surface that instead of letting it disappear without explanation.
+    if (isBirthRecord && motherUid && !inheritedMother) {
+      Alert.alert(
+        'Mother no longer matches',
+        'The selected mother is no longer a female of the same species as the newborn. Please select a different mother.',
+      );
+      return;
+    }
+
+    if (isMovementRecord) {
+      // Validate the "From" location against where the animal actually was
+      // as of this record's own date — not its current/latest location —
+      // so a movement can be backdated into the middle of existing history
+      // without being rejected against a location it hadn't reached yet
+      // (and, when editing, without checking against this same record's
+      // own pre-edit effect).
+      const animalsOutsideFromLocation = selectedAnimals.filter((animal) => {
+        const locationAsOf = previewAnimalLocationAsOf(
+          animal.uid,
+          storedDate,
+          isEditing && editingRecord ? editingRecord.id : undefined,
+        );
+
+        if (locationAsOf.status !== 'found') {
+          // No documented prior Movement to verify against — either this
+          // animal has never been moved, or none of its movements predate
+          // this record. Only a real, dated Movement record is trusted
+          // enough to block on; anything else (including the animal's own
+          // Add Animal farm field) is a guess, not a fact, so don't block.
+          return false;
+        }
+
+        // No paddock on file for the animal isn't a mismatch — it just means
+        // its paddock was never recorded, not that it's known to be elsewhere.
+        return (
+          !equalsIgnoreCase(locationAsOf.farm, fromFarm) ||
+          (fromPaddock.trim().length > 0 &&
+            locationAsOf.paddock.trim().length > 0 &&
+            !equalsIgnoreCase(locationAsOf.paddock, fromPaddock))
+        );
+      });
+
+      if (animalsOutsideFromLocation.length > 0) {
+        Alert.alert(
+          'Animals at a different location',
+          `${formatAnimalReferences(animalsOutsideFromLocation)} ${
+            animalsOutsideFromLocation.length === 1 ? "wasn't" : "weren't"
+          } at ${formatMovementPlace(fromFarm, fromPaddock)} on ${date}. Remove ${
+            animalsOutsideFromLocation.length === 1 ? 'it' : 'them'
+          } or change the From location.`,
+        );
+        return;
+      }
+    }
+
     const movementTitle = [formatMovementPlace(fromFarm, fromPaddock), formatMovementPlace(toFarm, toPaddock)]
       .filter(Boolean)
       .join(' to ');
+    // Stored alongside the frozen fromFarm/toFarm/fromPaddock/toPaddock text
+    // so a later rename in Setup can be resolved live for display (see
+    // resolveFarmName/resolvePaddockName) instead of the record being stuck
+    // showing whatever name was current when it was saved.
+    const findFarmUid = (name: string) => farmEntities.find((entry) => equalsIgnoreCase(entry.name, name))?.uid;
+    const findPaddockUid = (name: string) => paddockEntities.find((entry) => equalsIgnoreCase(entry.name, name))?.uid;
+    const resolvedMotherName = motherUid
+      ? inheritedMother?.name ?? ''
+      : motherName.trim();
     const deathDetails = [disposalMethod.trim() ? `Disposal Method: ${disposalMethod.trim()}` : '', details.trim()]
       .filter(Boolean)
       .join('\n\n');
     const birthDetails = [
-      motherName.trim() ? `Mother: ${motherName.trim()}` : '',
+      resolvedMotherName ? `Mother: ${resolvedMotherName}` : '',
       `Tag / ID: ${birthTagId.trim()}`,
       `Species: ${birthSpecies.trim()}`,
       `Breed: ${birthBreed.trim()}`,
@@ -371,14 +674,14 @@ export default function AddRecordScreen() {
       .join('\n\n');
     const saleDetails = [
       buyer.trim() ? `Buyer: ${buyer.trim()}` : '',
-      salePrice.trim() ? `Sale Price: ${currencyPrefix}${salePrice.trim()} ${currencyCode}`.trim() : '',
+      salePrice.trim() ? `Sale Price: ${formatCurrencyAmount(salePrice.trim(), currencyCode)}` : '',
       details.trim(),
     ]
       .filter(Boolean)
       .join('\n\n');
     const purchaseDetails = [
       seller.trim() ? `Seller: ${seller.trim()}` : '',
-      purchasePrice.trim() ? `Purchase Price: ${currencyPrefix}${purchasePrice.trim()} ${currencyCode}`.trim() : '',
+      purchasePrice.trim() ? `Purchase Price: ${formatCurrencyAmount(purchasePrice.trim(), currencyCode)}` : '',
       details.trim(),
     ]
       .filter(Boolean)
@@ -387,20 +690,13 @@ export default function AddRecordScreen() {
       date: storedDate,
       animal: isBirthRecord
         ? birthTagId.trim()
-        : isCountRecord
-          ? ''
-          : selectedAnimals.map((animal) => animal.name.trim()).join(', '),
+        : selectedAnimals.map((animal) => animal.name.trim()).join(', '),
       animalTag: isBirthRecord
         ? birthTagId.trim()
-        : isCountRecord
-          ? ''
-          : selectedAnimals.map((animal) => animal.id.trim()).join(', '),
-      animalIds: isBirthRecord || isCountRecord ? undefined : selectedAnimals.map((animal) => animal.id),
-      species: isBirthRecord
-        ? birthSpecies.trim()
-        : isCountRecord
-          ? countSpecies.trim() || 'All species'
-          : getCombinedSpecies(selectedAnimals),
+        : selectedAnimals.map((animal) => animal.id.trim()).join(', '),
+      animalIds: isBirthRecord ? undefined : selectedAnimals.map((animal) => animal.id),
+      animalUids: isBirthRecord ? undefined : selectedAnimals.map((animal) => animal.uid),
+      species: isBirthRecord ? birthSpecies.trim() : getCombinedSpecies(selectedAnimals),
       type: recordType,
       title: isMedicationRecord || isVaccinationRecord
         ? `${recordType}: ${medicine.trim()}`.trim()
@@ -418,8 +714,6 @@ export default function AddRecordScreen() {
           ? `${recordType}: ${buyer.trim()}`.trim()
         : isPurchaseRecord
           ? `${recordType}: ${seller.trim()}`.trim()
-        : isCountRecord
-          ? `${recordType}: ${headCount.trim()} ${countSpecies.trim() || 'animals'}`.trim()
         : `${recordType}: ${recordTitle.trim()}`.trim(),
       details: isDeathRecord
         ? deathDetails
@@ -439,7 +733,6 @@ export default function AddRecordScreen() {
       withdrawal: isMedicationRecord || isVaccinationRecord ? withdrawal.trim() : undefined,
       batchNumber: isMedicationRecord || isVaccinationRecord ? batchNumber.trim() : undefined,
       expiryDate: isMedicationRecord || isVaccinationRecord ? expiryDate.trim() : undefined,
-      headCount: isCountRecord ? headCount.trim() : undefined,
       imageUris: imageUris.length > 0 ? imageUris : undefined,
       recordTitle: recordTitle.trim() || undefined,
       weight: isWeightRecord ? weight.trim() : undefined,
@@ -453,21 +746,85 @@ export default function AddRecordScreen() {
       salePrice: isSaleRecord ? salePrice.trim() : undefined,
       seller: isPurchaseRecord ? seller.trim() : undefined,
       purchasePrice: isPurchaseRecord ? purchasePrice.trim() : undefined,
-      motherName: isBirthRecord ? motherName.trim() : undefined,
+      currencyCode: isSaleRecord || isPurchaseRecord ? currencyCode : undefined,
+      motherUid: isBirthRecord ? inheritedMother?.uid : undefined,
+      motherName: isBirthRecord ? resolvedMotherName : undefined,
       birthTagId: isBirthRecord ? birthTagId.trim() : undefined,
       birthSpecies: isBirthRecord ? birthSpecies.trim() : undefined,
       birthBreed: isBirthRecord ? birthBreed.trim() : undefined,
       birthSex: isBirthRecord ? birthSex : undefined,
       birthWeight: isBirthRecord ? birthWeight.trim() : undefined,
       birthWeightUnit: isBirthRecord ? birthWeightUnit : undefined,
-      fromFarm: isMovementRecord ? fromFarm.trim() : undefined,
-      fromPaddock: isMovementRecord ? fromPaddock.trim() : undefined,
+      fromFarm: isMovementRecord ? fromFarm.trim() || undefined : undefined,
+      fromPaddock: isMovementRecord ? fromPaddock.trim() || undefined : undefined,
       toFarm: isMovementRecord ? toFarm.trim() : undefined,
       toPaddock: isMovementRecord ? toPaddock.trim() : undefined,
+      fromFarmUid: isMovementRecord ? findFarmUid(fromFarm) : undefined,
+      fromPaddockUid: isMovementRecord ? findPaddockUid(fromPaddock) : undefined,
+      toFarmUid: isMovementRecord ? findFarmUid(toFarm) : undefined,
+      toPaddockUid: isMovementRecord ? findPaddockUid(toPaddock) : undefined,
     };
 
+    const birthAnimalInput = isBirthRecord
+      ? buildBirthAnimalInput({
+          existingAnimal: editingBirthAnimal,
+          birthTagId,
+          birthSpecies,
+          birthBreed,
+          birthSex,
+          birthWeight,
+          birthWeightUnit,
+          storedDate,
+          mother: inheritedMother,
+          motherName: resolvedMotherName,
+        })
+      : null;
+
     if (isEditing && editingRecord) {
-      updateRecord(editingRecord.id, payload);
+      saveInProgress.current = true;
+
+      if (isBirthRecord) {
+        if (!editingBirthAnimal || !birthAnimalInput) {
+          saveInProgress.current = false;
+          Alert.alert(
+            'Newborn animal not found',
+            'This older Birth record is not linked to an animal. The record was not changed to avoid updating the wrong animal.',
+          );
+          return;
+        }
+
+        const result = await updateBirthRecord(
+          editingRecord.id,
+          payload,
+          editingBirthAnimal.uid,
+          birthAnimalInput,
+        );
+
+        if (!result.ok) {
+          saveInProgress.current = false;
+          showBirthSaveError(result.reason);
+          return;
+        }
+      } else {
+        const impact = previewUpdateRecordImpact(editingRecord.id, payload);
+
+        if (impact.length > 0) {
+          pendingUpdatePayloadRef.current = payload;
+          setUpdateImpact(impact);
+          setShowUpdateImpactConfirm(true);
+          saveInProgress.current = false;
+          return;
+        }
+
+        const result = await updateRecord(editingRecord.id, payload);
+
+        if (!result.ok) {
+          saveInProgress.current = false;
+          showRecordSaveError();
+          return;
+        }
+      }
+
       router.replace({ pathname: '/view-record', params: { recordId: editingRecord.id } });
       return;
     }
@@ -475,7 +832,7 @@ export default function AddRecordScreen() {
     if (!isPro && records.length >= FREE_RECORD_LIMIT) {
       router.push({
         pathname: '/upgrade-to-pro',
-        params: { limitType: 'records' },
+        params: { limitType: 'records', ...(reveal === '1' ? { source: 'add-record' } : {}) },
       });
       return;
     }
@@ -483,34 +840,50 @@ export default function AddRecordScreen() {
     if (!isPro && isBirthRecord && animals.length >= FREE_ANIMAL_LIMIT) {
       router.push({
         pathname: '/upgrade-to-pro',
-        params: { limitType: 'animals' },
+        params: { limitType: 'animals', ...(reveal === '1' ? { source: 'add-record' } : {}) },
       });
       return;
     }
 
-    addRecord(payload);
+    saveInProgress.current = true;
+    let newRecordId: string;
 
-    if (isBirthRecord) {
-      addAnimal({
-        id: birthTagId.trim() || '#UNSET',
-        species: birthSpecies.trim() || 'Unknown',
-        sex: birthSex,
-        name: birthTagId.trim() || 'Unnamed',
-        ageValue: '0',
-        ageUnit: 'days old',
-        breed: birthBreed.trim(),
-        dateOfBirth: storedDate,
-        weight: birthWeight.trim(),
-        weightUnit: birthWeightUnit,
-        status: 'Active',
-        farm: farms[0] ?? '',
-        paddock: paddocks[0] ?? '',
-        group: groups[0] ?? '',
-        notes: motherName.trim() ? `Mother: ${motherName.trim()}` : '',
-      });
+    if (isBirthRecord && birthAnimalInput) {
+      const result = await addBirthRecord(payload, birthAnimalInput);
+
+      if (!result.ok) {
+        saveInProgress.current = false;
+        showBirthSaveError(result.reason);
+        return;
+      }
+
+      newRecordId = result.record.id;
+    } else {
+      const result = await addRecord(payload);
+
+      if (!result.ok) {
+        saveInProgress.current = false;
+        showRecordSaveError();
+        return;
+      }
+
+      if (!result.record) {
+        saveInProgress.current = false;
+        showRecordSaveError();
+        return;
+      }
+
+      newRecordId = result.record.id;
     }
 
-    router.replace('/(tabs)/records');
+    router.push({
+      pathname: '/(tabs)/records',
+      params: {
+        saveReveal: Date.now().toString(),
+        saveTarget: 'records',
+        newRecordId,
+      },
+    });
   };
 
   const draftRecordState = serializeDraftRecordState({
@@ -531,7 +904,8 @@ export default function AddRecordScreen() {
     seller,
     purchasePrice,
     sourceFarm,
-    motherName,
+    motherUid,
+    motherName: selectedMother?.name ?? motherName,
     birthTagId,
     birthSpecies,
     birthBreed,
@@ -544,8 +918,6 @@ export default function AddRecordScreen() {
     withdrawal,
     batchNumber,
     expiryDate,
-    headCount,
-    countSpecies,
     fromFarm,
     fromPaddock,
     toFarm,
@@ -587,6 +959,7 @@ export default function AddRecordScreen() {
       return;
     }
 
+    setDeleteImpact(previewDeleteRecordImpact(editingRecord.id));
     setShowDeleteConfirm(true);
   };
 
@@ -596,8 +969,38 @@ export default function AddRecordScreen() {
     }
 
     setShowDeleteConfirm(false);
-    deleteRecord(editingRecord.id);
-    router.replace('/(tabs)/records');
+    router.replace({
+      pathname: '/(tabs)/records',
+      params: { deletingRecordId: editingRecord.id },
+    });
+  };
+
+  const cancelUpdateImpact = () => {
+    pendingUpdatePayloadRef.current = null;
+    setUpdateImpact([]);
+    setShowUpdateImpactConfirm(false);
+  };
+
+  const confirmUpdateImpact = async () => {
+    if (!editingRecord || !pendingUpdatePayloadRef.current) {
+      return;
+    }
+
+    const payload = pendingUpdatePayloadRef.current;
+    setShowUpdateImpactConfirm(false);
+    saveInProgress.current = true;
+
+    const result = await updateRecord(editingRecord.id, payload);
+    pendingUpdatePayloadRef.current = null;
+    setUpdateImpact([]);
+
+    if (!result.ok) {
+      saveInProgress.current = false;
+      showRecordSaveError();
+      return;
+    }
+
+    router.replace({ pathname: '/view-record', params: { recordId: editingRecord.id } });
   };
 
   const handleDateChange = (event: DateTimePickerEvent, nextDate?: Date) => {
@@ -609,7 +1012,11 @@ export default function AddRecordScreen() {
       return;
     }
 
-    setSelectedDate(nextDate);
+    // maximumDate on the native picker should already prevent this, but
+    // clamp defensively — some Android OEM picker builds have been known to
+    // ignore it.
+    const now = new Date();
+    setSelectedDate(nextDate > now ? now : nextDate);
   };
 
   const handleExpiryDateChange = (event: DateTimePickerEvent, nextDate?: Date) => {
@@ -634,7 +1041,17 @@ export default function AddRecordScreen() {
     nextTarget: SetupSelectionTarget,
   ) => {
     beginSetupSelection(nextTarget);
-    router.push(nextPathname);
+    router.push({
+      pathname: nextPathname,
+      params: reveal === '1' ? { source: 'add-record' } : {},
+    });
+  };
+
+  const openMedicinesScreen = () => {
+    router.push({
+      pathname: '/setup-medicines',
+      params: reveal === '1' ? { source: 'add-record' } : {},
+    });
   };
 
   const handleAddImages = async () => {
@@ -668,7 +1085,12 @@ export default function AddRecordScreen() {
       return;
     }
 
-    setImageUris([nextUri]);
+    try {
+      const storedUri = await persistRecordImage(nextUri);
+      setImageUris([storedUri]);
+    } catch {
+      Alert.alert('Image unavailable', 'The selected image could not be saved. Please choose it again.');
+    }
   };
 
   const handleRemoveImage = (uri: string) => {
@@ -708,8 +1130,14 @@ export default function AddRecordScreen() {
                 key={type}
                 accessibilityLabel={type}
                 accessibilityRole="button"
+                accessibilityState={{ disabled: isEditing && !active }}
+                disabled={isEditing && !active}
                 onPress={() => setRecordType(type)}
-                style={[styles.typeChip, active ? styles.typeChipActive : styles.typeChipIdle]}
+                style={[
+                  styles.typeChip,
+                  active ? styles.typeChipActive : styles.typeChipIdle,
+                  isEditing && !active && styles.typeChipDisabled,
+                ]}
               >
                 <Text
                   style={[
@@ -737,7 +1165,7 @@ export default function AddRecordScreen() {
               <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
             </Pressable>
           </View>
-          {!isBirthRecord && !isCountRecord ? (
+          {!isBirthRecord ? (
             <View style={styles.block}>
               <Text style={styles.label}>Animal(s) *</Text>
               <Pressable
@@ -748,8 +1176,13 @@ export default function AddRecordScreen() {
                     pathname: '/select-record-animal',
                     params: {
                       selectedAnimalIds: chosenAnimalIds.join(','),
+                      recordType,
+                      ...(isMovementRecord && fromFarm.trim() ? { fromFarm: fromFarm.trim() } : {}),
+                      ...(isMovementRecord && fromPaddock.trim() ? { fromPaddock: fromPaddock.trim() } : {}),
+                      ...(isMovementRecord ? { recordDate: storedDate } : {}),
                       ...(recordId ? { recordId } : {}),
                       draftRecord: draftRecordState,
+                      ...(reveal === '1' ? { source: 'add-record' } : {}),
                     },
                   })}
                 style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
@@ -777,13 +1210,38 @@ export default function AddRecordScreen() {
                   {selectedAnimals.map((animal) => animal.name).join(', ')}
                 </Text>
               ) : null}
+              {selectedAnimals.length > 0 ? (
+                <Pressable
+                  accessibilityLabel="Clear selected animals"
+                  accessibilityRole="button"
+                  hitSlop={10}
+                  onPress={() => setChosenAnimalIds([])}
+                  style={({ pressed }) => [styles.helperLinkStandalone, pressed && styles.pressed]}
+                >
+                  <Text style={styles.helperLinkCompact}>Clear Animals</Text>
+                </Pressable>
+              ) : null}
               {animals.length === 0 ? (
                 <View style={styles.helperRow}>
                   <Pressable
                     accessibilityLabel="Add animal"
                     accessibilityRole="button"
                     hitSlop={10}
-                    onPress={() => router.push('/add-animal')}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/add-animal',
+                        params: {
+                          returnToRecordSelector: '1',
+                          recordSelectorSelectedAnimalIds: chosenAnimalIds.join(','),
+                          ...(recordId ? { recordSelectorRecordId: recordId } : {}),
+                          recordSelectorDraftRecord: draftRecordState,
+                          ...(recordType ? { recordSelectorRecordType: recordType } : {}),
+                          ...(isMovementRecord && fromFarm.trim() ? { recordSelectorFromFarm: fromFarm.trim() } : {}),
+                          ...(isMovementRecord && fromPaddock.trim() ? { recordSelectorFromPaddock: fromPaddock.trim() } : {}),
+                          ...(reveal === '1' ? { recordSelectorSource: 'add-record' } : {}),
+                        },
+                      })
+                    }
                   >
                     <Text style={styles.helperLink}>+ Add Animal</Text>
                   </Pressable>
@@ -793,44 +1251,6 @@ export default function AddRecordScreen() {
           ) : null}
           {isBirthRecord ? (
             <View style={styles.birthBlock}>
-              <View style={styles.block}>
-                <Text style={styles.label}>Mother</Text>
-                <Pressable
-                  accessibilityLabel="Select mother"
-                  accessibilityRole="button"
-                  onPress={() =>
-                    router.push({
-                      pathname: '/select-mother-animal',
-                      params: {
-                        ...(recordId ? { recordId } : {}),
-                        draftRecord: draftRecordState,
-                      },
-                    })}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.dateValue, !motherName && styles.placeholderValue]}>
-                    {animals.length === 0
-                      ? 'No animals available'
-                      : motherName || `${animals.length} ${animals.length === 1 ? 'animal' : 'animals'} available`}
-                  </Text>
-                  <View style={styles.fieldChevron}>
-                    <AppIcon name="chevron-right" size={12} color="#EFEFEF" />
-                  </View>
-                </Pressable>
-                {animals.length === 0 ? (
-                  <View style={styles.helperRow}>
-                    <Pressable
-                      accessibilityLabel="Add animal"
-                      accessibilityRole="button"
-                      hitSlop={10}
-                      onPress={() => router.push('/add-animal')}
-                    >
-                      <Text style={styles.helperLink}>+ Add Animal</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
-              </View>
-              <DesignField value={birthTagId} label="Tag / ID *" onChangeText={setBirthTagId} />
               <View style={styles.block}>
                 <Text style={styles.label}>Species *</Text>
                 <Pressable
@@ -845,6 +1265,67 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
+              <View style={styles.block}>
+                <Text style={styles.label}>Mother</Text>
+                <Pressable
+                  accessibilityLabel="Select mother"
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !birthSpecies.trim() }}
+                  disabled={!birthSpecies.trim()}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/select-mother-animal',
+                      params: {
+                        ...(recordId ? { recordId } : {}),
+                        draftRecord: draftRecordState,
+                        birthSpecies,
+                        ...(motherUid ? { selectedMotherUid: motherUid } : {}),
+                        ...(reveal === '1' ? { source: 'add-record' } : {}),
+                      },
+                    })}
+                  style={({ pressed }) => [
+                    styles.dateField,
+                    !birthSpecies.trim() && styles.disabledField,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={[styles.dateValue, !motherName && styles.placeholderValue]}>
+                    {!birthSpecies.trim()
+                      ? 'Select species first'
+                      : (selectedMother?.name ?? motherName) ||
+                        (eligibleMothers.length === 0
+                          ? 'No eligible mothers available'
+                          : `${eligibleMothers.length} eligible ${eligibleMothers.length === 1 ? 'mother' : 'mothers'}`)}
+                  </Text>
+                  <View style={styles.fieldChevron}>
+                    <AppIcon name="chevron-right" size={12} color="#EFEFEF" />
+                  </View>
+                </Pressable>
+              </View>
+              {inheritedMother || isEditing ? (
+                <View style={styles.inheritedLocationRow}>
+                  <AppIcon name="pin" size={17} color={tokens.colors.textSoft} />
+                  <View style={styles.inheritedLocationCopy}>
+                    <Text
+                      ellipsizeMode="tail"
+                      numberOfLines={1}
+                      style={styles.inheritedLocationValue}
+                    >
+                      {displayedNewbornLocation || 'Unassigned'}
+                    </Text>
+                    <Text style={styles.inheritedLocationHint}>
+                      {isEditing
+                        ? 'Current location — editing this record will not move the animal'
+                        : inheritedMother && inheritedLocation
+                          ? `Inherited from ${inheritedMother.name}`
+                          : inheritedMother
+                            ? `${inheritedMother.name} has no location assigned`
+                            : 'Unassigned'}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+              <DesignField value={birthTagId} label="Tag / ID *" onChangeText={setBirthTagId} />
               <DesignField value={birthBreed} label="Breed" onChangeText={setBirthBreed} />
               <View style={styles.block}>
                 <Text style={styles.label}>Sex</Text>
@@ -892,7 +1373,7 @@ export default function AddRecordScreen() {
                   accessibilityRole="button"
                   onPress={() => {
                     if (availableTreatments.length === 0) {
-                      router.push('/setup-medicines');
+                      openMedicinesScreen();
                       return;
                     }
                     setShowTreatmentPicker(true);
@@ -905,7 +1386,7 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <Pressable accessibilityLabel="Add medicine" accessibilityRole="button" hitSlop={10} onPress={() => router.push('/setup-medicines')}>
+              <Pressable accessibilityLabel="Add medicine" accessibilityRole="button" hitSlop={10} onPress={openMedicinesScreen}>
                 <Text style={styles.helperLink}>+ Add Medicine</Text>
               </Pressable>
               <View style={styles.inlineRow}>
@@ -987,7 +1468,7 @@ export default function AddRecordScreen() {
                   accessibilityRole="button"
                   onPress={() => {
                     if (availableTreatments.length === 0) {
-                      router.push('/setup-medicines');
+                      openMedicinesScreen();
                       return;
                     }
                     setShowTreatmentPicker(true);
@@ -1000,7 +1481,7 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <Pressable accessibilityLabel="Add vaccine" accessibilityRole="button" hitSlop={10} onPress={() => router.push('/setup-medicines')}>
+              <Pressable accessibilityLabel="Add vaccine" accessibilityRole="button" hitSlop={10} onPress={openMedicinesScreen}>
                 <Text style={styles.helperLink}>+ Add Vaccine</Text>
               </Pressable>
               <View style={styles.inlineRow}>
@@ -1101,7 +1582,7 @@ export default function AddRecordScreen() {
               <DesignField value={buyer} label="Buyer" onChangeText={setBuyer} />
               <DesignField
                 value={salePrice}
-                label="Sale Price"
+                label="Sale Price *"
                 left={<Text style={styles.currencyPrefix}>{currencyPrefix}</Text>}
                 onChangeText={setSalePrice}
                 keyboardType="decimal-pad"
@@ -1112,7 +1593,7 @@ export default function AddRecordScreen() {
               <DesignField value={seller} label="Seller" onChangeText={setSeller} />
               <DesignField
                 value={purchasePrice}
-                label="Purchase Price"
+                label="Purchase Price *"
                 left={<Text style={styles.currencyPrefix}>{currencyPrefix}</Text>}
                 onChangeText={setPurchasePrice}
                 keyboardType="decimal-pad"
@@ -1143,22 +1624,38 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <Pressable
-                accessibilityLabel="Add farm"
-                accessibilityRole="button"
-                hitSlop={12}
-                onPress={() => openSetupScreen('/setup-farms', 'fromFarm')}
-                style={({ pressed }) => [styles.helperLinkStandalone, pressed && styles.pressed]}
-              >
-                <Text style={styles.helperLinkCompact}>+ Add Farm</Text>
-              </Pressable>
+              <View style={styles.helperLinkRow}>
+                <Pressable
+                  accessibilityLabel="Add farm"
+                  accessibilityRole="button"
+                  hitSlop={12}
+                  onPress={() => openSetupScreen('/setup-farms', 'fromFarm')}
+                  style={({ pressed }) => [pressed && styles.pressed]}
+                >
+                  <Text style={styles.helperLinkCompact}>+ Add Farm</Text>
+                </Pressable>
+                {fromFarm ? (
+                  <Pressable
+                    accessibilityLabel="Clear from farm"
+                    accessibilityRole="button"
+                    hitSlop={12}
+                    onPress={() => {
+                      setFromFarm('');
+                      setFromPaddock('');
+                    }}
+                    style={({ pressed }) => [pressed && styles.pressed]}
+                  >
+                    <Text style={styles.helperLinkCompact}>Clear Farm</Text>
+                  </Pressable>
+                ) : null}
+              </View>
               <View style={styles.block}>
                 <Text style={styles.label}>From Paddock</Text>
                 <Pressable
                   accessibilityLabel="Select from paddock"
                   accessibilityRole="button"
                   onPress={() => {
-                    if (paddocks.length === 0) {
+                    if (fromPaddockOptions.length === 0) {
                       openSetupScreen('/setup-paddocks', 'fromPaddock');
                       return;
                     }
@@ -1167,23 +1664,38 @@ export default function AddRecordScreen() {
                   }}
                   style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
                 >
-                  <Text style={[styles.dateValue, (!fromPaddock || paddocks.length === 0) && styles.placeholderValue]}>
-                    {paddocks.length === 0
-                      ? 'No paddocks available'
-                      : fromPaddock || `${paddocks.length} ${paddocks.length === 1 ? 'paddock' : 'paddocks'} available`}
+                  <Text style={[styles.dateValue, (!fromPaddock || fromPaddockOptions.length === 0) && styles.placeholderValue]}>
+                    {fromPaddockOptions.length === 0
+                      ? fromFarm
+                        ? 'No paddocks for this farm'
+                        : 'No paddocks available'
+                      : fromPaddock || `${fromPaddockOptions.length} ${fromPaddockOptions.length === 1 ? 'paddock' : 'paddocks'} available`}
                   </Text>
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <Pressable
-                accessibilityLabel="Add paddock"
-                accessibilityRole="button"
-                hitSlop={12}
-                onPress={() => openSetupScreen('/setup-paddocks', 'fromPaddock')}
-                style={({ pressed }) => [styles.helperLinkStandalone, pressed && styles.pressed]}
-              >
-                <Text style={styles.helperLinkCompact}>+ Add Paddock</Text>
-              </Pressable>
+              <View style={styles.helperLinkRow}>
+                <Pressable
+                  accessibilityLabel="Add paddock"
+                  accessibilityRole="button"
+                  hitSlop={12}
+                  onPress={() => openSetupScreen('/setup-paddocks', 'fromPaddock')}
+                  style={({ pressed }) => [pressed && styles.pressed]}
+                >
+                  <Text style={styles.helperLinkCompact}>+ Add Paddock</Text>
+                </Pressable>
+                {fromPaddock ? (
+                  <Pressable
+                    accessibilityLabel="Clear from paddock"
+                    accessibilityRole="button"
+                    hitSlop={12}
+                    onPress={() => setFromPaddock('')}
+                    style={({ pressed }) => [pressed && styles.pressed]}
+                  >
+                    <Text style={styles.helperLinkCompact}>Clear Paddock</Text>
+                  </Pressable>
+                ) : null}
+              </View>
               <View style={styles.block}>
                 <Text style={styles.label}>To Farm *</Text>
                 <Pressable
@@ -1207,22 +1719,38 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <Pressable
-                accessibilityLabel="Add farm"
-                accessibilityRole="button"
-                hitSlop={12}
-                onPress={() => openSetupScreen('/setup-farms', 'toFarm')}
-                style={({ pressed }) => [styles.helperLinkStandalone, pressed && styles.pressed]}
-              >
-                <Text style={styles.helperLinkCompact}>+ Add Farm</Text>
-              </Pressable>
+              <View style={styles.helperLinkRow}>
+                <Pressable
+                  accessibilityLabel="Add farm"
+                  accessibilityRole="button"
+                  hitSlop={12}
+                  onPress={() => openSetupScreen('/setup-farms', 'toFarm')}
+                  style={({ pressed }) => [pressed && styles.pressed]}
+                >
+                  <Text style={styles.helperLinkCompact}>+ Add Farm</Text>
+                </Pressable>
+                {toFarm ? (
+                  <Pressable
+                    accessibilityLabel="Clear to farm"
+                    accessibilityRole="button"
+                    hitSlop={12}
+                    onPress={() => {
+                      setToFarm('');
+                      setToPaddock('');
+                    }}
+                    style={({ pressed }) => [pressed && styles.pressed]}
+                  >
+                    <Text style={styles.helperLinkCompact}>Clear Farm</Text>
+                  </Pressable>
+                ) : null}
+              </View>
               <View style={styles.block}>
                 <Text style={styles.label}>To Paddock</Text>
                 <Pressable
                   accessibilityLabel="Select to paddock"
                   accessibilityRole="button"
                   onPress={() => {
-                    if (paddocks.length === 0) {
+                    if (toPaddockOptions.length === 0) {
                       openSetupScreen('/setup-paddocks', 'toPaddock');
                       return;
                     }
@@ -1231,23 +1759,38 @@ export default function AddRecordScreen() {
                   }}
                   style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
                 >
-                  <Text style={[styles.dateValue, (!toPaddock || paddocks.length === 0) && styles.placeholderValue]}>
-                    {paddocks.length === 0
-                      ? 'No paddocks available'
-                      : toPaddock || `${paddocks.length} ${paddocks.length === 1 ? 'paddock' : 'paddocks'} available`}
+                  <Text style={[styles.dateValue, (!toPaddock || toPaddockOptions.length === 0) && styles.placeholderValue]}>
+                    {toPaddockOptions.length === 0
+                      ? toFarm
+                        ? 'No paddocks for this farm'
+                        : 'No paddocks available'
+                      : toPaddock || `${toPaddockOptions.length} ${toPaddockOptions.length === 1 ? 'paddock' : 'paddocks'} available`}
                   </Text>
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <Pressable
-                accessibilityLabel="Add paddock"
-                accessibilityRole="button"
-                hitSlop={12}
-                onPress={() => openSetupScreen('/setup-paddocks', 'toPaddock')}
-                style={({ pressed }) => [styles.helperLinkStandalone, pressed && styles.pressed]}
-              >
-                <Text style={styles.helperLinkCompact}>+ Add Paddock</Text>
-              </Pressable>
+              <View style={styles.helperLinkRow}>
+                <Pressable
+                  accessibilityLabel="Add paddock"
+                  accessibilityRole="button"
+                  hitSlop={12}
+                  onPress={() => openSetupScreen('/setup-paddocks', 'toPaddock')}
+                  style={({ pressed }) => [pressed && styles.pressed]}
+                >
+                  <Text style={styles.helperLinkCompact}>+ Add Paddock</Text>
+                </Pressable>
+                {toPaddock ? (
+                  <Pressable
+                    accessibilityLabel="Clear to paddock"
+                    accessibilityRole="button"
+                    hitSlop={12}
+                    onPress={() => setToPaddock('')}
+                    style={({ pressed }) => [pressed && styles.pressed]}
+                  >
+                    <Text style={styles.helperLinkCompact}>Clear Paddock</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </>
           ) : isWeightRecord ? (
             <>
@@ -1273,7 +1816,20 @@ export default function AddRecordScreen() {
             </>
           ) : isDeathRecord ? (
             <>
-              <DesignField value={causeOfDeath} label="Cause of Death" onChangeText={setCauseOfDeath} />
+              <View style={styles.block}>
+                <Text style={styles.label}>Cause of Death *</Text>
+                <Pressable
+                  accessibilityLabel="Select cause of death"
+                  accessibilityRole="button"
+                  onPress={() => setShowCauseOfDeathPicker(true)}
+                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.dateValue, !causeOfDeath && styles.placeholderValue]}>
+                    {causeOfDeath || 'Select cause of death'}
+                  </Text>
+                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+                </Pressable>
+              </View>
               <View style={styles.block}>
                 <Text style={styles.label}>Disposal Method</Text>
                 <Pressable
@@ -1288,29 +1844,6 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-            </>
-          ) : isCountRecord ? (
-            <>
-              <View style={styles.block}>
-                <Text style={styles.label}>Species</Text>
-                <Pressable
-                  accessibilityLabel="Select counted species"
-                  accessibilityRole="button"
-                  onPress={() => setShowCountSpeciesPicker(true)}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.dateValue, !countSpecies && styles.placeholderValue]}>
-                    {countSpecies || 'All species'}
-                  </Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
-              </View>
-              <DesignField
-                value={headCount}
-                label="Head count *"
-                onChangeText={setHeadCount}
-                keyboardType="number-pad"
-              />
             </>
           ) : isOtherRecord ? (
             <DesignField
@@ -1327,7 +1860,7 @@ export default function AddRecordScreen() {
           )}
             <DesignField
             value={details}
-            label={isOtherRecord ? 'Description' : isMedicationRecord || isVaccinationRecord || isMovementRecord || isWeightRecord || isDeathRecord || isBirthRecord || isHealthCheckRecord || isSaleRecord || isPurchaseRecord || isCountRecord ? 'Notes' : 'Details'}
+            label={isOtherRecord ? 'Description' : isMedicationRecord || isVaccinationRecord || isMovementRecord || isWeightRecord || isDeathRecord || isBirthRecord || isHealthCheckRecord || isSaleRecord || isPurchaseRecord ? 'Notes' : 'Details'}
             large
             onChangeText={setDetails}
           />
@@ -1344,7 +1877,7 @@ export default function AddRecordScreen() {
               </Text>
             </View>
             <View style={styles.fieldChevron}>
-              <AppIcon name="chevron-right" size={12} color="#EFEFEF" />
+              <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
             </View>
           </Pressable>
           {imageUris.length > 0 ? (
@@ -1366,22 +1899,21 @@ export default function AddRecordScreen() {
           ) : null}
         </View>
 
-        <BouncyPressable
-          accessibilityLabel="Save record"
-          accessibilityRole="button"
-          onPress={handleSave}
-          style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
-        >
-          <AppIcon name="save" size={18} color="#fff" />
-          <Text style={styles.primaryButtonText}>{isEditing ? 'Save Changes' : 'Save Record'}</Text>
-        </BouncyPressable>
       </ScrollView>
+
+      <FloatingActionButton
+        accessibilityLabel={isEditing ? 'Save record changes' : 'Save record'}
+        icon="check"
+        bottomOffset={insets.bottom + 78}
+        onPress={handleSave}
+      />
 
       {showDatePicker && Platform.OS === 'android' ? (
         <DateTimePicker
           mode="date"
           display="default"
           value={selectedDate}
+          maximumDate={new Date()}
           onChange={handleDateChange}
         />
       ) : null}
@@ -1405,6 +1937,22 @@ export default function AddRecordScreen() {
           <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
             <Text style={styles.deleteConfirmTitle}>Delete record?</Text>
             <Text style={styles.deleteConfirmText}>This action cannot be undone.</Text>
+            {editingRecord?.type === 'Birth' ? (
+              <Text style={styles.deleteConfirmText}>
+                {editingBirthAnimal
+                  ? `${editingBirthAnimal.name.trim() || editingBirthAnimal.id} (${editingBirthAnimal.id}) will stay in your Animals list, but will no longer be linked to a birth or mother record.`
+                  : 'The animal this record created (if it still exists) will stay in your Animals list, but will no longer be linked to a birth or mother record.'}
+              </Text>
+            ) : null}
+            {deleteImpact.length > 0 ? (
+              <View style={styles.impactList}>
+                {deleteImpact.map((change, index) => (
+                  <Text key={`${change.animalUid}-${change.dimension}-${index}`} style={styles.impactLine}>
+                    {formatImpactLine(change)}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
             <View style={styles.deleteConfirmActions}>
               <BouncyPressable
                 accessibilityLabel="Cancel delete"
@@ -1423,6 +1971,49 @@ export default function AddRecordScreen() {
                 style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}
               >
                 <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+              </BouncyPressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={showUpdateImpactConfirm}
+        onRequestClose={cancelUpdateImpact}
+      >
+        <Pressable style={styles.centeredModalBackdrop} onPress={cancelUpdateImpact}>
+          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
+            <Text style={styles.deleteConfirmTitle}>Save this change?</Text>
+            <Text style={styles.deleteConfirmText}>
+              This will also change the current value shown on {updateImpact.length === 1 ? 'this animal' : 'these animals'}:
+            </Text>
+            <View style={styles.impactList}>
+              {updateImpact.map((change, index) => (
+                <Text key={`${change.animalUid}-${change.dimension}-${index}`} style={styles.impactLine}>
+                  {formatImpactLine(change)}
+                </Text>
+              ))}
+            </View>
+            <View style={styles.deleteConfirmActions}>
+              <BouncyPressable
+                accessibilityLabel="Cancel save"
+                accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
+                onPress={cancelUpdateImpact}
+                style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </BouncyPressable>
+              <BouncyPressable
+                accessibilityLabel="Confirm save record"
+                accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
+                onPress={confirmUpdateImpact}
+                style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Save Anyway</Text>
               </BouncyPressable>
             </View>
           </Pressable>
@@ -1451,6 +2042,7 @@ export default function AddRecordScreen() {
               mode="date"
               display="spinner"
               value={selectedDate}
+              maximumDate={new Date()}
               onChange={handleDateChange}
             />
           </AnimatedPopupCard>
@@ -1756,6 +2348,45 @@ export default function AddRecordScreen() {
       <Modal
         animationType="fade"
         transparent
+        visible={showCauseOfDeathPicker}
+        onRequestClose={() => setShowCauseOfDeathPicker(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowCauseOfDeathPicker(false)}>
+          <AnimatedPopupCard visible={showCauseOfDeathPicker} style={styles.selectionCard} onPress={() => undefined}>
+            <Text style={styles.selectionTitle}>Select cause of death</Text>
+            {CAUSE_OF_DEATH_OPTIONS.map((option) => (
+              <Pressable
+                key={option}
+                accessibilityLabel={option}
+                accessibilityRole="button"
+                onPress={() => {
+                  setCauseOfDeath(option);
+                  setShowCauseOfDeathPicker(false);
+                }}
+                style={({ pressed }) => [
+                  styles.selectionRow,
+                  option === causeOfDeath && styles.selectionRowActive,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.selectionText,
+                    option === causeOfDeath && styles.selectionTextActive,
+                  ]}
+                >
+                  {option}
+                </Text>
+                {option === causeOfDeath ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+              </Pressable>
+            ))}
+          </AnimatedPopupCard>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent
         visible={showBirthSpeciesPicker}
         onRequestClose={() => setShowBirthSpeciesPicker(false)}
       >
@@ -1784,6 +2415,10 @@ export default function AddRecordScreen() {
                       key={item.label}
                       accessibilityRole="button"
                       onPress={() => {
+                        if (selectedMother && !equalsIgnoreCase(selectedMother.species, item.label)) {
+                          setMotherUid('');
+                          setMotherName('');
+                        }
                         setBirthSpecies(item.label);
                         setShowBirthSpeciesPicker(false);
                       }}
@@ -1795,60 +2430,7 @@ export default function AddRecordScreen() {
                         pressed && styles.speciesModalCardPressed,
                       ]}
                     >
-                      <AppIcon name={item.label === 'Sheep' ? 'sheep-black' : item.icon} size={26} color={item.label === 'Sheep' ? "#171717" : theme.icon} />
-                      <Text style={[styles.speciesModalCardLabel, { color: theme.text }]}>{item.label}</Text>
-                    </Pressable>
-                  );
-                })()
-              ))}
-            </ScrollView>
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="fade"
-        transparent
-        visible={showCountSpeciesPicker}
-        onRequestClose={() => setShowCountSpeciesPicker(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowCountSpeciesPicker(false)}>
-          <AnimatedPopupCard visible={showCountSpeciesPicker} style={styles.modalCard} onPress={() => undefined}>
-            <View style={styles.speciesModalHeader}>
-              <Text style={styles.speciesModalTitle}>Select Species</Text>
-              <Pressable
-                accessibilityLabel="Close species selector"
-                accessibilityRole="button"
-                hitSlop={8}
-                onPress={() => setShowCountSpeciesPicker(false)}
-                style={styles.speciesModalClose}
-              >
-                <AppIcon name="close" size={16} color={tokens.colors.text} />
-              </Pressable>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.speciesModalGrid} showsVerticalScrollIndicator={false}>
-              {[{ icon: 'group' as const, label: 'All species' }, ...SPECIES_OPTIONS].map((item) => (
-                (() => {
-                  const theme = getSpeciesThemeByLabel(item.label);
-
-                  return (
-                    <Pressable
-                      key={item.label}
-                      accessibilityRole="button"
-                      onPress={() => {
-                        setCountSpecies(item.label === 'All species' ? '' : item.label);
-                        setShowCountSpeciesPicker(false);
-                      }}
-                      style={({ pressed }) => [
-                        styles.speciesModalCard,
-                        {
-                          backgroundColor: theme.tintBackground,
-                        },
-                        pressed && styles.speciesModalCardPressed,
-                      ]}
-                    >
-                      <AppIcon name={item.label === 'Sheep' ? 'sheep-black' : item.icon} size={26} color={item.label === 'Sheep' ? "#171717" : theme.icon} />
+                      <AppIcon name={item.icon} size={26} color={theme.icon} />
                       <Text style={[styles.speciesModalCardLabel, { color: theme.text }]}>{item.label}</Text>
                     </Pressable>
                   );
@@ -1868,7 +2450,7 @@ export default function AddRecordScreen() {
         <Pressable style={styles.modalBackdrop} onPress={() => setActiveMovementPicker(null)}>
           <AnimatedPopupCard visible={activeMovementPicker !== null} style={styles.selectionCard} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>{getMovementPickerTitle(activeMovementPicker)}</Text>
-            {getMovementPickerOptions(activeMovementPicker, farms, paddocks).map((option) => {
+            {getMovementPickerOptions(activeMovementPicker, farms, fromPaddockOptions, toPaddockOptions).map((option) => {
               const activeValue = getMovementPickerValue(
                 activeMovementPicker,
                 fromFarm,
@@ -1883,6 +2465,32 @@ export default function AddRecordScreen() {
                   accessibilityLabel={option}
                   accessibilityRole="button"
                   onPress={() => {
+                    // A farm with exactly one paddock has no real choice to
+                    // make, so fill it in — still fully editable/clearable
+                    // afterward if that's not what the user wants.
+                    if (activeMovementPicker === 'fromFarm' && !equalsIgnoreCase(option, fromFarm)) {
+                      const matchingPaddocks = paddockEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
+                      setFromPaddock(matchingPaddocks.length === 1 ? matchingPaddocks[0].name : '');
+                    }
+                    if (activeMovementPicker === 'toFarm' && !equalsIgnoreCase(option, toFarm)) {
+                      const matchingPaddocks = paddockEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
+                      setToPaddock(matchingPaddocks.length === 1 ? matchingPaddocks[0].name : '');
+                    }
+                    // Picking a paddock before its farm (the paddock list is
+                    // unfiltered until a farm is chosen) shouldn't leave the
+                    // farm blank or mismatched — fill it in to match.
+                    if (activeMovementPicker === 'fromPaddock') {
+                      const matchedFarm = paddockEntities.find((entry) => equalsIgnoreCase(entry.name, option))?.farm;
+                      if (matchedFarm && !equalsIgnoreCase(matchedFarm, fromFarm)) {
+                        setFromFarm(matchedFarm);
+                      }
+                    }
+                    if (activeMovementPicker === 'toPaddock') {
+                      const matchedFarm = paddockEntities.find((entry) => equalsIgnoreCase(entry.name, option))?.farm;
+                      if (matchedFarm && !equalsIgnoreCase(matchedFarm, toFarm)) {
+                        setToFarm(matchedFarm);
+                      }
+                    }
                     applyMovementSelection(
                       activeMovementPicker,
                       option,
@@ -1926,7 +2534,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 18,
-    paddingBottom: 36,
+    paddingBottom: 220,
     gap: 18,
   },
   typeRow: {
@@ -1946,6 +2554,9 @@ const styles = StyleSheet.create({
   typeChipIdle: {
     backgroundColor: '#F5F3F7',
   },
+  typeChipDisabled: {
+    opacity: 0.45,
+  },
   typeChipText: {
     fontSize: 13,
     fontWeight: '600',
@@ -1961,6 +2572,31 @@ const styles = StyleSheet.create({
   },
   birthBlock: {
     gap: 18,
+  },
+  disabledField: {
+    opacity: 0.55,
+  },
+  inheritedLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    paddingHorizontal: 4,
+  },
+  inheritedLocationCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  inheritedLocationValue: {
+    color: tokens.colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  inheritedLocationHint: {
+    color: tokens.colors.textSoft,
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 16,
   },
   radioRow: {
     flexDirection: 'row',
@@ -2028,6 +2664,14 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: -10,
     paddingVertical: 4,
+  },
+  helperLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginTop: -10,
+    marginBottom: 4,
   },
   helperLinkCompact: {
     color: tokens.colors.accent,
@@ -2176,6 +2820,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '500',
+    textAlign: 'center',
+  },
+  impactList: {
+    marginTop: 12,
+    gap: 6,
+  },
+  impactLine: {
+    color: tokens.colors.text,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
     textAlign: 'center',
   },
   deleteConfirmActions: {
@@ -2370,25 +3025,6 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
   },
   binaryOptionTextActive: {},
-  primaryButton: {
-    minHeight: 54,
-    borderRadius: 27,
-    backgroundColor: tokens.colors.accent,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
   pressed: {
     opacity: 0.92,
   },
@@ -2408,6 +3044,20 @@ function getCombinedSpecies(
   }
 
   return 'Mixed';
+}
+
+function isValidNonNegativeInteger(value: string) {
+  return /^\d+$/.test(value.trim());
+}
+
+function isValidPositiveNumber(value: string) {
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) && parsed > 0;
+}
+
+function isValidNonNegativeNumber(value: string) {
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) && parsed >= 0;
 }
 
 function formatMovementPlace(farm: string, paddock: string) {
@@ -2432,17 +3082,52 @@ function getMovementPickerTitle(picker: MovementPickerKey | null) {
 function getMovementPickerOptions(
   picker: MovementPickerKey | null,
   farms: string[],
-  paddocks: string[],
+  fromPaddocks: string[],
+  toPaddocks: string[],
 ) {
   if (picker === 'fromFarm' || picker === 'toFarm') {
     return farms;
   }
 
-  if (picker === 'fromPaddock' || picker === 'toPaddock') {
-    return paddocks;
-  }
+  if (picker === 'fromPaddock') return fromPaddocks;
+  if (picker === 'toPaddock') return toPaddocks;
 
   return [];
+}
+
+function equalsIgnoreCase(left: string, right: string) {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+function formatImpactLine(change: RecordImpactChange) {
+  const dimensionLabel =
+    change.dimension === 'weight' ? 'weight' : change.dimension === 'location' ? 'location' : 'status';
+
+  return `${change.animalLabel}'s ${dimensionLabel} will change from ${change.before} to ${change.after}.`;
+}
+
+function formatAnimalLocation(animal: Animal | null, farms: FarmEntity[], paddocks: PaddockEntity[]) {
+  if (!animal) {
+    return '';
+  }
+
+  return [
+    resolveAnimalFarmName(animal, farms),
+    resolveAnimalPaddockName(animal, paddocks),
+    animal.group.trim(),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+function formatAnimalReferences(animals: Array<{ id: string; name: string }>) {
+  const references = animals.map((animal) => animal.name.trim() || animal.id.trim()).filter(Boolean);
+
+  if (references.length <= 3) {
+    return references.join(', ');
+  }
+
+  return `${references.slice(0, 3).join(', ')} and ${references.length - 3} more`;
 }
 
 function getMovementPickerValue(
@@ -2509,6 +3194,7 @@ type DraftRecordState = {
   seller: string;
   purchasePrice: string;
   sourceFarm: string;
+  motherUid?: string;
   motherName: string;
   birthTagId: string;
   birthSpecies: string;
@@ -2522,8 +3208,6 @@ type DraftRecordState = {
   withdrawal: string;
   batchNumber: string;
   expiryDate: string;
-  headCount: string;
-  countSpecies: string;
   fromFarm: string;
   fromPaddock: string;
   toFarm: string;
@@ -2563,6 +3247,7 @@ type RecordFormState = {
   seller: string;
   purchasePrice: string;
   sourceFarm: string;
+  motherUid: string;
   motherName: string;
   birthTagId: string;
   birthSpecies: string;
@@ -2576,8 +3261,6 @@ type RecordFormState = {
   withdrawal: string;
   batchNumber: string;
   expiryDate: string;
-  headCount: string;
-  countSpecies: string;
   fromFarm: string;
   fromPaddock: string;
   toFarm: string;
@@ -2587,7 +3270,12 @@ type RecordFormState = {
   imageUris: string[];
 };
 
-function buildFormStateFromRecord(record: RecordEntry): RecordFormState {
+function buildFormStateFromRecord(
+  record: RecordEntry,
+  animals: ReturnType<typeof useAnimals>['animals'],
+  farmEntities: FarmEntity[],
+  paddockEntities: PaddockEntity[],
+): RecordFormState {
   const recordType = isKnownRecordType(record.type) ? record.type : 'Other';
   const detailMap = parseDetailMap(record.details);
   const parsedMovement = parseMovementTitle(record.title);
@@ -2610,6 +3298,7 @@ function buildFormStateFromRecord(record: RecordEntry): RecordFormState {
     seller: record.seller ?? detailMap['Seller'] ?? (recordType === 'Purchase' ? stripTypePrefix(record.title, record.type) : ''),
     purchasePrice: record.purchasePrice ?? extractNumericValue(detailMap['Purchase Price']) ?? '',
     sourceFarm: record.sourceFarm ?? detailMap['Source'] ?? '',
+    motherUid: record.motherUid ?? '',
     motherName: record.motherName ?? detailMap['Mother'] ?? '',
     birthTagId: record.birthTagId ?? detailMap['Tag / ID'] ?? (recordType === 'Birth' ? stripTypePrefix(record.title, record.type) : ''),
     birthSpecies: record.birthSpecies ?? detailMap['Species'] ?? (recordType === 'Birth' ? record.species : ''),
@@ -2623,14 +3312,24 @@ function buildFormStateFromRecord(record: RecordEntry): RecordFormState {
     withdrawal: record.withdrawal ?? '0',
     batchNumber: record.batchNumber ?? '',
     expiryDate: record.expiryDate ?? '',
-    headCount: record.headCount ?? (recordType === 'Count' ? extractLeadingNumber(stripTypePrefix(record.title, record.type)) ?? '' : ''),
-    countSpecies: recordType === 'Count' && record.species !== 'All species' ? record.species : '',
-    fromFarm: record.fromFarm ?? parsedMovement.fromFarm,
-    fromPaddock: record.fromPaddock ?? parsedMovement.fromPaddock,
-    toFarm: record.toFarm ?? parsedMovement.toFarm,
-    toPaddock: record.toPaddock ?? parsedMovement.toPaddock,
+    // Prefer resolving the live name via uid (so re-opening an old record
+    // after a rename shows its current name, and re-saving naturally keeps
+    // the uid link intact) — frozen text is only the fallback for a
+    // deleted farm/paddock, and title-parsing only for pre-uid records.
+    fromFarm: record.fromFarmUid
+      ? resolveFarmName(record.fromFarmUid, record.fromFarm, farmEntities)
+      : record.fromFarm ?? parsedMovement.fromFarm,
+    fromPaddock: record.fromPaddockUid
+      ? resolvePaddockName(record.fromPaddockUid, record.fromPaddock, paddockEntities)
+      : record.fromPaddock ?? parsedMovement.fromPaddock,
+    toFarm: record.toFarmUid
+      ? resolveFarmName(record.toFarmUid, record.toFarm, farmEntities)
+      : record.toFarm ?? parsedMovement.toFarm,
+    toPaddock: record.toPaddockUid
+      ? resolvePaddockName(record.toPaddockUid, record.toPaddock, paddockEntities)
+      : record.toPaddock ?? parsedMovement.toPaddock,
     details: extractRecordNotes(record, detailMap),
-    chosenAnimalIds: record.animalIds ?? [],
+    chosenAnimalIds: resolveRecordAnimalUids(record, animals),
     imageUris: record.imageUris ?? [],
   };
 }
@@ -2648,6 +3347,125 @@ function formatRecordShareText(record: RecordEntry) {
   }
 
   return lines.join('\n');
+}
+
+function buildBirthAnimalInput({
+  existingAnimal,
+  birthTagId,
+  birthSpecies,
+  birthBreed,
+  birthSex,
+  birthWeight,
+  birthWeightUnit,
+  storedDate,
+  mother,
+  motherName,
+}: {
+  existingAnimal: Animal | null;
+  birthTagId: string;
+  birthSpecies: string;
+  birthBreed: string;
+  birthSex: AnimalSex;
+  birthWeight: string;
+  birthWeightUnit: AnimalWeightUnit;
+  storedDate: string;
+  mother: Animal | null;
+  motherName: string;
+}): CreateAnimalInput {
+  const tag = birthTagId.trim();
+  const parsedBirthDate = parseStoredDate(storedDate);
+  const age = parsedBirthDate ? getAnimalAgeParts(parsedBirthDate, new Date()) : null;
+
+  if (existingAnimal) {
+    const { uid: _uid, ageLabel: _ageLabel, tone: _tone, ...editableAnimal } = existingAnimal;
+    const shouldFollowTag =
+      !editableAnimal.name.trim() || equalsIgnoreCase(editableAnimal.name, editableAnimal.id);
+
+    return {
+      ...editableAnimal,
+      id: tag,
+      name: shouldFollowTag ? tag : editableAnimal.name,
+      species: birthSpecies.trim(),
+      sex: birthSex,
+      ageValue: age?.value ?? '',
+      ageUnit: age?.unit ?? 'days old',
+      breed: birthBreed.trim(),
+      dateOfBirth: storedDate,
+      weight: birthWeight.trim(),
+      weightUnit: birthWeightUnit,
+    };
+  }
+
+  return {
+    id: tag,
+    species: birthSpecies.trim(),
+    sex: birthSex,
+    name: tag,
+    ageValue: age?.value ?? '0',
+    ageUnit: age?.unit ?? 'days old',
+    breed: birthBreed.trim(),
+    dateOfBirth: storedDate,
+    weight: birthWeight.trim(),
+    weightUnit: birthWeightUnit,
+    status: 'Active',
+    farmUid: mother?.farmUid,
+    farm: mother?.farm ?? '',
+    paddockUid: mother?.paddockUid,
+    paddock: mother?.paddock ?? '',
+    groupUid: mother?.groupUid,
+    group: mother?.group ?? '',
+    source: 'Born on farm',
+    farmEntryDate: storedDate,
+    notes: motherName.trim() ? `Mother: ${motherName.trim()}` : '',
+  };
+}
+
+function showBirthSaveError(reason: string) {
+  if (reason === 'duplicate-tag') {
+    Alert.alert(
+      'Animal ID already in use',
+      'Each animal needs a unique ID / tag. Enter a different tag for the newborn.',
+    );
+    return;
+  }
+
+  if (reason === 'storage-error') {
+    Alert.alert(
+      'Could not save Birth record',
+      'Neither the Birth record nor the newborn animal was saved. Please try again.',
+    );
+    return;
+  }
+
+  Alert.alert(
+    'Could not save Birth record',
+    'The record and animal were left unchanged to protect their relationship. Please reopen the record and try again.',
+  );
+}
+
+function getAnimalAgeParts(dateOfBirth: Date, now: Date): { value: string; unit: AnimalAgeUnit } | null {
+  if (dateOfBirth > now) {
+    return null;
+  }
+
+  const millisDiff = now.getTime() - dateOfBirth.getTime();
+  const totalDays = Math.floor(millisDiff / (1000 * 60 * 60 * 24));
+  const totalMonths =
+    (now.getFullYear() - dateOfBirth.getFullYear()) * 12 +
+    (now.getMonth() - dateOfBirth.getMonth());
+  const fullMonths =
+    now.getDate() >= dateOfBirth.getDate() ? totalMonths : Math.max(0, totalMonths - 1);
+  const fullYears = Math.floor(fullMonths / 12);
+
+  if (fullYears >= 1) {
+    return { value: String(fullYears), unit: 'years old' };
+  }
+
+  if (fullMonths >= 1) {
+    return { value: String(fullMonths), unit: 'months old' };
+  }
+
+  return { value: String(Math.max(totalDays, 0)), unit: 'days old' };
 }
 
 function isKnownRecordType(value: string): value is (typeof RECORD_TYPES)[number] {
@@ -2778,6 +3596,13 @@ function normalizeVetSeen(value?: string): 'Yes' | 'No' {
 
 function normalizeBirthSex(value?: string): AnimalSex {
   return value?.toLowerCase() === 'male' ? 'male' : 'female';
+}
+
+function showRecordSaveError() {
+  Alert.alert(
+    'Record could not be saved',
+    'The record and any related animal changes were left unchanged. Please try again.',
+  );
 }
 
 const MONTH_INDEX: Record<string, number> = {

@@ -1,7 +1,7 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
@@ -11,7 +11,7 @@ import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
 import { InfoModal } from '../src/components/InfoModal';
 import { useAccount } from '../src/context/AccountContext';
-import { type TreatmentKind, useSetup } from '../src/context/SetupContext';
+import { type MedicineEntity, type TreatmentKind, useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
 
@@ -27,7 +27,7 @@ const TREATMENT_TYPES: Array<{ label: string; value: TreatmentKind }> = [
 export default function SetupMedicinesScreen() {
   const router = useRouter();
   const { profile } = useAccount();
-  const { medicineEntities, addMedicine, removeMedicine } = useSetup();
+  const { medicineEntities, addMedicine, updateMedicine, removeMedicine } = useSetup();
   const [treatmentType, setTreatmentType] = useState<TreatmentKind>('medicine');
   const [name, setName] = useState('');
   const [activeIngredient, setActiveIngredient] = useState('');
@@ -47,34 +47,16 @@ export default function SetupMedicinesScreen() {
   const [datePickerTarget, setDatePickerTarget] = useState<'expiry' | 'purchase'>('expiry');
   const [showHelp, setShowHelp] = useState(false);
   const [treatmentPendingDelete, setTreatmentPendingDelete] = useState<string | null>(null);
+  const [editingMedicineUid, setEditingMedicineUid] = useState<string | null>(null);
+  const isEditingMedicine = editingMedicineUid !== null;
 
   const groupedTreatments = useMemo(() => ({
     medicines: medicineEntities.filter((entry) => entry.treatmentType === 'medicine'),
     vaccines: medicineEntities.filter((entry) => entry.treatmentType === 'vaccine'),
   }), [medicineEntities]);
 
-  const handleAddMedicine = () => {
-    addMedicine({
-      treatmentType,
-      name,
-      activeIngredient,
-      defaultDose,
-      doseUnit,
-      defaultRoute,
-      meatWithdrawalPeriod,
-      milkWithdrawalPeriod,
-      manufacturer,
-      batchNumber,
-      expiryDate,
-      supplier,
-      purchaseDate,
-      notes,
-    });
-
-    if (!name.trim()) {
-      return;
-    }
-
+  const resetMedicineForm = () => {
+    setEditingMedicineUid(null);
     setTreatmentType('medicine');
     setName('');
     setActiveIngredient('');
@@ -89,6 +71,62 @@ export default function SetupMedicinesScreen() {
     setSupplier('');
     setPurchaseDate('');
     setNotes('');
+  };
+
+  const handleStartEditMedicine = (medicine: MedicineEntity) => {
+    setEditingMedicineUid(medicine.uid ?? null);
+    setTreatmentType(medicine.treatmentType);
+    setName(medicine.name);
+    setActiveIngredient(medicine.activeIngredient);
+    setDefaultDose(medicine.defaultDose);
+    setDoseUnit(DOSE_UNITS.includes(medicine.doseUnit as (typeof DOSE_UNITS)[number]) ? (medicine.doseUnit as (typeof DOSE_UNITS)[number]) : 'ml');
+    setDefaultRoute(ROUTE_OPTIONS.includes(medicine.defaultRoute as (typeof ROUTE_OPTIONS)[number]) ? (medicine.defaultRoute as (typeof ROUTE_OPTIONS)[number]) : 'Injection');
+    setMeatWithdrawalPeriod(medicine.meatWithdrawalPeriod);
+    setMilkWithdrawalPeriod(medicine.milkWithdrawalPeriod);
+    setManufacturer(medicine.manufacturer);
+    setBatchNumber(medicine.batchNumber);
+    setExpiryDate(medicine.expiryDate);
+    setSupplier(medicine.supplier ?? '');
+    setPurchaseDate(medicine.purchaseDate ?? '');
+    setNotes(medicine.notes);
+  };
+
+  const handleSaveMedicine = async () => {
+    if (!name.trim()) {
+      Alert.alert('Name required', 'Enter a name for the medicine or vaccine.');
+      return;
+    }
+
+    const payload = {
+      treatmentType,
+      name,
+      activeIngredient,
+      defaultDose,
+      doseUnit,
+      defaultRoute,
+      meatWithdrawalPeriod,
+      milkWithdrawalPeriod,
+      manufacturer,
+      batchNumber,
+      expiryDate,
+      supplier,
+      purchaseDate,
+      notes,
+    };
+
+    const result = editingMedicineUid
+      ? await updateMedicine(editingMedicineUid, payload)
+      : await addMedicine(payload);
+
+    if (!result.ok) {
+      Alert.alert(
+        result.reason === 'duplicate' ? 'Treatment already exists' : 'Treatment could not be saved',
+        result.reason === 'duplicate' ? 'Use a different name.' : 'Nothing was changed. Please try again.',
+      );
+      return;
+    }
+
+    resetMedicineForm();
   };
 
   const setPickedDate = datePickerTarget === 'purchase' ? setPurchaseDate : setExpiryDate;
@@ -114,13 +152,22 @@ export default function SetupMedicinesScreen() {
     setShowDatePicker(false);
   };
 
-  const confirmDeleteTreatment = () => {
+  const confirmDeleteTreatment = async () => {
     if (!treatmentPendingDelete) {
       return;
     }
 
-    removeMedicine(treatmentPendingDelete);
+    const result = await removeMedicine(treatmentPendingDelete);
     setTreatmentPendingDelete(null);
+
+    if (!result.ok) {
+      Alert.alert('Treatment could not be deleted', 'Nothing was changed. Please try again.');
+      return;
+    }
+
+    if (equalsIgnoreCase(name, treatmentPendingDelete)) {
+      resetMedicineForm();
+    }
   };
 
   const pickerOptions = activePicker === 'doseUnit' ? [...DOSE_UNITS] : activePicker === 'route' ? [...ROUTE_OPTIONS] : [];
@@ -192,10 +239,30 @@ export default function SetupMedicinesScreen() {
           />
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
-          <BouncyPressable accessibilityRole="button" accessibilityLabel="Add treatment" onPress={handleAddMedicine} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
-            <AppIcon name="plus" size={16} color="#fff" />
-            <Text style={styles.addButtonText}>{treatmentType === 'medicine' ? 'Add Medicine' : 'Add Vaccine'}</Text>
-          </BouncyPressable>
+          <View style={styles.editorActionsRow}>
+            <BouncyPressable
+              accessibilityRole="button"
+              accessibilityLabel={isEditingMedicine ? 'Save changes' : 'Add treatment'}
+              containerStyle={styles.editorPrimaryButtonWrap}
+              onPress={handleSaveMedicine}
+              style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+            >
+              <AppIcon name={isEditingMedicine ? 'check' : 'plus'} size={16} color="#fff" />
+              <Text style={styles.addButtonText}>
+                {isEditingMedicine ? 'Save Changes' : treatmentType === 'medicine' ? 'Add Medicine' : 'Add Vaccine'}
+              </Text>
+            </BouncyPressable>
+            {isEditingMedicine ? (
+              <BouncyPressable
+                accessibilityRole="button"
+                accessibilityLabel="Cancel editing"
+                onPress={resetMedicineForm}
+                style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </BouncyPressable>
+            ) : null}
+          </View>
         </View>
 
         {medicineEntities.length === 0 ? (
@@ -209,7 +276,7 @@ export default function SetupMedicinesScreen() {
               ...groupedTreatments.medicines,
               ...groupedTreatments.vaccines,
             ].map((medicine) => (
-              <View key={`${medicine.treatmentType}-${medicine.name}`} style={styles.itemCard}>
+              <View key={medicine.uid ?? `${medicine.treatmentType}-${medicine.name}`} style={styles.itemCard}>
                 <View style={styles.itemHeader}>
                   <View style={styles.itemTitleRow}>
                     <View style={styles.itemIconBadge}>
@@ -220,9 +287,14 @@ export default function SetupMedicinesScreen() {
                       <Text style={styles.itemSubtitle}>{medicine.treatmentType === 'medicine' ? 'Medicine' : 'Vaccine'}{medicine.activeIngredient ? ` · ${medicine.activeIngredient}` : ''}</Text>
                     </View>
                   </View>
-                  <BouncyPressable accessibilityRole="button" accessibilityLabel={`Delete ${medicine.name}`} onPress={() => setTreatmentPendingDelete(medicine.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
-                    <AppIcon name="trash" size={28} color="#fff" />
-                  </BouncyPressable>
+                  <View style={styles.itemActionsRow}>
+                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Edit ${medicine.name}`} onPress={() => handleStartEditMedicine(medicine)} style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
+                      <AppIcon name="edit" size={18} color="#171717" />
+                    </BouncyPressable>
+                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Delete ${medicine.name}`} onPress={() => setTreatmentPendingDelete(medicine.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                      <AppIcon name="trash" size={28} color="#fff" />
+                    </BouncyPressable>
+                  </View>
                 </View>
                 <View style={styles.metaRow}>
                   {medicine.defaultDose ? <Text style={styles.metaPill}>{`${medicine.defaultDose} ${medicine.doseUnit}`}</Text> : null}
@@ -322,7 +394,7 @@ export default function SetupMedicinesScreen() {
         visible={showHelp}
         onClose={() => setShowHelp(false)}
         title="Medicines & Vaccines"
-        description="Keep a record of every medicine and vaccine you use, including dose, route and withdrawal periods, so you can quickly reuse the details when logging treatment records and stay on top of meat and milk withdrawal times."
+        description="Save medicines and vaccines you use regularly, including dose, route and withdrawal periods. These details can then be reused when recording treatments and vaccinations."
       />
     </SafeAreaView>
   );
@@ -348,6 +420,10 @@ function SelectionField({
       </Pressable>
     </View>
   );
+}
+
+function equalsIgnoreCase(left: string, right: string) {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
 }
 
 const styles = StyleSheet.create({
@@ -387,6 +463,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   addButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  editorActionsRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  editorPrimaryButtonWrap: { flex: 1 },
+  cancelButton: { minHeight: 50, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  cancelButtonText: { color: tokens.colors.textSoft, fontSize: 14, fontWeight: '700' },
   list: { gap: 10 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingTop: 72 },
   emptyTitle: { marginTop: 18, color: '#E5E0E7', fontSize: 29, fontWeight: '700' },
@@ -415,6 +495,15 @@ const styles = StyleSheet.create({
   itemHeadingCopy: { flex: 1, gap: 2, minWidth: 0 },
   itemTitle: { color: tokens.colors.text, fontSize: 16, fontWeight: '700' },
   itemSubtitle: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '600' },
+  itemActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  editButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surfaceMuted,
+  },
   deleteButton: {
     width: 38,
     height: 38,

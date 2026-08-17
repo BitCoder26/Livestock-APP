@@ -1,7 +1,8 @@
 import { useIsFocused, useRouter } from 'expo-router';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from 'expo-sqlite/kv-store';
 
 import { AppIcon, AppIconName } from '../../src/components/AppIcon';
 import { AppTopBar } from '../../src/components/AppTopBar';
@@ -12,6 +13,7 @@ import { useSetup } from '../../src/context/SetupContext';
 import { tokens } from '../../src/theme/tokens';
 
 const USERJOT_URL = 'https://livestockbook.userjot.com/?cursor=1&order=top&limit=10';
+const FEEDBACK_CARD_DISMISSED_KEY = 'setupFeedbackCardDismissed';
 
 const SETUP_ITEMS: Array<{
   title: string;
@@ -34,6 +36,23 @@ export default function SetupScreen() {
 
   const farmCardRef = useRef<View>(null);
   useSpotlightTarget('setup', step === 'setup' && isFocused, farmCardRef);
+
+  const [isFeedbackCardDismissed, setIsFeedbackCardDismissed] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(FEEDBACK_CARD_DISMISSED_KEY)
+      .then((value) => {
+        if (value === '1') {
+          setIsFeedbackCardDismissed(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleDismissFeedbackCard = () => {
+    setIsFeedbackCardDismissed(true);
+    void AsyncStorage.setItem(FEEDBACK_CARD_DISMISSED_KEY, '1').catch(() => {});
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -77,19 +96,34 @@ export default function SetupScreen() {
             </View>
           ))}
         </ScrollView>
-        <BouncyPressable
-          accessibilityLabel="Open feedback and suggestions"
-          accessibilityRole="button"
-          onPress={() => Linking.openURL(USERJOT_URL)}
-          style={({ pressed }) => [styles.feedbackCard, pressed && styles.cardPressed]}
-        >
-          <AppIcon name="alert" size={24} color="#171717" />
-          <View style={styles.feedbackCopy}>
-            <Text style={styles.feedbackTitle}>Need more setup options?</Text>
-            <Text style={styles.feedbackText}>Leave a suggestion on our feedback board.</Text>
+        {isFeedbackCardDismissed ? null : (
+          <View style={styles.feedbackWrapper}>
+            <BouncyPressable
+              accessibilityLabel="Open feedback and suggestions"
+              accessibilityRole="button"
+              onPress={() => Linking.openURL(USERJOT_URL)}
+              style={({ pressed }) => [styles.feedbackCard, pressed && styles.cardPressed]}
+            >
+              <View style={styles.feedbackIcon}>
+                <AppIcon name="alert" size={24} color="#171717" />
+              </View>
+              <View style={styles.feedbackCopy}>
+                <Text style={styles.feedbackTitle} numberOfLines={1}>Need more setup options?</Text>
+                <Text style={styles.feedbackText}>Leave a suggestion on our feedback board.</Text>
+              </View>
+              <View style={styles.feedbackActionButton}><Text style={styles.feedbackActionButtonText}>Suggest</Text></View>
+            </BouncyPressable>
+            <Pressable
+              accessibilityLabel="Dismiss feedback card"
+              accessibilityRole="button"
+              hitSlop={10}
+              onPress={handleDismissFeedbackCard}
+              style={({ pressed }) => [styles.promoDismissButton, pressed && styles.cardPressed]}
+            >
+              <AppIcon name="close" size={10} color="#8A5A55" />
+            </Pressable>
           </View>
-          <View style={styles.feedbackActionButton}><Text style={styles.feedbackActionButtonText}>Suggest</Text></View>
-        </BouncyPressable>
+        )}
       </View>
       </TabSwipeView>
     </SafeAreaView>
@@ -148,6 +182,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
+  feedbackWrapper: {
+    position: 'relative',
+    marginTop: 8,
+    marginBottom: 16,
+    width: '92%',
+    alignSelf: 'center',
+  },
+  feedbackIcon: {
+    marginRight: -6,
+  },
+  promoDismissButton: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
   feedbackCard: {
     minHeight: 84,
     borderRadius: 18,
@@ -157,10 +213,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    marginTop: 8,
-    marginBottom: 16,
-    width: '92%',
-    alignSelf: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.16,
     shadowRadius: 7,
@@ -191,6 +243,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 14,
     flexShrink: 0,
+    marginRight: 8,
   },
   feedbackActionButtonText: {
     color: '#FFFFFF',

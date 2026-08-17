@@ -131,7 +131,9 @@ export function OnboardingProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    void AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(state));
+    void AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(state)).catch(() => {
+      // Keep the current in-memory step; the next transition will retry persistence.
+    });
   }, [isReady, state]);
 
   useEffect(() => {

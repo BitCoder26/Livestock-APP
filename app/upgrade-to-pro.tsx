@@ -1,6 +1,18 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Easing, Image, Linking, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Easing,
+  Image,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
@@ -25,6 +37,10 @@ type Plan = {
   compareAtPrice?: string | null;
 };
 
+function formatStorePrice(price: string | null | undefined) {
+  return price?.replace(/^US\s*(?=\$)/u, '') ?? null;
+}
+
 function formatComparePrice(value: number, currencyCode: string | null | undefined) {
   if (!currencyCode) {
     return null;
@@ -35,10 +51,12 @@ function formatComparePrice(value: number, currencyCode: string | null | undefin
       style: 'currency',
       currency: currencyCode,
       currencyDisplay: 'narrowSymbol',
-    }).format(value);
+    }).format(value).replace(/^US\s*(?=\$)/u, '');
   } catch {
     try {
-      return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode }).format(value);
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode })
+        .format(value)
+        .replace(/^US\s*(?=\$)/u, '');
     } catch {
       return `${value.toFixed(2)} ${currencyCode}`;
     }
@@ -57,6 +75,7 @@ export default function UpgradeToProScreen() {
     debug?: string;
   }>();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const {
     activeEntitlementId,
     annualPackage,
@@ -76,6 +95,7 @@ export default function UpgradeToProScreen() {
   const [testStatus, setTestStatus] = useState<string | null>(null);
   const entrance = useRef(new Animated.Value(0)).current;
   const hasRunAutotest = useRef(false);
+  const isLargeLayout = width >= 700;
 
   useEffect(() => {
     entrance.setValue(0);
@@ -118,14 +138,14 @@ export default function UpgradeToProScreen() {
     {
       id: 'monthly',
       label: 'Monthly',
-      price: monthlyPackage?.product.priceString ?? null,
+      price: formatStorePrice(monthlyPackage?.product.priceString),
       cadence: '/month',
       eyebrow: 'Most flexible',
     },
     {
       id: 'yearly',
       label: 'Yearly',
-      price: annualPackage?.product.priceString ?? null,
+      price: formatStorePrice(annualPackage?.product.priceString),
       cadence: '/year',
       badge: 'Best Value',
       compareAtPrice: yearlyCompareAtPrice,
@@ -287,7 +307,7 @@ export default function UpgradeToProScreen() {
         ]}
       >
         <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-          <View style={[styles.closeRow, { paddingTop: insets.top + 2 }]}>
+          <View style={[styles.closeRow, { paddingTop: insets.top + 2 }, isLargeLayout && styles.closeRowWide]}>
             <BouncyPressable
               accessibilityLabel="Close"
               accessibilityRole="button"
@@ -297,85 +317,120 @@ export default function UpgradeToProScreen() {
               <AppIcon name="close" size={20} color={tokens.colors.text} />
             </BouncyPressable>
           </View>
-          <View style={styles.content}>
-            <View style={styles.heroBlock}>
-              <View style={styles.crownPlate}>
-                <AppIcon name="crown" size={22} color="#C8A24A" />
-              </View>
-              <Text style={styles.heroTitle}>LivestockBook Pro</Text>
-              <Text style={styles.heroLead}>{'Manage your entire farm without limits and\nstay compliant as your farm grows.'}</Text>
-              {limitMessage ? <Text style={styles.limitNote}>{limitMessage}</Text> : null}
-            </View>
 
-            <View style={styles.perksCard}>
-              <Text style={styles.perksTitle}>Included with LivestockBook Pro</Text>
-              {PERKS.map((perk) => (
-                <View key={perk} style={styles.perkRow}>
-                  <AppIcon name="check-circle" size={18} color={tokens.colors.accent} />
-                  <Text style={styles.perkText}>{perk}</Text>
+          <ScrollView
+            bounces={false}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            style={styles.body}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: Math.max(insets.bottom + 18, 24) },
+              isLargeLayout && styles.scrollContentWide,
+            ]}
+          >
+            <View style={styles.content}>
+              <View style={styles.heroBlock}>
+                <View style={styles.crownPlate}>
+                  <AppIcon name="crown" size={22} color="#C8A24A" />
                 </View>
-              ))}
-            </View>
-
-            <View style={styles.imagePlaceholder}>
-              <Image
-                source={require('../assets/icons/goats_color.png')}
-                style={styles.imagePlaceholderImage}
-                resizeMode="cover"
-              />
-            </View>
-
-            <View style={styles.pricingBlock}>
-              <View style={styles.pricingRow}>
-                {plans.map((plan) => {
-                  const isSelected = plan.id === selectedPlan;
-
-                  return (
-                    <BouncyPressable
-                      key={plan.id}
-                      accessibilityLabel={`${plan.label} plan${plan.price ? `, ${plan.price}${plan.cadence}` : ''}`}
-                      accessibilityRole="button"
-                      onPress={() => setSelectedPlan(plan.id)}
-                      containerStyle={styles.planCardContainer}
-                      style={[styles.planCard, isSelected && styles.planCardSelected]}
-                    >
-                      {plan.badge ? (
-                        <View style={styles.planBadge}>
-                          <Text style={styles.planBadgeText}>{plan.badge}</Text>
-                        </View>
-                      ) : null}
-                      <View style={styles.planRow}>
-                        <View style={styles.planTextGroup}>
-                          <Text style={[styles.planLabel, isSelected && styles.planLabelSelected]}>
-                            {plan.label}
-                          </Text>
-                          {plan.eyebrow ? <Text style={styles.planEyebrow}>{plan.eyebrow}</Text> : null}
-                          {plan.compareAtPrice ? (
-                            <Text style={styles.planComparePrice} numberOfLines={1}>
-                              {plan.compareAtPrice}
-                            </Text>
-                          ) : null}
-                          <Text
-                            style={[styles.planPrice, isSelected && styles.planPriceSelected]}
-                            numberOfLines={1}
-                          >
-                            {plan.price ?? 'Unavailable'}
-                            <Text style={styles.planCadence}>{plan.cadence}</Text>
-                          </Text>
-                        </View>
-                        {isSelected ? (
-                          <AppIcon name="check-circle" size={22} color={tokens.colors.accent} />
-                        ) : (
-                          <View style={styles.tickEmpty} />
-                        )}
-                      </View>
-                    </BouncyPressable>
-                  );
-                })}
+                <Text style={styles.heroTitle}>LivestockBook Pro</Text>
+                <Text style={styles.heroLead}>Manage your entire farm without limits and stay compliant as your farm grows.</Text>
+                {limitMessage ? <Text style={styles.limitNote}>{limitMessage}</Text> : null}
               </View>
-              <Text style={styles.taxNote}>Tax deductible expense</Text>
-            </View>
 
+              <View style={styles.perksCard}>
+                <Text style={styles.perksTitle}>Included with LivestockBook Pro</Text>
+                {PERKS.map((perk) => (
+                  <View key={perk} style={styles.perkRow}>
+                    <AppIcon name="check-circle" size={18} color={tokens.colors.accent} />
+                    <Text style={styles.perkText}>{perk}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.imagePlaceholder}>
+                <Image
+                  source={require('../assets/icons/goats_color.jpg')}
+                  style={styles.imagePlaceholderImage}
+                  resizeMode="cover"
+                />
+              </View>
+
+              <View style={styles.pricingBlock}>
+                <View style={styles.pricingRow}>
+                  {plans.map((plan) => {
+                    const isSelected = plan.id === selectedPlan;
+
+                    return (
+                      <BouncyPressable
+                        key={plan.id}
+                        accessibilityLabel={`${plan.label} plan${plan.price ? `, ${plan.price}${plan.cadence}` : ''}`}
+                        accessibilityRole="button"
+                        onPress={() => setSelectedPlan(plan.id)}
+                        containerStyle={styles.planCardContainer}
+                        style={[styles.planCard, isSelected && styles.planCardSelected]}
+                      >
+                        {plan.badge ? (
+                          <View style={styles.planBadge}>
+                            <Text style={styles.planBadgeText}>{plan.badge}</Text>
+                          </View>
+                        ) : null}
+                        <View style={styles.planRow}>
+                          <View style={styles.planTextGroup}>
+                            <Text style={[styles.planLabel, isSelected && styles.planLabelSelected]}>
+                              {plan.label}
+                            </Text>
+                            {plan.eyebrow ? <Text style={styles.planEyebrow}>{plan.eyebrow}</Text> : null}
+                            {plan.compareAtPrice ? (
+                              <Text style={styles.planComparePrice} numberOfLines={1}>
+                                {plan.compareAtPrice}
+                              </Text>
+                            ) : null}
+                            <Text
+                              style={[styles.planPrice, isSelected && styles.planPriceSelected]}
+                              numberOfLines={1}
+                            >
+                              {plan.price ?? 'Unavailable'}
+                              <Text style={styles.planCadence}>{plan.cadence}</Text>
+                            </Text>
+                          </View>
+                          {isSelected ? (
+                            <AppIcon name="check-circle" size={22} color={tokens.colors.accent} />
+                          ) : (
+                            <View style={styles.tickEmpty} />
+                          )}
+                        </View>
+                      </BouncyPressable>
+                    );
+                  })}
+                </View>
+                <Text style={styles.taxNote}>Tax deductible expense</Text>
+              </View>
+
+              {showDiagnostics ? (
+                <View style={styles.diagnosticsCard}>
+                  <Text style={styles.diagnosticsTitle}>RevenueCat Diagnostics</Text>
+                  <Text style={styles.diagnosticsText}>Configured: {configured ? 'yes' : 'no'}</Text>
+                  <Text style={styles.diagnosticsText}>Store mode: {storeMode}</Text>
+                  <Text style={styles.diagnosticsText}>Offering: {offering?.identifier ?? 'none'}</Text>
+                  <Text style={styles.diagnosticsText}>Monthly price: {monthlyPackage?.product.priceString ?? 'none'}</Text>
+                  <Text style={styles.diagnosticsText}>Yearly price: {annualPackage?.product.priceString ?? 'none'}</Text>
+                  <Text style={styles.diagnosticsText}>Active entitlement: {activeEntitlementId ?? 'none'}</Text>
+                  <Text style={styles.diagnosticsText}>Active subscriptions: {customerInfo?.activeSubscriptions.join(', ') || 'none'}</Text>
+                  {testStatus ? <Text style={styles.diagnosticsStatus}>{testStatus}</Text> : null}
+                </View>
+              ) : null}
+            </View>
+          </ScrollView>
+
+          <View
+            style={[
+              styles.footerArea,
+              { paddingBottom: Math.max(insets.bottom + 10, 16) },
+              isLargeLayout && styles.footerAreaWide,
+            ]}
+          >
             <BouncyPressable
               accessibilityLabel="Upgrade to Pro"
               accessibilityRole="button"
@@ -433,19 +488,6 @@ export default function UpgradeToProScreen() {
                 Add `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` to enable purchases.
               </Text>
             ) : null}
-            {showDiagnostics ? (
-              <View style={styles.diagnosticsCard}>
-                <Text style={styles.diagnosticsTitle}>RevenueCat Diagnostics</Text>
-                <Text style={styles.diagnosticsText}>Configured: {configured ? 'yes' : 'no'}</Text>
-                <Text style={styles.diagnosticsText}>Store mode: {storeMode}</Text>
-                <Text style={styles.diagnosticsText}>Offering: {offering?.identifier ?? 'none'}</Text>
-                <Text style={styles.diagnosticsText}>Monthly price: {monthlyPackage?.product.priceString ?? 'none'}</Text>
-                <Text style={styles.diagnosticsText}>Yearly price: {annualPackage?.product.priceString ?? 'none'}</Text>
-                <Text style={styles.diagnosticsText}>Active entitlement: {activeEntitlementId ?? 'none'}</Text>
-                <Text style={styles.diagnosticsText}>Active subscriptions: {customerInfo?.activeSubscriptions.join(', ') || 'none'}</Text>
-                {testStatus ? <Text style={styles.diagnosticsStatus}>{testStatus}</Text> : null}
-              </View>
-            ) : null}
           </View>
         </SafeAreaView>
       </Animated.View>
@@ -478,6 +520,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingHorizontal: 26,
   },
+  closeRowWide: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+  },
   closeButton: {
     width: 36,
     height: 36,
@@ -486,10 +533,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  content: {
+  body: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 22,
     paddingTop: 3,
-    paddingBottom: 5,
+  },
+  scrollContentWide: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+  },
+  content: {
     gap: 6,
   },
   heroBlock: {
@@ -514,9 +570,11 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
     fontSize: 15,
     fontWeight: '600',
+    lineHeight: 21,
     textAlign: 'center',
     marginTop: 3,
     marginBottom: 7,
+    paddingHorizontal: 6,
   },
   limitNote: {
     color: tokens.colors.textSoft,
@@ -677,6 +735,19 @@ const styles = StyleSheet.create({
     color: tokens.colors.accentDeep,
     fontSize: 14,
     fontWeight: '800',
+  },
+  footerArea: {
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    gap: 10,
+    backgroundColor: '#fff',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tokens.colors.border,
+  },
+  footerAreaWide: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
   },
   helperText: {
     color: tokens.colors.textSoft,

@@ -49,18 +49,22 @@ type SubscriptionContextValue = {
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
 
 const IOS_REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
+const ANDROID_REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
 const TEST_REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
 const TEST_STORE_FLAG = process.env.EXPO_PUBLIC_REVENUECAT_USE_TEST_STORE === '1';
 const REVENUECAT_DIAGNOSTICS_ENABLED = __DEV__ && process.env.EXPO_PUBLIC_REVENUECAT_DIAGNOSTICS === '1';
 const REVENUECAT_CANCELLATION_MESSAGE = 'Purchase was cancelled.';
 
 function getRevenueCatConfig() {
-  if (Platform.OS !== 'ios') {
+  if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
     return {
       apiKey: null,
       storeMode: 'disabled' as const,
     };
   }
+
+  const storeApiKey =
+    Platform.OS === 'ios' ? IOS_REVENUECAT_API_KEY : ANDROID_REVENUECAT_API_KEY;
 
   if (__DEV__ && TEST_STORE_FLAG) {
     if (TEST_REVENUECAT_API_KEY) {
@@ -77,8 +81,8 @@ function getRevenueCatConfig() {
   }
 
   return {
-    apiKey: IOS_REVENUECAT_API_KEY ?? null,
-    storeMode: IOS_REVENUECAT_API_KEY ? ('app_store' as const) : ('disabled' as const),
+    apiKey: storeApiKey ?? null,
+    storeMode: storeApiKey ? ('app_store' as const) : ('disabled' as const),
   };
 }
 

@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,10 +9,14 @@ import { getSpeciesThemeByTone } from '../src/constants/speciesTheme';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useRecords } from '../src/context/RecordsContext';
+import { type FarmEntity, type PaddockEntity, useSetup } from '../src/context/SetupContext';
+import { formatCurrencyAmount } from '../src/entities/account';
 import type { Animal, AnimalTone } from '../src/entities/animal';
 import type { RecordEntry } from '../src/entities/record';
 import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay } from '../src/utils/dateFormat';
+import { findRecordAnimals } from '../src/utils/recordAnimals';
+import { getRecordDisplayTitle, resolveFarmName, resolvePaddockName } from '../src/utils/recordLocations';
 
 export default function ViewRecordScreen() {
   const router = useRouter();
@@ -20,6 +24,7 @@ export default function ViewRecordScreen() {
   const { profile } = useAccount();
   const { records } = useRecords();
   const { animals } = useAnimals();
+  const { farmEntities, paddockEntities } = useSetup();
 
   const record = useMemo(
     () => (recordId ? records.find((entry) => entry.id === recordId) ?? null : null),
@@ -31,38 +36,12 @@ export default function ViewRecordScreen() {
       return [];
     }
 
-    const normalizedIds = new Set(
-      [record.animalTag, ...(record.animalIds ?? [])]
-        .flatMap((value) => value.split(/[,:;|•]+/))
-        .map((value) => value.trim().toLowerCase())
-        .filter(Boolean),
-    );
-    const normalizedNames = new Set(
-      record.animal
-        .split(/[,:;|•]+/)
-        .map((value) => value.trim().toLowerCase())
-        .filter(Boolean),
-    );
-    const combinedReference = [record.animalTag, record.animal, ...(record.animalIds ?? [])]
-      .join(' ')
-      .trim()
-      .toLowerCase();
-
-    return animals.filter((animal) => {
-      const animalId = animal.id.trim().toLowerCase();
-      const animalName = animal.name.trim().toLowerCase();
-
-      return (
-        normalizedIds.has(animalId) ||
-        (animalName.length > 0 && normalizedNames.has(animalName)) ||
-        (animalId.length > 0 && combinedReference.includes(animalId)) ||
-        (animalName.length > 0 && combinedReference.includes(animalName))
-      );
-    });
+    return findRecordAnimals(record, animals);
   }, [animals, record]);
 
   const primaryImageUri = record?.imageUris?.[0] ?? null;
   const singleRelatedAnimal = relatedAnimals.length === 1 ? relatedAnimals[0] : null;
+  const visibleDetails = record ? getVisibleRecordDetails(record) : '';
 
   const handleShareRecord = async () => {
     if (!record) {
@@ -72,11 +51,16 @@ export default function ViewRecordScreen() {
 
     const shareSections = [
       record.type,
-      getDisplayTitle(record),
-      ...buildSummaryDetails(record, relatedAnimals.length === 0, profile.dateFormat).map(
-        (item) => `${item.label}: ${item.value}`,
-      ),
-      record.details.trim() ? `Details: ${record.details.trim()}` : '',
+      getDisplayTitle(record, farmEntities, paddockEntities),
+      ...buildSummaryDetails(
+        record,
+        relatedAnimals.length === 0,
+        profile.dateFormat,
+        profile.currency,
+        farmEntities,
+        paddockEntities,
+      ).map((item) => `${item.label}: ${item.value}`),
+      visibleDetails ? `Details: ${visibleDetails}` : '',
     ].filter(Boolean);
 
     try {
@@ -111,7 +95,7 @@ export default function ViewRecordScreen() {
                   icon: 'edit',
                   accessibilityLabel: 'Edit record',
                   onPress: () =>
-                    router.replace({
+                    router.push({
                       pathname: '/edit-record',
                       params: { recordId: record.id },
                     }),
@@ -129,7 +113,7 @@ export default function ViewRecordScreen() {
                 {primaryImageUri ? <Image source={{ uri: primaryImageUri }} style={styles.summaryProfileImage} /> : null}
                 <View style={styles.summaryIdentity}>
                   <Text style={styles.summaryId}>{record.type}</Text>
-                  <Text style={styles.summaryName}>{getDisplayTitle(record)}</Text>
+                  <Text style={styles.summaryName}>{getDisplayTitle(record, farmEntities, paddockEntities)}</Text>
                   <Text style={styles.summaryMeta}>{getSummaryMeta(record, profile.dateFormat)}</Text>
                 </View>
               </View>
@@ -140,7 +124,14 @@ export default function ViewRecordScreen() {
             </View>
 
             <View style={styles.summaryDetails}>
-              {buildSummaryDetails(record, relatedAnimals.length === 0, profile.dateFormat).map((item) => (
+              {buildSummaryDetails(
+                record,
+                relatedAnimals.length === 0,
+                profile.dateFormat,
+                profile.currency,
+                farmEntities,
+                paddockEntities,
+              ).map((item) => (
                 <SummaryDetail key={item.label} label={item.label} value={item.value} />
               ))}
             </View>
@@ -155,16 +146,16 @@ export default function ViewRecordScreen() {
                 <Text style={styles.animalsTitle}>{`Animals (${relatedAnimals.length})`}</Text>
                 <View style={styles.animalsList}>
                   {relatedAnimals.map((animal) => (
-                    <AnimalNavigationRow key={animal.id} animal={animal} />
+                    <AnimalNavigationRow key={animal.uid} animal={animal} />
                   ))}
                 </View>
               </View>
             ) : null}
 
-            {record.details.trim() ? (
+            {visibleDetails ? (
               <View style={styles.summaryNotes}>
                 <Text style={styles.summaryLabel}>Details</Text>
-                <Text style={styles.summaryNotesText}>{record.details.trim()}</Text>
+                <Text style={styles.summaryNotesText}>{visibleDetails}</Text>
               </View>
             ) : null}
           </View>
@@ -199,7 +190,7 @@ function AnimalNavigationRow({ animal }: { animal: Animal }) {
       onPress={() =>
         router.push({
           pathname: '/animal-timeline',
-          params: { animalId: animal.id },
+          params: { animalUid: animal.uid },
         })
       }
       style={({ pressed }) => [styles.animalRow, pressed && styles.cardPressed]}
@@ -215,10 +206,15 @@ function AnimalNavigationRow({ animal }: { animal: Animal }) {
 }
 
 function AnimalAvatar({ animal }: { animal: Animal }) {
-  const imageUri = animal.imageUris?.[0] ?? null;
+  const imageUri = animal.showImageOnCard ? animal.imageUris?.[0] ?? null : null;
+  const [imageFailed, setImageFailed] = useState(false);
 
-  if (imageUri) {
-    return <Image source={{ uri: imageUri }} style={styles.animalPhoto} />;
+  useEffect(() => {
+    setImageFailed(false);
+  }, [animal.uid, imageUri]);
+
+  if (imageUri && !imageFailed) {
+    return <Image source={{ uri: imageUri }} style={styles.animalPhoto} onError={() => setImageFailed(true)} />;
   }
 
   const theme = getSpeciesThemeByTone(animal.tone);
@@ -230,8 +226,8 @@ function AnimalAvatar({ animal }: { animal: Animal }) {
   );
 }
 
-function getDisplayTitle(record: RecordEntry) {
-  const cleanedTitle = stripRecordType(record.title, record.type);
+function getDisplayTitle(record: RecordEntry, farms: FarmEntity[], paddocks: PaddockEntity[]) {
+  const cleanedTitle = stripRecordType(getRecordDisplayTitle(record, farms, paddocks), record.type);
   return cleanedTitle || record.recordTitle?.trim() || 'Untitled record';
 }
 
@@ -239,7 +235,14 @@ function getSummaryMeta(record: RecordEntry, dateFormat: Parameters<typeof forma
   return [formatDateForDisplay(record.date, dateFormat).trim(), record.species.trim()].filter(Boolean).join(' • ') || 'Record details';
 }
 
-function buildSummaryDetails(record: RecordEntry, includeAnimalFallback: boolean, dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
+function buildSummaryDetails(
+  record: RecordEntry,
+  includeAnimalFallback: boolean,
+  dateFormat: Parameters<typeof formatDateForDisplay>[1],
+  fallbackCurrencyCode: string,
+  farms: FarmEntity[],
+  paddocks: PaddockEntity[],
+) {
   return [
     { label: 'Date', value: formatDateForDisplay(record.date, dateFormat) },
     ...(includeAnimalFallback
@@ -249,12 +252,51 @@ function buildSummaryDetails(record: RecordEntry, includeAnimalFallback: boolean
         ]
       : []),
     { label: 'Species', value: record.species },
-    ...getTypeSpecificDetails(record),
+    ...getTypeSpecificDetails(record, fallbackCurrencyCode, farms, paddocks),
   ].filter((item) => item.value.trim().length > 0);
 }
 
-function getTypeSpecificDetails(record: RecordEntry) {
+function getVisibleRecordDetails(record: RecordEntry) {
+  const generatedLabels =
+    record.type === 'Sale'
+      ? ['Buyer', 'Sale Price']
+      : record.type === 'Purchase'
+        ? ['Seller', 'Purchase Price']
+        : [];
+
+  if (generatedLabels.length === 0) {
+    return record.details.trim();
+  }
+
+  return record.details
+    .split(/\n{2,}/)
+    .map((section) => section.trim())
+    .filter(Boolean)
+    .filter(
+      (section) =>
+        !generatedLabels.some((label) =>
+          section.toLowerCase().startsWith(`${label.toLowerCase()}:`),
+        ),
+    )
+    .join('\n\n');
+}
+
+function getTypeSpecificDetails(
+  record: RecordEntry,
+  fallbackCurrencyCode: string,
+  farms: FarmEntity[],
+  paddocks: PaddockEntity[],
+) {
+  const currencyCode = getRecordCurrencyCode(record, fallbackCurrencyCode);
+
   switch (record.type) {
+    case 'Movement':
+      return [
+        { label: 'From Farm', value: resolveFarmName(record.fromFarmUid, record.fromFarm, farms) },
+        { label: 'From Paddock', value: resolvePaddockName(record.fromPaddockUid, record.fromPaddock, paddocks) },
+        { label: 'To Farm', value: resolveFarmName(record.toFarmUid, record.toFarm, farms) },
+        { label: 'To Paddock', value: resolvePaddockName(record.toPaddockUid, record.toPaddock, paddocks) },
+      ];
     case 'Vaccination':
     case 'Medication':
       return [
@@ -265,8 +307,6 @@ function getTypeSpecificDetails(record: RecordEntry) {
         { label: 'Batch / Lot No.', value: record.batchNumber ?? '' },
         { label: 'Expiry Date', value: record.expiryDate ?? '' },
       ];
-    case 'Count':
-      return [{ label: 'Head Count', value: record.headCount ?? '' }];
     case 'Weight':
       return [{ label: 'Weight', value: formatWeight(record) }];
     case 'Health Check':
@@ -292,25 +332,31 @@ function getTypeSpecificDetails(record: RecordEntry) {
     case 'Sale':
       return [
         { label: 'Buyer', value: record.buyer ?? '' },
-        { label: 'Sale Price', value: record.salePrice ?? '' },
+        { label: 'Sale Price', value: record.salePrice ? formatCurrencyAmount(record.salePrice, currencyCode) : '' },
         { label: 'Destination', value: record.destination ?? '' },
       ];
     case 'Purchase':
       return [
         { label: 'Seller', value: record.seller ?? '' },
-        { label: 'Purchase Price', value: record.purchasePrice ?? '' },
+        { label: 'Purchase Price', value: record.purchasePrice ? formatCurrencyAmount(record.purchasePrice, currencyCode) : '' },
         { label: 'Source Farm', value: record.sourceFarm ?? '' },
-      ];
-    case 'Movement':
-      return [
-        { label: 'From Farm', value: record.fromFarm ?? '' },
-        { label: 'From Paddock', value: record.fromPaddock ?? '' },
-        { label: 'To Farm', value: record.toFarm ?? '' },
-        { label: 'To Paddock', value: record.toPaddock ?? '' },
       ];
     default:
       return [];
   }
+}
+
+function getRecordCurrencyCode(record: RecordEntry, fallbackCurrencyCode: string) {
+  if (record.currencyCode?.trim()) {
+    return record.currencyCode.trim();
+  }
+
+  const legacyPriceLine = record.details
+    .split(/\n+/)
+    .find((line) => /^(?:Sale|Purchase) Price:/i.test(line.trim()));
+  const legacyCurrencyCode = legacyPriceLine?.match(/\b[A-Z]{3}\b/)?.[0];
+
+  return legacyCurrencyCode ?? fallbackCurrencyCode;
 }
 
 function formatDose(record: RecordEntry) {
@@ -355,7 +401,7 @@ function getSpeciesIconName(species: string, tone: AnimalTone) {
   const normalized = species.trim().toLowerCase();
 
   if (normalized.includes('cattle') || normalized.includes('cow')) return 'cow-copy';
-  if (normalized.includes('sheep')) return 'sheep';
+  if (normalized.includes('sheep')) return 'sheep-black';
   if (normalized.includes('pig')) return 'pig';
   if (normalized.includes('goat')) return 'goat';
   if (normalized.includes('chicken')) return 'chicken';
@@ -379,7 +425,7 @@ function getToneFallback(tone: AnimalTone) {
     case 'pig':
       return 'pig';
     case 'sheep':
-      return 'sheep';
+      return 'sheep-black';
     case 'goat':
       return 'goat';
     case 'poultry':
@@ -413,8 +459,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingTop: 2,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: tokens.colors.border,
     gap: 16,
   },
   summaryHeader: {
@@ -523,16 +567,19 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   animalRow: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    minHeight: 72,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: 18,
+    minHeight: 84,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(28, 28, 28, 0.08)',
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   animalPhoto: {
     width: 48,

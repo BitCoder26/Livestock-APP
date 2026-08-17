@@ -4,14 +4,25 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
-import { BouncyPressable } from '../src/components/BouncyPressable';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { tokens } from '../src/theme/tokens';
 
 export default function SelectMotherAnimalScreen() {
   const router = useRouter();
-  const { recordId, draftRecord } = useLocalSearchParams<{ recordId?: string; draftRecord?: string }>();
+  const { recordId, draftRecord, birthSpecies, selectedMotherUid } = useLocalSearchParams<{
+    recordId?: string;
+    draftRecord?: string;
+    birthSpecies?: string;
+    selectedMotherUid?: string;
+  }>();
   const { animals } = useAnimals();
+  const eligibleMothers = birthSpecies?.trim()
+    ? animals.filter(
+        (animal) =>
+          animal.sex === 'female' &&
+          animal.species.trim().toLowerCase() === birthSpecies.trim().toLowerCase(),
+      )
+    : [];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -24,31 +35,30 @@ export default function SelectMotherAnimalScreen() {
         }}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {animals.length === 0 ? (
+        {!birthSpecies?.trim() ? (
           <View style={styles.emptyState}>
             <AppIcon name="animals" size={86} color="#E5E0E7" opacity={1} />
-            <Text style={styles.emptyTitle}>No animals available</Text>
-            <BouncyPressable
-              accessibilityLabel="Add animal"
-              accessibilityRole="button"
-              onPress={() => router.push('/add-animal')}
-              style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-            >
-              <AppIcon name="plus" size={16} color="#fff" />
-              <Text style={styles.addButtonText}>Add Animal</Text>
-            </BouncyPressable>
+            <Text style={styles.emptyTitle}>Select the new animal's species first</Text>
+            <Text style={styles.emptyDescription}>The mother list is filtered to females of the same species.</Text>
+          </View>
+        ) : eligibleMothers.length === 0 ? (
+          <View style={styles.emptyState}>
+            <AppIcon name="animals" size={86} color="#E5E0E7" opacity={1} />
+            <Text style={styles.emptyTitle}>No eligible mothers</Text>
+            <Text style={styles.emptyDescription}>No female {birthSpecies} animals are currently available.</Text>
           </View>
         ) : (
-          animals.map((animal, index) => (
+          eligibleMothers.map((animal) => (
             <Pressable
-              key={`${animal.id}-${animal.name}-${index}`}
+              key={animal.uid}
               accessibilityLabel={`Select ${animal.name} as mother`}
               accessibilityRole="button"
               onPress={() =>
-                router.replace({
+                router.dismissTo({
                   pathname: '/add-record',
                   params: {
-                    selectedMotherName: animal.name,
+                    selectedMotherUid: animal.uid,
+                    selectedMotherName: animal.name.trim() || 'Unnamed',
                     ...(recordId ? { recordId } : {}),
                     ...(draftRecord ? { draftRecord } : {}),
                   },
@@ -57,12 +67,16 @@ export default function SelectMotherAnimalScreen() {
               style={({ pressed }) => [styles.card, pressed && styles.pressed]}
             >
               <View style={styles.cardCopy}>
-                <Text style={styles.cardTitle}>{animal.name}</Text>
-                <Text style={styles.cardMeta}>
-                  {animal.id} • {animal.species}
+                <Text style={styles.cardTitle}>
+                  {animal.id} • {animal.species} • {animal.status}
                 </Text>
+                <Text style={styles.cardMeta}>{animal.name.trim() || 'Unnamed'}</Text>
               </View>
-              <AppIcon name="chevron-right" size={18} color="#8A8A8A" />
+              <AppIcon
+                name={animal.uid === selectedMotherUid ? 'check' : 'chevron-right'}
+                size={18}
+                color={animal.uid === selectedMotherUid ? tokens.colors.accent : '#8A8A8A'}
+              />
             </Pressable>
           ))
         )}
@@ -92,25 +106,17 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   emptyTitle: {
-    color: '#8A8A8A',
+    color: '#E5E0E7',
     fontSize: 22,
     fontWeight: '700',
     textAlign: 'center',
   },
-  addButton: {
-    minHeight: 52,
-    borderRadius: 26,
-    backgroundColor: tokens.colors.accent,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
+  emptyDescription: {
+    color: '#E5E0E7',
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    textAlign: 'center',
   },
   card: {
     minHeight: 72,

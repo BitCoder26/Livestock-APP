@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
@@ -33,7 +33,6 @@ const FILTER_FIELD_SURFACE = '#F5F3F7';
 
 export default function RecordsFilterScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { profile } = useAccount();
   const { records, filters, setFilters } = useRecords();
   const { animals } = useAnimals();
@@ -167,7 +166,6 @@ export default function RecordsFilterScreen() {
           style={[
             styles.sheet,
             {
-              paddingBottom: Math.max(insets.bottom, 0) + 26,
               opacity: entrance.interpolate({
                 inputRange: [0, 0.28, 1],
                 outputRange: [0, 1, 1],
@@ -337,11 +335,7 @@ export default function RecordsFilterScreen() {
                 accessibilityLabel="Clear filter"
                 accessibilityRole="button"
                 containerStyle={{ flex: 1 }}
-                onPress={() => {
-                  setDraftFilters(DEFAULT_RECORD_FILTERS);
-                  setFilters(DEFAULT_RECORD_FILTERS);
-                  router.back();
-                }}
+                onPress={() => setDraftFilters(DEFAULT_RECORD_FILTERS)}
                 style={styles.clearFilterButton}
               >
                 <Text style={styles.clearFilterText}>Clear filter</Text>
@@ -486,7 +480,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 26,
-    maxHeight: '86%',
+    maxHeight: '94%',
   },
   sheetHeader: {
     flexDirection: 'row',
