@@ -154,14 +154,6 @@ h2,
   color: #4e1a21;
 }
 
-.hero-slogan {
-  display: inline-block;
-  color: #c95656;
-  font-size: clamp(1.55rem, 3.4vw, 2.2rem);
-  line-height: 1.12;
-  white-space: nowrap;
-}
-
 .hero-text,
 .section-copy p,
 .feature-card p,
