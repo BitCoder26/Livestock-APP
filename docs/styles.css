@@ -149,7 +149,7 @@ h2,
   font-size: clamp(2.15rem, 5vw, 3.95rem);
 }
 
-.hero-wordmark,
+.hero-headline,
 .hero-emphasis {
   color: var(--banner-red);
 }
