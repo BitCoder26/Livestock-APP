@@ -115,7 +115,7 @@ h2,
 
 .hero-band {
   width: 100%;
-  background: var(--banner-red);
+  background: #ffffff;
   padding: 24px 0 34px;
 }
 
@@ -130,10 +130,6 @@ h2,
   color: #4e1a21;
   padding: 80px 0 12px;
   max-width: 34rem;
-}
-
-.hero-phone-stack {
-  align-self: center;
 }
 
 .hero h1,
@@ -161,7 +157,7 @@ h2,
 
 .hero-slogan {
   display: inline-block;
-  color: #ffffff;
+  color: #c95656;
   font-size: clamp(1.55rem, 3.4vw, 2.2rem);
   line-height: 1.12;
   white-space: nowrap;
@@ -180,7 +176,7 @@ h2,
 
 .hero-text {
   max-width: 34rem;
-  color: #ffffff;
+  color: #c95656;
   margin-top: 18px;
   font-size: 1.08rem;
 }
@@ -207,9 +203,9 @@ h2,
   margin-top: 18px;
   padding: 8px 14px;
   border-radius: 999px;
-  background: rgba(255, 248, 246, 0.14);
-  border: 1px solid rgba(255, 235, 230, 0.16);
-  color: #ffffff;
+  background: rgba(201, 86, 86, 0.07);
+  border: 1px solid rgba(201, 86, 86, 0.18);
+  color: #c95656;
 }
 
 .hero-rating-stars {
@@ -222,7 +218,7 @@ h2,
 }
 
 .hero-rating-stars-base {
-  color: rgba(255, 255, 255, 0.34);
+  color: rgba(201, 86, 86, 0.28);
 }
 
 .hero-rating-stars-fill {
@@ -292,21 +288,25 @@ h2,
 
 .hero-benefits {
   list-style: none;
-  margin: 22px 0 0;
-  padding: 16px 18px;
+  margin: 0;
+  padding: 22px 24px;
   display: grid;
-  gap: 10px;
+  align-content: center;
+  gap: 14px;
+  width: 100%;
   max-width: 26rem;
+  justify-self: center;
+  align-self: center;
   border-radius: 18px;
-  background: rgba(255, 248, 246, 0.12);
-  border: 1px solid rgba(255, 235, 230, 0.18);
+  background: rgba(201, 86, 86, 0.06);
+  border: 1px solid rgba(201, 86, 86, 0.18);
 }
 
 .hero-benefits li {
   display: flex;
   align-items: center;
   gap: 11px;
-  color: #ffffff;
+  color: #c95656;
   font-size: 0.98rem;
   font-weight: 500;
   line-height: 1.3;
@@ -323,10 +323,22 @@ h2,
   width: 20px;
   height: 20px;
   fill: none;
-  stroke: #ffffff;
-  stroke-width: 2;
+  stroke: #c95656;
+  stroke-width: 2.6;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.hero-usp {
+  grid-column: 1 / -1;
+  /* Negative offset absorbs the transparent padding baked into the PNG. */
+  margin: -18px 0 0;
+}
+
+.hero-usp img {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .hero-banner-bridge {
@@ -355,7 +367,6 @@ h2,
   box-shadow: var(--shadow);
 }
 
-.hero-visual,
 .placeholder-row {
   display: flex;
   align-items: center;
@@ -363,13 +374,6 @@ h2,
   gap: 20px;
 }
 
-.hero-phone-stack {
-  position: relative;
-  width: min(510px, 100%);
-  min-height: 610px;
-}
-
-.hero-phone-live,
 .feature-shot {
   width: min(300px, 100%);
   position: relative;
@@ -377,33 +381,6 @@ h2,
   overflow: visible;
   border-radius: 0;
   box-shadow: none;
-}
-
-.hero-phone-live {
-  position: absolute;
-  width: min(300px, 100%);
-  transform-origin: 50% 50%;
-}
-
-.hero-phone-back {
-  inset: 20px auto auto 10px;
-  z-index: 1;
-  transform: rotate(-4deg);
-}
-
-.hero-phone-front {
-  inset: 0 0 auto auto;
-  z-index: 2;
-  transform: rotate(4deg);
-}
-
-.hero-phone-live img {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 0;
-  box-shadow: none;
-  border: 0;
 }
 
 .feature-screen-image {
@@ -975,22 +952,13 @@ h2,
     justify-content: center;
   }
 
-  .hero-phone-stack {
-    width: min(360px, 100%);
-    min-height: 420px;
-    margin: 0 auto;
+  .hero-copy {
+    padding-top: 40px;
   }
 
-  .hero-phone-live {
-    width: min(210px, 62vw);
-  }
-
-  .hero-phone-back {
-    inset: 30px auto auto 14px;
-  }
-
-  .hero-phone-front {
-    inset: 0 10px auto auto;
+  .hero-benefits {
+    justify-self: start;
+    margin-top: 4px;
   }
 
   .feature-story {
@@ -1130,21 +1098,11 @@ h2,
     font-size: clamp(2.1rem, 12vw, 3.4rem);
   }
 
-  .hero-phone-stack {
-    width: min(290px, 100%);
-    min-height: 330px;
-  }
-
-  .hero-phone-live {
-    width: min(160px, 48vw);
-  }
-
-  .hero-phone-back {
-    inset: 28px auto auto 8px;
-  }
-
-  .hero-phone-front {
-    inset: 0 2px auto auto;
+  /* Full-bleed on phones: the graphic is a wide 4-across flow, so it needs
+     every pixel of viewport width for its labels to stay readable. */
+  .hero-usp {
+    width: 100vw;
+    margin: -6px calc(50% - 50vw) 0;
   }
 
   .feature-story {
