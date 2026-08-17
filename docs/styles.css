@@ -288,10 +288,14 @@ h2,
   stroke-linejoin: round;
 }
 
+/* Sits outside .hero-shell so its right edge can reach the viewport while its
+   left edge stays lined up with the content frame. Padding (rather than a
+   negative margin) keeps this safe when a scrollbar is present. */
 .hero-usp {
-  grid-column: 1 / -1;
+  width: 100%;
   /* Negative offset absorbs the transparent padding baked into the PNG. */
-  margin: -80px 0 0;
+  margin: -62px 0 0;
+  padding-left: calc((100% - min(var(--content-frame-width), 100% - 48px)) / 2);
 }
 
 .hero-usp img {
@@ -866,6 +870,12 @@ h2,
     padding: 28px 24px;
   }
 
+  /* The nowrap heading is wider than a phone viewport, and as a grid item the
+     section cannot shrink below it, which pushed the whole page sideways. */
+  .facebook-section-copy h2 {
+    white-space: normal;
+  }
+
   .bottom-info-shell {
     width: min(var(--content-frame-width), calc(100% - 32px));
   }
@@ -908,8 +918,8 @@ h2,
   /* Full-bleed on phones: the graphic is a wide 4-across flow, so it needs
      every pixel of viewport width for its labels to stay readable. */
   .hero-usp {
-    width: 100vw;
-    margin: -24px calc(50% - 50vw) 0;
+    margin-top: -24px;
+    padding-left: 0;
   }
 
   .feature-story {
