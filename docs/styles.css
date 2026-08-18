@@ -426,18 +426,33 @@ h2,
   width: 100%;
 }
 
-/* Bleed each graphic outward, keeping its text-side edge in place: the
-   animals story leans off the left edge, records off the right, export
-   hard left. Desktop only - the compact phone layout stays centred. */
+/* Bleed each graphic outward, keeping its text-side edge in place: animals
+   leans off the left edge, records off the right, export hard left. The
+   media columns are narrower than the figures, which pulls each copy block
+   in toward the visible artwork. Desktop only - the compact phone layout
+   stays centred. */
 @media (min-width: 901px) {
+  .feature-story-list > .feature-story-graphic:nth-child(1) {
+    grid-template-columns: minmax(320px, 880px) minmax(260px, 1fr);
+  }
+
   .feature-story-list > .feature-story-graphic:nth-child(1) .feature-story-screen {
-    width: calc(100% + 80px);
-    margin-left: -80px;
+    width: calc(100% + 140px);
+    margin-left: -140px;
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(2) {
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 880px);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) .feature-story-screen {
-    width: calc(100% + 80px);
-    margin-right: -80px;
+    width: calc(100% + 140px);
+    margin-right: -140px;
+  }
+
+  /* 0.85x the other stories' artwork. */
+  .feature-story-list > .feature-story-graphic:nth-child(3) {
+    grid-template-columns: minmax(320px, 816px) minmax(260px, 1fr);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(3) .feature-story-screen {
@@ -478,19 +493,20 @@ h2,
   border-radius: 999px;
   margin-bottom: 12px;
   color: #ffffff;
-  background: #4e1a21;
+  background: var(--banner-red);
   font-size: 0.82rem;
   letter-spacing: 0.08em;
 }
 
 .feature-story-copy h2,
 .feature-story-copy p {
-  color: var(--warm-charcoal);
+  color: #000000;
 }
 
 .feature-story-copy h2 {
   margin: 0 0 14px;
   font-size: clamp(1.7rem, 2.8vw, 2.2rem);
+  font-weight: 700;
   line-height: 1.04;
 }
 
