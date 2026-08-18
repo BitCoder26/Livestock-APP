@@ -1088,10 +1088,11 @@ h2,
     top: 115px;
   }
 
-  /* Export (left) down to Ready to Share (right). */
+  /* Export (left) down to Ready to Share (right). It rides lower than the
+     others so it lands nearer the graphic it points into. */
   .story-arrow-3 {
     left: 39%;
-    top: -90px;
+    top: 20px;
   }
 }
 
