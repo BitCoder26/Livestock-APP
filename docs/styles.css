@@ -419,10 +419,11 @@ h2,
   pointer-events: none;
 }
 
-.hero-usp > img:first-child {
+.hero-blob,
+.hero-blob img {
+  display: block;
   width: 100%;
   height: auto;
-  display: block;
 }
 
 /* The phone and animals sit inside the blob; percentages track the blob
@@ -1905,11 +1906,11 @@ h2,
 /* Mobile: stacked graphic-over-text stories, enlarged artwork, and the
    compact footer illustration. */
 @media (max-width: 900px) {
-  /* Shifted off the left edge so the goat standing on that side of the blob
-     is fully in frame; the bleed moves to the right, where the artwork is
-     empty now that the phones have come out of it. */
-  .hero-usp > img:first-child {
-    width: 125%;
+  /* Phones get their own drawing of the scene - one that already carries
+     the goat, the rabbit with its shade, and a cockerel - so it runs at the
+     figure's own width rather than bleeding sideways. */
+  .hero-blob img {
+    width: 100%;
     max-width: none;
     margin-left: 0;
   }
@@ -1920,42 +1921,14 @@ h2,
     flex-direction: column;
   }
 
-  .hero-usp > img:first-child {
+  .hero-blob {
     order: 2;
   }
 
-  /* Only the rabbit comes along on phones, sitting in the empty right half
-     of the blob. It and its shade hang off the bottom of the figure, which
-     is where the blob now sits. */
+  /* The phone artwork already carries its animals, so the separate hero
+     silhouettes stay out of the stacked layout. */
   .hero-animal {
     display: none;
-  }
-
-  .hero-animal.hero-animal-rabbit {
-    display: block;
-    left: auto;
-    right: -8%;
-    top: auto;
-    /* Puts the rabbit's feet on the same line through the blob that the
-       goat's stand on. */
-    bottom: -2%;
-    width: 74%;
-  }
-
-  /* The goat's shade, measured off the hero artwork and rebuilt to the same
-     recipe for the rabbit: fill #f4d1cf, 0.9 of the animal's width, 0.42 as
-     tall as it is wide, sitting just under the feet and a touch to their
-     right. */
-  .hero-rabbit-shade {
-    display: block;
-    position: absolute;
-    right: 26.7%;
-    bottom: 18.5%;
-    width: 8%;
-    aspect-ratio: 1 / 0.42;
-    border-radius: 50%;
-    background: #f4d1cf;
-    pointer-events: none;
   }
 
   /* Extra silhouettes for the stacked layout, standing in the flow between
