@@ -1097,7 +1097,7 @@ h2,
      export mockup rather than down on the sharing artwork. */
   .story-arrow-3 {
     left: 39%;
-    top: -70px;
+    top: -50px;
   }
 }
 
@@ -1191,7 +1191,7 @@ h2,
     grid-template-columns: minmax(260px, 1fr) minmax(320px, 740px);
     /* Closes the run of empty canvas between this story and the export one
        above it; the pig keeps its place in what is left of the gap. */
-    margin-top: -200px;
+    margin-top: -160px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(4) .feature-story-screen {
