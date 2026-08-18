@@ -310,22 +310,12 @@ h2,
   display: block;
 }
 
-.site-bottom-banner {
-  width: 100%;
-  display: block;
-  line-height: 0;
-}
-
-.site-bottom-banner img {
-  width: 100%;
-  display: block;
-}
-
 .section-intro {
-  width: min(var(--content-frame-width), calc(100% - 48px));
+  width: fit-content;
+  max-width: calc(100% - 48px);
   margin: 0 auto;
   padding: 8px 0 34px;
-  text-align: center;
+  text-align: left;
 }
 
 .section-intro h2 {
@@ -471,12 +461,11 @@ h2,
      and records graphics; the cow stays tucked right under its graphic.
      Offsets compensate for the transparent margins baked into each canvas. */
   .feature-story-list > .feature-story-graphic:nth-child(1) .story-accent {
-    top: calc(100% - 165px);
-    left: 42%;
+    top: calc(100% - 240px);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) .story-accent {
-    top: calc(100% - 335px);
+    top: calc(100% - 300px);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(3) .story-accent {
@@ -495,8 +484,12 @@ h2,
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(1) .feature-story-screen {
+    /* Image footprint matches the old 820px-column layout while the copy
+       keeps the narrower column's position; the right overhang tucks the
+       artwork toward the text. */
     width: calc(100% + 315px);
-    margin-left: -315px;
+    margin-left: -175px;
+    margin-right: -140px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) {
@@ -515,13 +508,13 @@ h2,
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(3) {
-    grid-template-columns: minmax(320px, 790px) minmax(260px, 1fr);
+    grid-template-columns: minmax(320px, 650px) minmax(260px, 1fr);
     margin-top: -150px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(3) .feature-story-screen {
-    width: calc(100% + 191px);
-    margin-left: -191px;
+    width: calc(100% + 331px);
+    margin-left: -331px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(4) {
@@ -531,6 +524,9 @@ h2,
   .feature-story-list > .feature-story-graphic:nth-child(4) .feature-story-screen {
     width: calc(100% + 286px);
     margin-right: -286px;
+    position: relative;
+    top: -90px;
+    left: 80px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(4) .feature-story-copy {
