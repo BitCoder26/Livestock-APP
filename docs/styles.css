@@ -1834,6 +1834,14 @@ h2,
   background: linear-gradient(180deg, var(--banner-red) 0%, #c95656 100%);
 }
 
+/* The footer's top margin is white space the home page wants between its
+   sections; here it would open a white strip under the coloured band. The
+   divider rule goes too - the band's own edge is the separation. */
+.contact-band + .site-footer {
+  margin-top: 0;
+  border-top: 0;
+}
+
 .contact-shell {
   width: min(var(--content-frame-width), calc(100% - 48px));
   margin: 0 auto;
@@ -1908,16 +1916,8 @@ h2,
 }
 
 .contact-help-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
   font-size: 1.3rem;
   font-weight: 700;
-}
-
-.contact-help-icon {
-  font-size: 1.15rem;
-  line-height: 1;
 }
 
 .contact-help-sub {
