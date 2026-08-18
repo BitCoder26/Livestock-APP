@@ -602,8 +602,10 @@ h2,
 }
 
 @media (min-width: 901px) {
+  /* Clear of the chicken + sheep accent hanging off the story above, which
+     otherwise reaches ~140px into this section's artwork. */
   .reports-teaser {
-    margin-top: -40px;
+    margin-top: 60px;
   }
 }
 
@@ -701,7 +703,7 @@ h2,
   .copy-accent {
     display: block;
     position: absolute;
-    top: calc(100% - 60px);
+    top: calc(100% - 150px);
     left: 50%;
     transform: translateX(-50%);
     width: 560px;
