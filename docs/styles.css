@@ -1896,15 +1896,20 @@ h2,
     margin: -4% auto 0;
   }
 
-  /* The list's implicit column was content-sized, so the stories sat in a
-     narrower box than the page shell they live in. */
+  /* The list picks up 22px of side padding from the panel rule it shares
+     with the legal shell, which inset the stories from the page's own
+     edges; drop it so their copy lines up with every other section. */
   .feature-story-list {
     grid-template-columns: minmax(0, 1fr);
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .feature-story-list > .feature-story-graphic,
   .feature-story-list > .feature-story-graphic.reverse {
-    grid-template-columns: 1fr;
+    /* minmax(0,...) so the oversized graphic cannot inflate the column and
+       drag the copy out with it. */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "media" "copy";
     max-width: none;
     width: 100%;
@@ -1915,9 +1920,11 @@ h2,
      usable size instead of sitting small and off to one side. */
   .feature-story-list > .feature-story-graphic .feature-story-screen {
     grid-area: media;
+    /* The column is centred on the page, and the figure is centred in the
+       column, so the overhang falls evenly on both sides. */
     width: 122vw;
     max-width: none;
-    margin-left: calc(50% - 61vw);
+    margin-left: 0;
   }
 
   /* The copy keeps the page shell's left edge rather than its own inset. */
