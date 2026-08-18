@@ -1977,11 +1977,16 @@ h2,
     pointer-events: none;
   }
 
-  /* Sits closer under the flow it follows, with room left before the "Why
-     LivestockBook?" heading it introduces. */
-  .mobile-animal-why {
-    margin-top: -96px;
-    margin-bottom: 8px;
+  /* The phone-drawn scenes run the full width of the screen, the way the
+     hero artwork does; their canvases carry deep transparent bands top and
+     bottom, which the margins take back. */
+  .mobile-scene {
+    width: 100vw;
+    max-width: none;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    margin-top: -56px;
+    margin-bottom: -24px;
   }
 
   /* Out of the blob and into the flow beneath it, at a size a phone screen
