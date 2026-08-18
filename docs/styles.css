@@ -249,7 +249,7 @@ h2,
 
 .benefits-section {
   width: 100%;
-  padding: 0 0 40px;
+  padding: 8px 0 40px;
   background: #ffffff;
 }
 
@@ -464,12 +464,12 @@ h2,
    stays centred. */
 @media (min-width: 901px) {
   .feature-story-list > .feature-story-graphic:nth-child(1) {
-    grid-template-columns: minmax(320px, 980px) minmax(260px, 1fr);
+    grid-template-columns: minmax(320px, 820px) minmax(260px, 1fr);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(1) .feature-story-screen {
-    width: calc(100% + 190px);
-    margin-left: -190px;
+    width: calc(100% + 175px);
+    margin-left: -175px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) {
@@ -488,22 +488,22 @@ h2,
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(3) {
-    grid-template-columns: minmax(320px, 550px) minmax(260px, 1fr);
+    grid-template-columns: minmax(320px, 790px) minmax(260px, 1fr);
     margin-top: -150px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(3) .feature-story-screen {
-    width: calc(100% + 440px);
-    margin-left: -440px;
+    width: calc(100% + 300px);
+    margin-left: -300px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(4) {
-    grid-template-columns: minmax(260px, 1fr) minmax(320px, 800px);
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 880px);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(4) .feature-story-screen {
-    width: calc(100% + 280px);
-    margin-right: -280px;
+    width: calc(100% + 200px);
+    margin-right: -200px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(4) .feature-story-copy {
