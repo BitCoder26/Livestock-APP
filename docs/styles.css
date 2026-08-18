@@ -321,6 +321,28 @@ h2,
   display: block;
 }
 
+.section-intro {
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+  padding: 8px 0 34px;
+  text-align: center;
+}
+
+.section-intro h2 {
+  margin: 0 0 10px;
+  color: #000000;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.section-intro p {
+  margin: 0;
+  color: #000000;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
 .page-shell {
   padding: 0 0 56px;
 }
@@ -449,11 +471,16 @@ h2,
      and records graphics; the cow stays tucked right under its graphic.
      Offsets compensate for the transparent margins baked into each canvas. */
   .feature-story-list > .feature-story-graphic:nth-child(1) .story-accent {
-    top: calc(100% - 125px);
+    top: calc(100% - 165px);
+    left: 42%;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) .story-accent {
     top: calc(100% - 335px);
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(3) .story-accent {
+    top: calc(100% - 200px);
   }
 }
 
