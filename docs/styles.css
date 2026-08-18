@@ -1106,8 +1106,11 @@ h2,
     left: 58%;
   }
 
+  /* Standing in the gap between the export copy and the sharing graphic
+     rather than over the graphic itself. The canvas draws the pig between
+     47% and 74% of its height, which is what these offsets are built on. */
   .feature-story-list > .feature-story-graphic:nth-child(4) .story-accent {
-    top: -400px;
+    top: -430px;
     left: 58%;
   }
 }
@@ -1158,7 +1161,9 @@ h2,
 
   .feature-story-list > .feature-story-graphic:nth-child(4) {
     grid-template-columns: minmax(260px, 1fr) minmax(320px, 740px);
-    margin-top: -140px;
+    /* Closes the run of empty canvas between this story and the export one
+       above it; the pig keeps its place in what is left of the gap. */
+    margin-top: -200px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(4) .feature-story-screen {
@@ -1908,6 +1913,13 @@ h2,
     pointer-events: none;
   }
 
+  /* Sits closer under the flow it follows, with room left before the "Why
+     LivestockBook?" heading it introduces. */
+  .mobile-animal-why {
+    margin-top: -96px;
+    margin-bottom: 8px;
+  }
+
   /* The last one follows the FAQ's own bottom padding as well as the page
      shell's, which left a long empty run above the pig. */
   .mobile-animal-tail {
@@ -2097,6 +2109,13 @@ h2,
     left: -40px;
     top: 300px;
     width: 900px;
+  }
+
+  /* Second graphic down the left margin of the long terms page. */
+  .page-blob-left-low {
+    left: -170px;
+    top: 1500px;
+    width: 820px;
   }
 
   .page-blob-left-top {
