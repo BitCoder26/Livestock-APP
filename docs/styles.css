@@ -339,23 +339,18 @@ h2,
   text-align: center;
 }
 
-.reports-teaser-grid {
+.reports-story {
   display: grid;
-  gap: 32px;
-  align-items: start;
+  gap: 24px;
+  align-items: center;
   text-align: left;
 }
 
-.reports-teaser-side {
-  text-align: left;
+.reports-copy .coming-soon {
+  margin: 30px 0 0;
 }
 
-.reports-teaser-side .coming-soon {
-  width: fit-content;
-  margin: 46px 0 0 auto;
-}
-
-.reports-teaser-side h3 {
+.reports-copy h3 {
   margin: 0 0 8px;
   color: #000000;
   font-size: 1.25rem;
@@ -363,7 +358,7 @@ h2,
   letter-spacing: -0.02em;
 }
 
-.reports-teaser-side p {
+.reports-copy .coming-soon p {
   margin: 0;
   color: #000000;
   font-size: 1rem;
@@ -375,16 +370,17 @@ h2,
 }
 
 @media (min-width: 901px) {
-  .reports-teaser-grid {
-    grid-template-columns: minmax(320px, 1fr) minmax(320px, 460px);
+  .reports-story {
+    grid-template-columns: minmax(320px, 880px) minmax(300px, 1fr);
   }
 
   .reports-accent {
     display: block;
-    width: 400px;
+    position: absolute;
+    top: -20px;
+    right: -40px;
+    width: 380px;
     height: auto;
-    /* The canvas is mostly transparent margin; pull the block in around it. */
-    margin: -110px -40px -120px auto;
     pointer-events: none;
   }
 }
@@ -440,9 +436,16 @@ h2,
 }
 
 .reports-graphic {
-  /* Negative offset absorbs the transparent padding above the artwork. */
-  margin: -60px auto 0 -90px;
-  width: min(1032px, 100%);
+  margin: 0;
+  width: 100%;
+}
+
+@media (min-width: 901px) {
+  .reports-graphic {
+    /* Bleed leftward like the story graphics; text-side edge stays put. */
+    width: calc(100% + 150px);
+    margin-left: -150px;
+  }
 }
 
 .reports-graphic img {
