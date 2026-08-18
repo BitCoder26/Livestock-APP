@@ -340,6 +340,10 @@ h2,
   display: block;
 }
 
+.section-intro.how-it-works {
+  padding-bottom: 46px;
+}
+
 .section-intro {
   width: fit-content;
   max-width: calc(100% - 48px);
@@ -418,7 +422,7 @@ h2,
     width: 470px;
     height: auto;
     /* The canvas is mostly transparent margin; pull the flow in around it. */
-    margin: -70px auto -70px;
+    margin: -10px auto -70px;
     pointer-events: none;
   }
 }
@@ -558,11 +562,10 @@ h2,
 }
 
 .community-banner {
-  /* Full-bleed band: wider than the page shell it sits in. */
-  width: 100vw;
-  margin: 64px calc((100% - 100vw) / 2) 110px;
-  padding: 52px 24px 56px;
-  border-radius: 0;
+  width: 100%;
+  margin: 48px 0 88px;
+  padding: 44px 24px 48px;
+  border-radius: 28px;
   background: #c95656;
   text-align: center;
 }
@@ -1423,7 +1426,8 @@ h2,
 @media (max-width: 900px) {
   .hero-usp img {
     width: 125%;
-    margin-left: -12.5%;
+    max-width: none;
+    margin-left: -25%;
   }
 
   .feature-story-list > .feature-story-graphic,
@@ -1445,7 +1449,7 @@ h2,
     grid-area: copy;
     max-width: none;
     width: 100%;
-    margin-top: -14vw;
+    margin-top: -6vw;
     padding: 0 8px;
   }
 
