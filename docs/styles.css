@@ -889,7 +889,7 @@ h2,
   border-right: 2.4px solid var(--banner-red);
   border-bottom: 2.4px solid var(--banner-red);
   transform: rotate(45deg);
-  transition: transform 0.18s ease;
+  transition: transform 0.35s ease;
   margin-top: -4px;
 }
 
@@ -904,6 +904,34 @@ h2,
   color: #000000;
   font-size: 0.98rem;
   line-height: 1.6;
+}
+
+/* Answers unfold rather than snapping open. The height transition needs
+   ::details-content and keyword interpolation, which only newer engines
+   have; the fade runs everywhere, so older browsers still get a reveal
+   instead of nothing. */
+@media (prefers-reduced-motion: no-preference) {
+  .faq-item::details-content {
+    block-size: 0;
+    overflow: hidden;
+    transition: block-size 0.4s ease, content-visibility 0.4s allow-discrete;
+    interpolate-size: allow-keywords;
+  }
+
+  .faq-item[open]::details-content {
+    block-size: auto;
+  }
+
+  .faq-item[open] > p {
+    animation: faq-answer-reveal 0.4s ease both;
+  }
+}
+
+@keyframes faq-answer-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 
 .community-banner {
