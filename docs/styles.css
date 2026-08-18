@@ -1893,9 +1893,19 @@ h2,
     display: block;
     left: auto;
     right: -8%;
-    top: 20%;
+    top: 9%;
     bottom: auto;
     width: 74%;
+  }
+
+  /* Extra silhouettes for the stacked layout, standing in the flow between
+     sections where the desktop accents cannot follow. */
+  .mobile-animal {
+    display: block;
+    width: min(300px, 84%);
+    height: auto;
+    margin: -38px auto -46px;
+    pointer-events: none;
   }
 
   /* Out of the blob and into the flow beneath it, at a size a phone screen
@@ -2111,6 +2121,14 @@ h2,
     top: 760px;
     width: 430px;
   }
+
+}
+
+/* The stacked layout's own animals; the desktop layout has its accents. */
+@media (min-width: 901px) {
+  .mobile-animal {
+    display: none;
+  }
 }
 
 /* An animal scene closing out a page's copy. It sits in the flow, so it can
@@ -2180,6 +2198,21 @@ h2,
 .about-shell a {
   color: var(--accent);
   font-weight: 700;
+}
+
+/* Only the privacy policy uses lists in this shell; match the paragraphs so
+   the two read as one block of copy. */
+.about-shell ul {
+  margin: 0 0 22px;
+  padding-left: 22px;
+  max-width: 46rem;
+}
+
+.about-shell li {
+  margin-bottom: 8px;
+  color: #000000;
+  font-size: 1.05rem;
+  line-height: 1.6;
 }
 
 /* The band already carries the gap the footer's top margin would add; the
