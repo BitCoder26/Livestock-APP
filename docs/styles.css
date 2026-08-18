@@ -269,8 +269,22 @@ h2,
   .benefits-row {
     margin-left: 24px;
     margin-right: auto;
-    width: min(980px, calc(100% - 48px));
-    gap: 8px;
+    width: min(900px, calc(100% - 48px));
+    gap: 0;
+  }
+
+  /* Same trick as the flow steps: overlap the tiles' transparent canvas
+     margins so the artwork sits tight without shrinking. */
+  .benefits-row li {
+    margin-inline: -16px;
+  }
+
+  .benefits-row li:first-child {
+    margin-left: 0;
+  }
+
+  .benefits-row li:last-child {
+    margin-right: 0;
   }
 }
 
@@ -454,10 +468,27 @@ h2,
 }
 
 .how-flow img {
-  width: clamp(120px, 11.5vw, 158px);
+  width: clamp(150px, 15vw, 210px);
   height: auto;
   display: block;
   margin: 0;
+}
+
+/* The icon canvases carry wide transparent margins, so the steps overlap to
+   sit tight without the artwork itself touching. */
+@media (min-width: 901px) {
+  .flow-step {
+    margin-inline: -26px;
+  }
+
+  /* Outer edges stay put so the row still ends on the nav bar's edge. */
+  .flow-step:first-child {
+    margin-left: 0;
+  }
+
+  .flow-step:last-child {
+    margin-right: 0;
+  }
 }
 
 .flow-label {
@@ -572,8 +603,14 @@ h2,
 
 @media (min-width: 901px) {
   .reports-teaser {
-    margin-top: -160px;
+    margin-top: -40px;
   }
+}
+
+/* .feature-story-list sits at z-index 2 and its pig accent hangs down over
+   this section, clipping the reports artwork; lift the whole teaser above it. */
+.reports-teaser {
+  z-index: 4;
 }
 
 .reports-story {
