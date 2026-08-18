@@ -1915,8 +1915,19 @@ h2,
     margin-left: 0;
   }
 
+  /* Mockups first, the blob and its animals under them. */
+  .hero-usp {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hero-usp > img:first-child {
+    order: 2;
+  }
+
   /* Only the rabbit comes along on phones, sitting in the empty right half
-     of the blob now that the mockups have moved below it. */
+     of the blob. It and its shade hang off the bottom of the figure, which
+     is where the blob now sits. */
   .hero-animal {
     display: none;
   }
@@ -1925,9 +1936,27 @@ h2,
     display: block;
     left: auto;
     right: -8%;
-    top: 9%;
-    bottom: auto;
+    top: auto;
+    /* Puts the rabbit's feet on the same line through the blob that the
+       goat's stand on. */
+    bottom: -2%;
     width: 74%;
+  }
+
+  /* The goat's shade, measured off the hero artwork and rebuilt to the same
+     recipe for the rabbit: fill #f4d1cf, 0.9 of the animal's width, 0.42 as
+     tall as it is wide, sitting just under the feet and a touch to their
+     right. */
+  .hero-rabbit-shade {
+    display: block;
+    position: absolute;
+    right: 26.7%;
+    bottom: 18.5%;
+    width: 8%;
+    aspect-ratio: 1 / 0.42;
+    border-radius: 50%;
+    background: #f4d1cf;
+    pointer-events: none;
   }
 
   /* Extra silhouettes for the stacked layout, standing in the flow between
@@ -1951,6 +1980,7 @@ h2,
      can actually read. */
   .hero-phone {
     position: static;
+    order: 1;
     width: 94%;
     /* Phone-sized on a phone; the cap keeps it sane on tablet widths, which
        this breakpoint also covers. */
