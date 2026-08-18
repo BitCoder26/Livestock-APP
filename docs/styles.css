@@ -379,6 +379,12 @@ h2,
   text-align: center;
 }
 
+.how-intro-text {
+  width: fit-content;
+  margin: 0 auto;
+  text-align: left;
+}
+
 .how-flow {
   display: flex;
   align-items: center;
@@ -388,11 +394,10 @@ h2,
 }
 
 .how-flow img {
-  width: clamp(120px, 19vw, 250px);
+  width: clamp(96px, 13vw, 170px);
   height: auto;
   display: block;
-  /* Swallow some of each tile's transparent side margins. */
-  margin: 0 -2.5%;
+  margin: 0;
 }
 
 .how-flow {
@@ -408,6 +413,27 @@ h2,
 .flow-arrow svg {
   width: 100%;
   height: auto;
+}
+
+.why-intro {
+  position: relative;
+}
+
+.intro-rabbit {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .intro-rabbit {
+    display: block;
+    position: absolute;
+    /* The canvas is mostly transparent margin around the silhouette. */
+    left: -300px;
+    top: -110px;
+    width: 340px;
+    height: auto;
+    pointer-events: none;
+  }
 }
 
 .section-intro {
@@ -485,7 +511,7 @@ h2,
 
   .reports-accent {
     display: block;
-    width: 340px;
+    width: 400px;
     height: auto;
     /* The canvas is mostly transparent margin; pull the flow in around it. */
     margin: -10px auto -70px;
