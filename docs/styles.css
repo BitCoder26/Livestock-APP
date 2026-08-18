@@ -1908,6 +1908,17 @@ h2,
     pointer-events: none;
   }
 
+  /* The last one follows the FAQ's own bottom padding as well as the page
+     shell's, which left a long empty run above the pig. */
+  .mobile-animal-tail {
+    margin-top: -180px;
+  }
+
+  /* With the pig standing in it, the shell's closing gap is dead space. */
+  .page-shell {
+    padding-bottom: 12px;
+  }
+
   /* Out of the blob and into the flow beneath it, at a size a phone screen
      can actually read. */
   .hero-phone {
@@ -2112,6 +2123,14 @@ h2,
     right: -10px;
     top: 470px;
     width: 400px;
+  }
+
+  /* Same free right margin as the About and FAQ birds, level with the middle
+     of the policy. */
+  .privacy-donkey {
+    right: -30px;
+    top: 430px;
+    width: 430px;
   }
 
   /* The FAQ column stops at 46rem, leaving the right margin free the whole
