@@ -253,34 +253,49 @@ h2,
   background: #ffffff;
 }
 
-.benefits-graphic {
-  display: block;
-  width: min(880px, calc(100% - 48px));
-  margin: 0 auto;
-  /* Trim the empty canvas above and below the icon tiles. */
-  margin-top: -3%;
-  margin-bottom: -4%;
-}
-
 .benefits-row {
   list-style: none;
   margin: 0 auto;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  width: min(920px, calc(100% - 48px));
+  gap: 16px;
+  width: min(940px, calc(100% - 48px));
 }
 
 .benefits-row li {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 9px;
+  gap: 2px;
   color: #000000;
-  font-size: 1.04rem;
-  font-weight: 500;
+  font-size: 1.18rem;
+  font-weight: 600;
   line-height: 1.3;
+  text-align: center;
+}
+
+.benefit-tile {
+  width: min(230px, 100%);
+  height: auto;
+  display: block;
+}
+
+.benefit-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* The tile canvases carry padding; pull the label up toward the artwork. */
+  margin-top: -26px;
+}
+
+.benefit-check {
+  /* The visible check is only ~24% of its canvas; oversize the element and
+     swallow the transparent margin so the mark reads at ~22px. */
+  width: 92px;
+  height: 92px;
+  margin: -35px -30px -35px -38px;
+  display: block;
 }
 
 @media (max-width: 680px) {
