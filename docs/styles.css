@@ -2123,6 +2123,22 @@ h2,
     width: 900px;
   }
 
+  /* Privacy's pair: one in the top-left corner, one anchored to the bottom
+     right. Their canvases draw the shape hard against opposite edges - the
+     first across its left half, the second from 41% rightward - so each box
+     hangs far enough out for the copy column to stay clear. */
+  .page-blob-left-corner {
+    left: -260px;
+    top: -60px;
+    width: 760px;
+  }
+
+  .page-blob-right-bottom {
+    right: -170px;
+    bottom: 60px;
+    width: 760px;
+  }
+
   /* Second graphic down the left margin of the long terms page. Its canvas
      draws the shape across the left half only, so the box has to sit far
      enough out for that half to stop short of the copy column. */
