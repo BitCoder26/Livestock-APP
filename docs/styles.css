@@ -1783,22 +1783,29 @@ h2,
 /* Mobile: stacked graphic-over-text stories, enlarged artwork, and the
    compact footer illustration. */
 @media (max-width: 900px) {
+  /* Shifted off the left edge so the goat standing on that side of the blob
+     is fully in frame; the bleed moves to the right, where the artwork is
+     empty now that the phones have come out of it. */
   .hero-usp > img:first-child {
     width: 125%;
     max-width: none;
-    margin-left: -25%;
+    margin-left: 0;
   }
 
-  /* The side animals have no room on the stacked layout; the phone rides
-     the blob alone. */
+  /* The side animals have no room on the stacked layout. */
   .hero-animal {
     display: none;
   }
 
+  /* Out of the blob and into the flow beneath it, at a size a phone screen
+     can actually read. */
   .hero-phone {
-    width: 58%;
-    top: 4%;
-    right: 4%;
+    position: static;
+    width: 94%;
+    /* Phone-sized on a phone; the cap keeps it sane on tablet widths, which
+       this breakpoint also covers. */
+    max-width: 430px;
+    margin: -4% auto 0;
   }
 
   .feature-story-list > .feature-story-graphic,
