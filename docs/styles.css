@@ -433,7 +433,7 @@ h2,
    stays centred. */
 @media (min-width: 901px) {
   .feature-story-list > .feature-story-graphic:nth-child(1) {
-    grid-template-columns: minmax(320px, 800px) minmax(260px, 1fr);
+    grid-template-columns: minmax(320px, 720px) minmax(260px, 1fr);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(1) .feature-story-screen {
@@ -442,26 +442,25 @@ h2,
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) {
-    grid-template-columns: minmax(260px, 1fr) minmax(320px, 880px);
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 800px);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) .feature-story-screen {
-    width: calc(100% + 200px);
-    margin-right: -200px;
+    width: calc(100% + 280px);
+    margin-right: -280px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) .feature-story-copy {
     text-align: right;
   }
 
-  /* 0.85x the other stories' artwork. */
   .feature-story-list > .feature-story-graphic:nth-child(3) {
-    grid-template-columns: minmax(320px, 816px) minmax(260px, 1fr);
+    grid-template-columns: minmax(320px, 660px) minmax(260px, 1fr);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(3) .feature-story-screen {
-    width: calc(100% + 320px);
-    margin-left: -320px;
+    width: calc(100% + 440px);
+    margin-left: -440px;
   }
 }
 
