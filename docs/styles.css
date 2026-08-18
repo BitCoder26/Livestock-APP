@@ -566,7 +566,7 @@ h2,
        heading sits lower and the stories are pulled up to close the gap the
        canvas leaves behind. */
     margin-top: 130px;
-    margin-bottom: -110px;
+    margin-bottom: -80px;
   }
 
   /* Specific enough to beat the margin shorthand on .section-intro h2. */
@@ -1857,11 +1857,70 @@ h2,
 
 /* Contact page: one panel on the plain page background, like the rest of
    the site's sections. */
+/* z-index 0 makes each band a stacking context so the decorative blobs'
+   z-index: -1 stays inside it, rather than dropping behind the page and
+   being painted over by the header's white background. */
 .contact-band,
 .about-band {
+  position: relative;
+  z-index: 0;
   width: 100%;
   padding: 56px 0 72px;
   background: var(--bg);
+}
+
+/* Soft background shapes and animal accents. Desktop only - these pages are
+   a single narrow column on a phone, with no free margin to put them in. */
+.page-blob,
+.page-animal {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .page-blob,
+  .page-animal {
+    display: block;
+    position: absolute;
+    max-width: none;
+    height: auto;
+    pointer-events: none;
+  }
+
+  .page-blob {
+    z-index: -1;
+  }
+
+  .page-blob-right-top {
+    right: -180px;
+    top: -140px;
+    width: 640px;
+  }
+
+  .page-blob-left-mid {
+    left: -240px;
+    top: 380px;
+    width: 560px;
+  }
+
+  .page-blob-left-top {
+    left: -260px;
+    top: -60px;
+    width: 560px;
+  }
+
+  .page-blob-right-low {
+    right: -200px;
+    top: 240px;
+    width: 600px;
+  }
+
+  /* The canvas is ~26% transparent margin each side, so the bird itself
+     lands well clear of the 46rem copy column. */
+  .about-ostrich {
+    right: -10px;
+    top: 470px;
+    width: 400px;
+  }
 }
 
 /* Same page furniture and type as the contact page, but the copy sits
