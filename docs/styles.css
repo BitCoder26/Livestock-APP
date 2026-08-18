@@ -377,7 +377,7 @@ h2,
   position: absolute;
   top: 4%;
   right: 8%;
-  width: 44%;
+  width: 48.4%;
   height: auto;
 }
 
@@ -421,7 +421,7 @@ h2,
     display: block;
     position: absolute;
     left: 0;
-    top: 300px;
+    top: 180px;
     width: 38vw;
     max-width: 760px;
     height: auto;
@@ -439,13 +439,24 @@ h2,
 /* Both intros run full width and start on the nav bar's left edge, so their
    headings, flow and tiles all share one left margin with the header. */
 @media (min-width: 901px) {
+  /* The sections stay unpadded so --nav-inset resolves against the full page
+     width for their headings, and so centred rows inside them (the flow) are
+     centred on the page rather than on a padded box. */
   .section-intro.how-it-works,
   .section-intro.why-intro {
     width: 100%;
     max-width: none;
-    padding-left: var(--nav-inset);
-    padding-right: 16px;
+    padding-left: 0;
+    padding-right: 0;
     text-align: left;
+  }
+
+  /* Specific enough to beat the margin shorthands these elements pick up
+     from their base rules further down the file. */
+  .section-intro .how-intro-text,
+  .section-intro.why-intro h2,
+  .section-intro.why-intro p {
+    margin-left: var(--nav-inset);
   }
 }
 
@@ -492,7 +503,7 @@ h2,
    sit tight without the artwork itself touching. */
 @media (min-width: 901px) {
   .flow-step {
-    margin-inline: -26px;
+    margin-inline: -40px;
   }
 
   /* Outer edges stay put so the row still ends on the nav bar's edge. */
@@ -533,7 +544,7 @@ h2,
   flex: 0 0 auto;
   width: 118px;
   height: auto;
-  margin: -34px -30px 0;
+  margin: -34px -40px 0;
 }
 
 
@@ -567,7 +578,7 @@ h2,
     display: block;
     position: absolute;
     right: 40px;
-    top: -150px;
+    top: -200px;
     width: 449px;
     max-width: none;
     height: auto;
@@ -611,7 +622,7 @@ h2,
   /* Clear of the chicken + sheep accent hanging off the story above, which
      otherwise reaches ~140px into this section's artwork. */
   .reports-teaser {
-    margin-top: 10px;
+    margin-top: -120px;
   }
 }
 
@@ -709,7 +720,7 @@ h2,
   .copy-accent {
     display: block;
     position: absolute;
-    top: calc(100% - 200px);
+    top: calc(100% - 150px);
     left: 50%;
     transform: translateX(-50%);
     width: 560px;
@@ -987,8 +998,8 @@ h2,
   /* Records (right) down to export (left): its own dipping curve, so no
      mirroring of arrow 1 is needed. */
   .story-arrow-2 {
-    left: 49%;
-    top: 75px;
+    left: 45%;
+    top: 115px;
   }
 
   /* Export (left) down to Ready to Share (right). */
