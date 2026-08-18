@@ -1908,8 +1908,16 @@ h2,
 }
 
 .contact-help-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-size: 1.3rem;
   font-weight: 700;
+}
+
+.contact-help-icon {
+  font-size: 1.15rem;
+  line-height: 1;
 }
 
 .contact-help-sub {
