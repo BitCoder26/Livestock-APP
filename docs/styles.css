@@ -380,6 +380,14 @@ h2,
     grid-template-columns: 1fr 1fr;
     row-gap: 14px;
   }
+
+  /* 1.3 of the cell. The canvases carry wide transparent margins, so the
+     tiles overlap each other's empty edges the way the desktop row does
+     rather than the drawings colliding. */
+  .benefits-row .benefit-tile {
+    width: 130%;
+    max-width: none;
+  }
 }
 
 .hero-benefit-icon {
@@ -2090,6 +2098,17 @@ h2,
 
   .flow-step {
     flex: 0 0 50%;
+    /* The enlarged icon is wider than the column; without this the step
+       refuses to shrink to half the row and the grid unfolds to one wide
+       column. The canvas margin is what overhangs, not the drawing. */
+    min-width: 0;
+  }
+
+  /* The folded rows leave room for bigger icons than the four-across
+     desktop line does; 1.3 of the responsive size the row starts from. */
+  .how-flow .flow-step img {
+    width: calc(clamp(150px, 20vw, var(--icon-size)) * 1.3);
+    max-width: none;
   }
 
   .flow-arrow {
