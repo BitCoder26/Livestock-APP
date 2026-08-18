@@ -132,7 +132,7 @@ h2,
 
 .hero-copy {
   color: #4e1a21;
-  padding: 80px 0 12px;
+  padding: 24px 0 12px;
   max-width: 34rem;
 }
 
@@ -783,7 +783,7 @@ h2,
   }
 
   .hero-copy {
-    padding-top: 40px;
+    padding-top: 16px;
   }
 
   .feature-story {
