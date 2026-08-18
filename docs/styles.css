@@ -303,6 +303,12 @@ h2,
     width: var(--icon-size);
     max-width: none;
   }
+
+  /* Its artwork fills less of its canvas than the other three, so it needs a
+     wider box to read at the same size. */
+  .benefits-row .benefit-tile-offline {
+    width: calc(var(--icon-size) * 1.1);
+  }
 }
 
 .benefits-row li {
