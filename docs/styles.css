@@ -396,12 +396,16 @@ h2,
    phone-layout rules in the max-width blocks below. */
 @media (min-width: 901px) {
   .feature-story-graphic {
-    grid-template-columns: minmax(320px, 640px) minmax(280px, 1fr);
-    gap: 40px;
+    /* Wider than the 992px page shell it sits in, so auto margins cannot
+       centre it - the negative inline margins do instead. */
+    width: min(1264px, calc(100vw - 32px));
+    margin-inline: calc((100% - min(1264px, 100vw - 32px)) / 2);
+    grid-template-columns: minmax(320px, 960px) minmax(260px, 1fr);
+    gap: 24px;
   }
 
   .feature-story.reverse.feature-story-graphic {
-    grid-template-columns: minmax(280px, 1fr) minmax(320px, 640px);
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 960px);
   }
 
   /* Keep the copy beside its artwork instead of drifting to the frame edge:
