@@ -1896,6 +1896,12 @@ h2,
     margin: -4% auto 0;
   }
 
+  /* The list's implicit column was content-sized, so the stories sat in a
+     narrower box than the page shell they live in. */
+  .feature-story-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .feature-story-list > .feature-story-graphic,
   .feature-story-list > .feature-story-graphic.reverse {
     grid-template-columns: 1fr;
@@ -1905,18 +1911,45 @@ h2,
     gap: 0;
   }
 
+  /* Wider than the viewport and centred on it, so the mockups read at a
+     usable size instead of sitting small and off to one side. */
   .feature-story-list > .feature-story-graphic .feature-story-screen {
     grid-area: media;
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
+    width: 122vw;
+    max-width: none;
+    margin-left: calc(50% - 61vw);
   }
 
+  /* The copy keeps the page shell's left edge rather than its own inset. */
   .feature-story-list > .feature-story-graphic .feature-story-copy {
     grid-area: copy;
     max-width: none;
     width: 100%;
     margin-top: -6vw;
-    padding: 0 8px;
+    padding: 0;
+    text-align: left;
+  }
+
+  /* Farm reporting gets the same treatment as the stories. */
+  .reports-teaser {
+    width: 100%;
+    text-align: left;
+  }
+
+  .reports-graphic {
+    width: 122vw;
+    max-width: none;
+    margin-left: calc(50% - 61vw);
+  }
+
+  /* The banner's own copy reads as a paragraph, not a centred slogan. */
+  .community-banner {
+    text-align: left;
+  }
+
+  .community-banner p {
+    margin-left: 0;
+    margin-right: 0;
   }
 
   /* The export copy keeps its own line flow on phones. */
@@ -1956,10 +1989,11 @@ h2,
     display: none;
   }
 
+  /* The question boxes used to run wider than the page; they now take the
+     page shell's own left and right edges, like every other section. */
   .faq-section {
-    /* Break out of the page shell to true viewport width. */
-    width: calc(100vw - 32px);
-    margin-inline: calc((100% - (100vw - 32px)) / 2);
+    width: 100%;
+    margin-inline: 0;
   }
 }
 
