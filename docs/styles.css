@@ -1948,6 +1948,14 @@ h2,
     top: 470px;
     width: 400px;
   }
+
+  /* The FAQ column stops at 46rem, leaving the right margin free the whole
+     way down; the bird sits in it, level with the later questions. */
+  .faq-turkey {
+    right: 30px;
+    top: 760px;
+    width: 430px;
+  }
 }
 
 /* Same page furniture and type as the contact page, but the copy sits
