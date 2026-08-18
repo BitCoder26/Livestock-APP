@@ -1880,6 +1880,16 @@ h2,
   margin-top: 0;
 }
 
+/* The accordions keep the same reading measure as the About page's copy
+   rather than stretching the full content frame. */
+.faq-shell .faq-item {
+  max-width: 46rem;
+}
+
+.faq-shell .faq-footnote {
+  margin-top: 30px;
+}
+
 /* The default 12% hairline all but disappears on white; this page ends on
    plain copy, so it needs a rule that actually reads as a divider. */
 .about-band + .site-footer {
@@ -1914,15 +1924,9 @@ h2,
   font-weight: 700;
 }
 
-.contact-divider {
-  height: 1px;
-  margin: 36px 0 30px;
-  border: 0;
-  background: rgba(33, 29, 24, 0.14);
-}
-
 .contact-shell h2 {
-  margin: 0 0 22px;
+  /* Carries the gap the divider used to hold open, matching About. */
+  margin: 40px 0 22px;
   color: #c95656;
   font-size: clamp(1.35rem, 2.4vw, 1.7rem);
   font-weight: 700;
