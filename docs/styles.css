@@ -2124,6 +2124,26 @@ h2,
   pointer-events: none;
 }
 
+/* The single-animal canvases sit smaller inside their square than the pair
+   scenes do, so they take a wider box to draw at the same size. */
+.page-animal-flow-wide {
+  width: min(500px, 100%);
+  margin: -100px auto -116px;
+}
+
+/* On a phone the box is narrower, so the transparent band it has to take
+   back is smaller too - the desktop pull would push the art out through
+   the bottom of the card it sits in. */
+@media (max-width: 900px) {
+  .page-animal-flow {
+    margin: -46px auto -54px;
+  }
+
+  .page-animal-flow-wide {
+    margin: -64px auto -74px;
+  }
+}
+
 /* Same page furniture and type as the contact page, but the copy sits
    directly on the page rather than inside a panel. */
 .about-shell {
