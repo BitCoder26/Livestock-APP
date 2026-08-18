@@ -554,6 +554,20 @@ h2,
   margin-top: 56px;
 }
 
+.features-intro-line {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+}
+
+/* Same 2000px canvas as the flow arrows - almost all of it transparent, so
+   the margins pull the line back around the drawn arrow. */
+.features-arrow {
+  width: 116px;
+  height: auto;
+  margin: -44px -30px -44px -26px;
+}
+
 @media (min-width: 901px) {
   .section-intro.features-intro {
     width: 100%;
@@ -570,7 +584,8 @@ h2,
   }
 
   /* Specific enough to beat the margin shorthand on .section-intro h2. */
-  .section-intro.features-intro h2 {
+  .section-intro.features-intro h2,
+  .section-intro.features-intro .features-intro-line {
     margin-left: var(--nav-inset);
   }
 }
