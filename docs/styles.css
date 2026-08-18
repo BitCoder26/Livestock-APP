@@ -276,7 +276,7 @@ h2,
 }
 
 .benefit-tile {
-  width: min(330px, 100%);
+  width: min(380px, 100%);
   height: auto;
   display: block;
 }
@@ -286,7 +286,7 @@ h2,
   align-items: center;
   gap: 8px;
   /* The tile canvases carry padding; pull the label up toward the artwork. */
-  margin-top: -26px;
+  margin-top: -54px;
 }
 
 .benefit-check {
@@ -394,7 +394,7 @@ h2,
 }
 
 .how-flow img {
-  width: clamp(96px, 13vw, 170px);
+  width: clamp(120px, 16vw, 210px);
   height: auto;
   display: block;
   margin: 0;
@@ -415,8 +415,17 @@ h2,
   height: auto;
 }
 
+.how-flow-caption {
+  margin: 16px 0 0;
+  color: #000000;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
 .why-intro {
   position: relative;
+  margin-top: 56px;
 }
 
 .intro-rabbit {
@@ -426,12 +435,10 @@ h2,
 @media (min-width: 901px) {
   .intro-rabbit {
     display: block;
-    position: absolute;
     /* The canvas is mostly transparent margin around the silhouette. */
-    left: -300px;
-    top: -110px;
     width: 340px;
     height: auto;
+    margin: -70px 0 -80px -70px;
     pointer-events: none;
   }
 }
