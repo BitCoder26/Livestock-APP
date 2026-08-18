@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" sizes="96x96" href="./favicon-96x96.png?v=20260724" />
   <link rel="icon" type="image/png" sizes="192x192" href="./favicon-192x192.png?v=20260724" />
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=20260724" />
-  <link rel="stylesheet" href="./styles.css?v=20260819u" />
+  <link rel="stylesheet" href="./styles.css?v=20260819w" />
 </head>
 <body>
   <header class="site-header">
@@ -47,8 +47,10 @@
       </div>
 
       <figure class="hero-usp">
-        <img src="./images/landing-page.png?v=2" alt="" aria-hidden="true" loading="eager" />
+        <img src="./images/landing-page.png?v=3" alt="" aria-hidden="true" loading="eager" />
         <img class="hero-phone" src="./images/landing-phone.png?v=3" alt="Animals screen in LivestockBook" loading="eager" />
+        <img class="hero-animal hero-animal-rabbit" src="./images/rabbit.png" alt="" aria-hidden="true" loading="lazy" />
+        <img class="hero-animal hero-animal-horse" src="./images/horse.png" alt="" aria-hidden="true" loading="lazy" />
       </figure>
     </section>
 
@@ -59,20 +61,30 @@
         <h2>How it works</h2>
         <p>A simple workflow from record entry to ready-to-share exports.</p>
       </div>
-      <div class="how-flow" aria-label="Add animals, add records, filter records, export records">
-        <img src="./images/how-add-animals.png?v=3" alt="Add animals" />
-        <span class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 48 24"><path d="M3 12h38m0 0l-9-8m9 8l-9 8" fill="none" stroke="#f4aa08" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        <img src="./images/how-add-records.png?v=3" alt="Add records" />
-        <span class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 48 24"><path d="M3 12h38m0 0l-9-8m9 8l-9 8" fill="none" stroke="#f4aa08" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        <img src="./images/how-filter-records.png?v=3" alt="Filter records" />
-        <span class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 48 24"><path d="M3 12h38m0 0l-9-8m9 8l-9 8" fill="none" stroke="#f4aa08" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        <img src="./images/how-export-records.png?v=3" alt="Export records" />
+      <div class="how-flow" aria-label="1 Add animals, 2 Log records, 3 Filter records, 4 Export files">
+        <div class="flow-step">
+          <img src="./images/how-add-animals.png?v=3" alt="" aria-hidden="true" />
+          <span class="flow-label"><span class="flow-num">1</span>Add animals</span>
+        </div>
+        <span class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 48 24"><path d="M3 12h38m0 0l-9-8m9 8l-9 8" fill="none" stroke="#f3a90a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <div class="flow-step">
+          <img src="./images/how-add-records.png?v=3" alt="" aria-hidden="true" />
+          <span class="flow-label"><span class="flow-num">2</span>Log records</span>
+        </div>
+        <span class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 48 24"><path d="M3 12h38m0 0l-9-8m9 8l-9 8" fill="none" stroke="#f3a90a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <div class="flow-step">
+          <img src="./images/how-filter-records.png?v=3" alt="" aria-hidden="true" />
+          <span class="flow-label"><span class="flow-num">3</span>Filter records</span>
+        </div>
+        <span class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 48 24"><path d="M3 12h38m0 0l-9-8m9 8l-9 8" fill="none" stroke="#f3a90a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <div class="flow-step">
+          <img src="./images/how-export-records.png?v=3" alt="" aria-hidden="true" />
+          <span class="flow-label"><span class="flow-num">4</span>Export files</span>
+        </div>
       </div>
-      <p class="how-flow-caption">Add animals → Log records → Filter records → Export files</p>
     </section>
 
     <section class="section-intro why-intro">
-      <img class="intro-rabbit" src="./images/rabbit.png" alt="" aria-hidden="true" loading="lazy" />
       <h2>Why LivestockBook?</h2>
       <p>Spend less time managing paperwork and more time running your farm.</p>
     </section>
@@ -112,6 +124,7 @@
         </article>
 
         <article class="feature-story reverse feature-story-graphic">
+          <span class="story-arrow story-arrow-1" aria-hidden="true"><svg viewBox="0 0 200 120"><path d="M14 16 C 60 96, 128 92, 182 40" fill="none" stroke="#f3a90a" stroke-width="9" stroke-linecap="round"/><path d="M182 40l-26 2m26-2l-10 24" fill="none" stroke="#f3a90a" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <div class="feature-story-copy">
             <p class="eyebrow">Records</p>
             <h2>Keep track of<br />livestock activity.</h2>
@@ -124,9 +137,10 @@
         </article>
 
         <article class="feature-story feature-story-graphic">
+          <span class="story-arrow story-arrow-2" aria-hidden="true"><svg viewBox="0 0 200 120"><path d="M14 16 C 60 96, 128 92, 182 40" fill="none" stroke="#f3a90a" stroke-width="9" stroke-linecap="round"/><path d="M182 40l-26 2m26-2l-10 24" fill="none" stroke="#f3a90a" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <figure class="feature-shot feature-story-screen">
             <img class="feature-screen-image" src="./images/graphic-export.png?v=2" alt="Export screens in LivestockBook" loading="lazy" />
-            <img class="story-accent" src="./images/goat.png" alt="" aria-hidden="true" loading="lazy" />
+            <img class="story-accent" src="./images/duck.png" alt="" aria-hidden="true" loading="lazy" />
           </figure>
           <div class="feature-story-copy">
             <p class="eyebrow">Export</p>
@@ -136,6 +150,7 @@
         </article>
 
         <article class="feature-story reverse feature-story-graphic">
+          <span class="story-arrow story-arrow-3" aria-hidden="true"><svg viewBox="0 0 200 120"><path d="M14 16 C 60 96, 128 92, 182 40" fill="none" stroke="#f3a90a" stroke-width="9" stroke-linecap="round"/><path d="M182 40l-26 2m26-2l-10 24" fill="none" stroke="#f3a90a" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <div class="feature-story-copy">
             <p class="eyebrow">Ready to Share</p>
             <h2>Clean, branded<br />and audit-ready.</h2>

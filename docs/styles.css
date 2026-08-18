@@ -260,7 +260,7 @@ h2,
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  width: min(1100px, calc(100% - 48px));
+  width: min(1264px, calc(100% - 32px));
 }
 
 .benefits-row li {
@@ -276,7 +276,7 @@ h2,
 }
 
 .benefit-tile {
-  width: min(380px, 100%);
+  width: min(420px, 100%);
   height: auto;
   display: block;
 }
@@ -361,21 +361,21 @@ h2,
   pointer-events: none;
 }
 
-.hero-animal-left {
-  left: 4%;
-  bottom: 4%;
-  width: 26%;
+.hero-animal-rabbit {
+  left: 6%;
+  bottom: -4%;
+  width: 15%;
 }
 
-.hero-animal-right {
-  right: 2%;
-  bottom: 2%;
-  width: 18%;
+.hero-animal-horse {
+  left: 17%;
+  bottom: -5%;
+  width: 22%;
 }
 
 .section-intro.how-it-works {
   padding-bottom: 46px;
-  width: min(var(--content-frame-width), calc(100% - 48px));
+  width: min(1264px, calc(100% - 32px));
   text-align: center;
 }
 
@@ -393,11 +393,34 @@ h2,
   margin-top: 6px;
 }
 
+.flow-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .how-flow img {
-  width: clamp(120px, 16vw, 210px);
+  width: clamp(140px, 20vw, 260px);
   height: auto;
   display: block;
   margin: 0;
+}
+
+.flow-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #000000;
+  font-size: 1.18rem;
+  font-weight: 600;
+  /* The icon canvases carry padding; pull the label up toward the artwork. */
+  margin-top: -30px;
+}
+
+.flow-num {
+  color: #f3a90a;
+  font-size: 1.5rem;
+  font-weight: 800;
 }
 
 .how-flow {
@@ -408,6 +431,7 @@ h2,
   display: inline-flex;
   flex: 0 0 auto;
   width: clamp(30px, 4vw, 52px);
+  margin-top: -46px;
 }
 
 .flow-arrow svg {
@@ -415,32 +439,10 @@ h2,
   height: auto;
 }
 
-.how-flow-caption {
-  margin: 16px 0 0;
-  color: #000000;
-  font-size: 1.05rem;
-  line-height: 1.6;
-  text-align: center;
-}
 
 .why-intro {
   position: relative;
   margin-top: 56px;
-}
-
-.intro-rabbit {
-  display: none;
-}
-
-@media (min-width: 901px) {
-  .intro-rabbit {
-    display: block;
-    /* The canvas is mostly transparent margin around the silhouette. */
-    width: 340px;
-    height: auto;
-    margin: -70px 0 -80px -70px;
-    pointer-events: none;
-  }
 }
 
 .section-intro {
@@ -518,7 +520,7 @@ h2,
 
   .reports-accent {
     display: block;
-    width: 400px;
+    width: 470px;
     height: auto;
     /* The canvas is mostly transparent margin; pull the flow in around it. */
     margin: -10px auto -70px;
@@ -812,6 +814,49 @@ h2,
 
 .feature-story-graphic .feature-story-screen {
   width: 100%;
+}
+
+/* Playful arrows hopping between the story graphics. Desktop only. */
+.story-arrow {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .story-arrow {
+    display: block;
+    position: absolute;
+    width: 190px;
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  .story-arrow svg {
+    width: 100%;
+    height: auto;
+  }
+
+  .feature-story {
+    position: relative;
+  }
+
+  /* Animals (left) down to records (right). */
+  .story-arrow-1 {
+    left: 44%;
+    top: 40px;
+  }
+
+  /* Records (right) down to export (left): mirrored. */
+  .story-arrow-2 {
+    left: 38%;
+    top: 150px;
+    transform: scaleX(-1);
+  }
+
+  /* Export (left) down to Ready to Share (right). */
+  .story-arrow-3 {
+    left: 44%;
+    top: 30px;
+  }
 }
 
 /* Small silhouette accents tucked under the story graphics. Absolutely
@@ -1587,6 +1632,20 @@ h2,
     flex: 0 0 42px;
     width: 42px;
     height: 42px;
+  }
+
+  /* Flow steps fold to a 2x2 grid; the connecting arrows come out. */
+  .how-flow {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .flow-step {
+    flex: 0 0 50%;
+  }
+
+  .flow-arrow {
+    display: none;
   }
 
   .faq-section {
