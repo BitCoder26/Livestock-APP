@@ -310,7 +310,7 @@ h2,
   /* Its artwork fills less of its canvas than the other three, so it needs a
      wider box to read at the same size. */
   .benefits-row .benefit-tile-offline {
-    width: calc(var(--icon-size) * 1.1);
+    width: calc(var(--icon-size) * 1.21);
   }
 }
 
@@ -337,7 +337,29 @@ h2,
   align-items: center;
   gap: 8px;
   /* The tile canvases carry padding; pull the label up toward the artwork. */
-  margin-top: -54px;
+  margin-top: -26px;
+}
+
+/* One fixed row for the tiles, deep enough for the widest of them, so all
+   four labels start on the same line however tall each canvas draws. Sits
+   after the flex rule above, which it replaces on desktop. */
+@media (min-width: 901px) {
+  .benefits-row li {
+    display: grid;
+    grid-template-rows: calc(var(--icon-size) * 1.21) auto;
+    justify-items: center;
+  }
+
+  /* Tiles hang from the bottom of their row, labels start at the top of
+     theirs, so a two-line label grows downward instead of pushing its own
+     first line above the single-line ones. */
+  .benefits-row li .benefit-tile {
+    align-self: end;
+  }
+
+  .benefits-row li .benefit-label {
+    align-self: start;
+  }
 }
 
 .benefit-check {
@@ -588,9 +610,9 @@ h2,
 /* Same 2000px canvas as the flow arrows - almost all of it transparent, so
    the margins pull the line back around the drawn arrow. */
 .features-arrow {
-  width: 116px;
+  width: 93px;
   height: auto;
-  margin: -44px -30px -44px -26px;
+  margin: -35px -24px -35px -21px;
 }
 
 @media (min-width: 901px) {
@@ -1918,17 +1940,6 @@ h2,
   .mobile-animal-why {
     margin-top: -96px;
     margin-bottom: 8px;
-  }
-
-  /* The last one follows the FAQ's own bottom padding as well as the page
-     shell's, which left a long empty run above the pig. */
-  .mobile-animal-tail {
-    margin-top: -180px;
-  }
-
-  /* With the pig standing in it, the shell's closing gap is dead space. */
-  .page-shell {
-    padding-bottom: 12px;
   }
 
   /* Out of the blob and into the flow beneath it, at a size a phone screen
