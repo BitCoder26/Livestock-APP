@@ -396,12 +396,12 @@ h2,
    phone-layout rules in the max-width blocks below. */
 @media (min-width: 901px) {
   .feature-story-graphic {
-    grid-template-columns: minmax(320px, 560px) minmax(300px, 1fr);
+    grid-template-columns: minmax(320px, 640px) minmax(280px, 1fr);
     gap: 40px;
   }
 
   .feature-story.reverse.feature-story-graphic {
-    grid-template-columns: minmax(300px, 1fr) minmax(320px, 560px);
+    grid-template-columns: minmax(280px, 1fr) minmax(320px, 640px);
   }
 
   /* Keep the copy beside its artwork instead of drifting to the frame edge:
