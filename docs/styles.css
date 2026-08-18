@@ -19,8 +19,8 @@
      with it. Resolves against the using element's containing block, so only
      use it on full-width sections. */
   --nav-inset: calc((100% - min(var(--hero-frame-width), 100% - 32px)) / 2 + 24px);
-  /* Shared by the how-it-works flow icons and the benefit tiles. */
-  --tile-size: 250px;
+  --flow-icon-size: 275px;
+  --tile-size: 300px;
 }
 
 * {
@@ -275,9 +275,9 @@ h2,
 @media (min-width: 901px) {
   .benefits-row {
     width: fit-content;
-    margin-left: var(--nav-inset);
+    margin-left: auto;
     margin-right: auto;
-    grid-template-columns: repeat(4, 214px);
+    grid-template-columns: repeat(4, 257px);
     gap: 0;
   }
 
@@ -388,9 +388,9 @@ h2,
 /* Was baked into landing-page.png facing right; lifted out so it can be
    mirrored and moved independently of the blob. */
 .hero-animal-goat {
-  left: 17%;
-  top: 38%;
-  width: 27.4%;
+  left: 13%;
+  top: 32%;
+  width: 38.4%;
   transform: scaleX(-1);
 }
 
@@ -398,7 +398,7 @@ h2,
   /* The canvas carries wide transparent margins, so the box overhangs the
      left edge to seat the rabbit itself near it. */
   left: -4%;
-  bottom: -16%;
+  bottom: -24%;
   width: 42%;
 }
 
@@ -469,7 +469,7 @@ h2,
 
 @media (min-width: 901px) {
   .how-flow {
-    justify-content: flex-start;
+    justify-content: center;
   }
 }
 
@@ -479,10 +479,8 @@ h2,
   align-items: center;
 }
 
-/* One size for both icon rows: the how-it-works steps and the benefit tiles
-   below read as the same family, so they must match. */
-.how-flow img {
-  width: clamp(150px, 20vw, var(--tile-size));
+.how-flow .flow-step img {
+  width: clamp(150px, 20vw, var(--flow-icon-size));
   height: auto;
   display: block;
   margin: 0;
@@ -526,16 +524,14 @@ h2,
   margin-top: 18px;
 }
 
+/* Hand-drawn arrow art on a square canvas that is ~60% transparent margin,
+   hence the wide element and the negative insets that claw the gap back. */
 .flow-arrow {
-  display: inline-flex;
+  display: block;
   flex: 0 0 auto;
-  width: clamp(22px, 2vw, 28px);
-  margin-top: -32px;
-}
-
-.flow-arrow svg {
-  width: 100%;
+  width: 118px;
   height: auto;
+  margin: -34px -30px 0;
 }
 
 
@@ -563,13 +559,18 @@ h2,
 }
 
 @media (min-width: 901px) {
+  /* Out of the heading's flow and parked on the section's right edge, so the
+     left-justified heading keeps its own line. */
   .why-horse {
-    display: inline-block;
-    width: 340px;
+    display: block;
+    position: absolute;
+    right: -30px;
+    top: -150px;
+    width: 408px;
     max-width: none;
     height: auto;
-    /* The canvas carries transparent margin around the horse. */
-    margin: -100px 0 -85px -56px;
+    margin: 0;
+    pointer-events: none;
   }
 }
 
@@ -656,11 +657,11 @@ h2,
 
   .reports-accent {
     display: block;
-    width: 400px;
+    width: 480px;
     max-width: none;
     height: auto;
     /* The canvas is mostly transparent margin; pull the flow in around it. */
-    margin: -10px auto -62px;
+    margin: -10px auto -75px;
     pointer-events: none;
   }
 }
@@ -964,14 +965,11 @@ h2,
   .story-arrow {
     display: block;
     position: absolute;
-    width: 190px;
+    width: 300px;
+    max-width: none;
+    height: auto;
     pointer-events: none;
     z-index: 3;
-  }
-
-  .story-arrow svg {
-    width: 100%;
-    height: auto;
   }
 
   .feature-story {
@@ -980,21 +978,21 @@ h2,
 
   /* Animals (left) down to records (right). */
   .story-arrow-1 {
-    left: 44%;
-    top: 40px;
+    left: 33%;
+    top: -130px;
   }
 
   /* Records (right) down to export (left): its own dipping curve, so no
      mirroring of arrow 1 is needed. */
   .story-arrow-2 {
-    left: 38%;
-    top: 150px;
+    left: 44%;
+    top: 20px;
   }
 
   /* Export (left) down to Ready to Share (right). */
   .story-arrow-3 {
-    left: 44%;
-    top: 30px;
+    left: 33%;
+    top: -150px;
   }
 }
 
