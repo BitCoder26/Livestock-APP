@@ -90,6 +90,11 @@ export default function SettingsScreen() {
       const uri = await createBackupFile(backup);
 
       await shareBackupFile(uri);
+      // Drives the "back up your data" reminder on the Account screen — a
+      // full backup counts just as much as a CSV/PDF export does (see
+      // export.tsx's handleExport), since either one gets the user's data
+      // off-device.
+      updateField('lastExportedAt', new Date().toISOString());
       Alert.alert('Backup created', 'Your LivestockBook backup file is ready to save.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Something went wrong while preparing the backup.';

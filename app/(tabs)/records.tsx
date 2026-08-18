@@ -33,7 +33,7 @@ function formatAnimalSummary(record: RecordEntry, animals: Animal[]) {
 
   if (count === 1) {
     const [tag] = resolveRecordDisplayTags(record, animals);
-    return `1 animal (${(tag || record.animalTag).trim()})`;
+    return `1 animal · ${(tag || record.animalTag).trim()}`;
   }
 
   return `${count} animals`;

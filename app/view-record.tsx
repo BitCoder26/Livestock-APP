@@ -17,6 +17,7 @@ import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay } from '../src/utils/dateFormat';
 import { findRecordAnimals } from '../src/utils/recordAnimals';
 import { getRecordDisplayTitle, resolveFarmName, resolvePaddockName } from '../src/utils/recordLocations';
+import { getStructuredDetailLabels, stripStructuredDetailLines } from '../src/utils/recordNotes';
 
 export default function ViewRecordScreen() {
   const router = useRouter();
@@ -257,28 +258,7 @@ function buildSummaryDetails(
 }
 
 function getVisibleRecordDetails(record: RecordEntry) {
-  const generatedLabels =
-    record.type === 'Sale'
-      ? ['Buyer', 'Sale Price']
-      : record.type === 'Purchase'
-        ? ['Seller', 'Purchase Price']
-        : [];
-
-  if (generatedLabels.length === 0) {
-    return record.details.trim();
-  }
-
-  return record.details
-    .split(/\n{2,}/)
-    .map((section) => section.trim())
-    .filter(Boolean)
-    .filter(
-      (section) =>
-        !generatedLabels.some((label) =>
-          section.toLowerCase().startsWith(`${label.toLowerCase()}:`),
-        ),
-    )
-    .join('\n\n');
+  return stripStructuredDetailLines(record.details, getStructuredDetailLabels(record.type)).trim();
 }
 
 function getTypeSpecificDetails(

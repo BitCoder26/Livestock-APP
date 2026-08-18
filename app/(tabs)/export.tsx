@@ -502,7 +502,20 @@ export default function ExportScreen() {
               <Text style={styles.selectionTitle}>
                 {activeDateField === 'startDate' ? 'Select start date' : 'Select end date'}
               </Text>
-              <Pressable accessibilityLabel="Done" accessibilityRole="button" onPress={() => setActiveDateField(null)}>
+              <Pressable
+                accessibilityLabel="Done"
+                accessibilityRole="button"
+                onPress={() => {
+                  // Commits whatever date the spinner is currently showing —
+                  // onChange only fires once the user actually scrolls a
+                  // wheel, so without this, tapping Done on an
+                  // already-correct date silently saved nothing.
+                  if (activeDateField) {
+                    setRecordFilters((current) => ({ ...current, [activeDateField]: formatDateForStorage(selectedDate) }));
+                  }
+                  setActiveDateField(null);
+                }}
+              >
                 <Text style={styles.modalDone}>Done</Text>
               </Pressable>
             </View>
@@ -1025,12 +1038,24 @@ function buildPdfHtml({
   headers: string[];
   rows: string[][];
 }) {
+  // NOTE: expo-print renders through WKWebView's print pipeline, which —
+  // unlike a full desktop browser — does not repeat <thead> at the top of
+  // each page a table overflows onto (confirmed by hand: a >1-page export
+  // leaves continuation pages with no column headers at all). Manually
+  // paginating the rows into per-page <table> chunks and forcing a break
+  // between them was also tried and had no effect — this engine ignores both
+  // page-break-before and the modern break-before property outright, so
+  // there is currently no reliable way to repeat the header row on later
+  // pages. Left as a single continuous table; see AGENTS.md for the writeup.
   const tableStyles = `
         table {
           width: 100%;
           border-collapse: collapse;
           overflow: hidden;
           border-radius: 18px;
+        }
+        tr {
+          page-break-inside: avoid;
         }
         thead th {
           background: #dd6560;
@@ -1045,6 +1070,9 @@ function buildPdfHtml({
           font-size: 13px;
           border-bottom: 1px solid #eee8ec;
           vertical-align: top;
+        }
+        tbody tr:last-child td {
+          border-bottom: none;
         }
         tbody tr:nth-child(even) td {
           background: #faf8fb;

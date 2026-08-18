@@ -35,6 +35,7 @@ import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
 import { filterAccessibleImageUris, persistRecordImage } from '../src/utils/imageStorage';
 import { findRecordAnimals, resolveRecordAnimalUids } from '../src/utils/recordAnimals';
+import { getStructuredDetailLabels, stripStructuredDetailLines } from '../src/utils/recordNotes';
 import {
   resolveAnimalFarmName,
   resolveAnimalPaddockName,
@@ -825,7 +826,13 @@ export default function AddRecordScreen() {
         }
       }
 
-      router.replace({ pathname: '/view-record', params: { recordId: editingRecord.id } });
+      // Edit is only ever reached by pushing from View Record, which is
+      // still sitting underneath this screen in the stack — go back to it
+      // rather than pushing/replacing with a fresh instance, or repeated
+      // View → Edit → Save cycles stack up an extra View Record entry each
+      // time (RecordsContext's state update means the existing screen below
+      // already reflects the edit once we land back on it).
+      router.back();
       return;
     }
 
@@ -1198,7 +1205,9 @@ export default function AddRecordScreen() {
                     : selectedAnimals.length === 0
                       ? `${animals.length} ${animals.length === 1 ? 'animal' : 'animals'} available`
                     : selectedAnimals.length === 1
-                      ? `${selectedAnimals[0].name} (${selectedAnimals[0].id})`
+                      ? (selectedAnimals[0].name.trim()
+                          ? `${selectedAnimals[0].name.trim()} (${selectedAnimals[0].id})`
+                          : selectedAnimals[0].id)
                       : `${selectedAnimals.length} animals selected`}
                 </Text>
                 <View style={styles.fieldChevron}>
@@ -2062,7 +2071,14 @@ export default function AddRecordScreen() {
               <Pressable
                 accessibilityLabel="Done"
                 accessibilityRole="button"
-                onPress={() => setShowExpiryDatePicker(false)}
+                onPress={() => {
+                  // Commits whatever date the spinner is currently showing —
+                  // onChange only fires once the user actually scrolls a
+                  // wheel, so without this, tapping Done on an
+                  // already-correct date silently saved nothing.
+                  setExpiryDate(formatDateForStorage(expiryDate ? parseStoredDate(expiryDate) ?? new Date() : new Date()));
+                  setShowExpiryDatePicker(false);
+                }}
               >
                 <Text style={styles.modalDone}>Done</Text>
               </Pressable>
@@ -3328,7 +3344,7 @@ function buildFormStateFromRecord(
     toPaddock: record.toPaddockUid
       ? resolvePaddockName(record.toPaddockUid, record.toPaddock, paddockEntities)
       : record.toPaddock ?? parsedMovement.toPaddock,
-    details: extractRecordNotes(record, detailMap),
+    details: extractRecordNotes(record),
     chosenAnimalIds: resolveRecordAnimalUids(record, animals),
     imageUris: record.imageUris ?? [],
   };
@@ -3500,47 +3516,8 @@ function parseDetailMap(details: string) {
     }, {});
 }
 
-function extractRecordNotes(record: RecordEntry, detailMap: Record<string, string>) {
-  if (record.recordTitle !== undefined || record.weight !== undefined || record.causeOfDeath !== undefined || record.healthStatus !== undefined || record.buyer !== undefined || record.seller !== undefined || record.birthTagId !== undefined || record.fromFarm !== undefined) {
-    return record.details;
-  }
-
-  const labelsToStrip = getStructuredDetailLabels(record.type, detailMap);
-  if (labelsToStrip.length === 0) {
-    return record.details;
-  }
-
-  return record
-    .details
-    .split(/\n\n+/)
-    .map((section) => section.trim())
-    .filter(Boolean)
-    .filter((section) => !labelsToStrip.some((label) => section.startsWith(`${label}:`)))
-    .join('\n\n');
-}
-
-function getStructuredDetailLabels(type: string, detailMap: Record<string, string>) {
-  if (type === 'Birth') {
-    return ['Mother', 'Tag / ID', 'Species', 'Breed', 'Sex', 'Weight'];
-  }
-
-  if (type === 'Death') {
-    return ['Disposal Method'];
-  }
-
-  if (type === 'Health Check') {
-    return ['Condition / Diagnosis', 'Vet Seen'];
-  }
-
-  if (type === 'Sale') {
-    return ['Buyer', 'Sale Price'];
-  }
-
-  if (type === 'Purchase') {
-    return ['Seller', 'Purchase Price'];
-  }
-
-  return Object.keys(detailMap).length === 0 ? [] : [];
+function extractRecordNotes(record: RecordEntry) {
+  return stripStructuredDetailLines(record.details, getStructuredDetailLabels(record.type));
 }
 
 function parseMovementTitle(title: string) {

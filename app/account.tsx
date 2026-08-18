@@ -188,7 +188,7 @@ export default function AccountScreen() {
         />
         {showBackupNudge ? (
           <BackupNudgeCard
-            onExportNow={() => router.push('/(tabs)/export')}
+            onBackUpNow={() => router.push('/settings')}
             onSnooze={handleBackupSnooze}
           />
         ) : null}
@@ -249,25 +249,25 @@ function SectionDivider() {
   return <View style={styles.divider} />;
 }
 
-function BackupNudgeCard({ onExportNow, onSnooze }: { onExportNow: () => void; onSnooze: () => void }) {
+function BackupNudgeCard({ onBackUpNow, onSnooze }: { onBackUpNow: () => void; onSnooze: () => void }) {
   return (
     <View style={styles.backupCard}>
       <View style={styles.backupHeaderRow}>
-        <AppIcon name="export_" size={20} color={tokens.colors.text} />
+        <AppIcon name="save" size={20} color={tokens.colors.text} />
         <Text style={styles.backupTitle}>Back up your farm data</Text>
       </View>
       <Text style={styles.backupSubtitle}>
-        Your records live only on this device. Export a copy to keep them safe.
+        Your records live only on this device. Back up a copy so it can be restored later or moved to another device.
       </Text>
       <View style={styles.backupActionsRow}>
         <BouncyPressable
-          accessibilityLabel="Export now"
+          accessibilityLabel="Back up now"
           accessibilityRole="button"
           containerStyle={styles.backupPrimaryButtonWrap}
-          onPress={onExportNow}
+          onPress={onBackUpNow}
           style={({ pressed }) => [styles.backupPrimaryButton, pressed && styles.pressed]}
         >
-          <Text style={styles.backupPrimaryButtonText}>Export Now</Text>
+          <Text style={styles.backupPrimaryButtonText}>Back Up Now</Text>
         </BouncyPressable>
         <BouncyPressable
           accessibilityLabel="Remind me later"
@@ -529,10 +529,10 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   backupCard: {
-    backgroundColor: tokens.colors.surfaceMuted,
+    backgroundColor: 'rgba(182, 73, 73, 0.12)',
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.colors.border,
+    borderColor: 'rgba(182, 73, 73, 0.35)',
     marginHorizontal: 26,
     marginTop: 14,
     padding: 16,

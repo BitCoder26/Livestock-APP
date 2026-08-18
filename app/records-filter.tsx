@@ -380,7 +380,16 @@ export default function RecordsFilterScreen() {
               <Pressable
                 accessibilityLabel="Done"
                 accessibilityRole="button"
-                onPress={() => setActiveDateField(null)}
+                onPress={() => {
+                  // Commits whatever date the spinner is currently showing —
+                  // onChange only fires once the user actually scrolls a
+                  // wheel, so without this, tapping Done on an
+                  // already-correct date silently saved nothing.
+                  if (activeDateField) {
+                    updateFilter(activeDateField, formatDateForStorage(activeDateValue));
+                  }
+                  setActiveDateField(null);
+                }}
               >
                 <Text style={styles.modalDone}>Done</Text>
               </Pressable>

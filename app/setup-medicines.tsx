@@ -145,11 +145,14 @@ export default function SetupMedicinesScreen() {
       return;
     }
 
+    // iOS uses a spinner inside a modal with its own "Done" button (below) —
+    // onChange fires on every scroll tick, so closing here would dismiss the
+    // picker after the first nudge instead of letting the user dial in a
+    // date. Only Android's native picker dialog needs the change handler to
+    // close it.
     if (value) {
       setPickedDate(formatDateForStorage(value));
     }
-
-    setShowDatePicker(false);
   };
 
   const confirmDeleteTreatment = async () => {
@@ -218,6 +221,7 @@ export default function SetupMedicinesScreen() {
           <DesignField value={milkWithdrawalPeriod} label="Milk withdrawal period" onChangeText={setMilkWithdrawalPeriod} />
           <DesignField value={manufacturer} label="Manufacturer" onChangeText={setManufacturer} />
           <DesignField value={batchNumber} label="Batch / Lot number" onChangeText={setBatchNumber} />
+          <DesignField value={supplier} label="Supplier" onChangeText={setSupplier} />
           <SelectionField
             label="Expiry date"
             value={formatDateForDisplay(expiryDate, profile.dateFormat)}
@@ -227,7 +231,6 @@ export default function SetupMedicinesScreen() {
               setShowDatePicker(true);
             }}
           />
-          <DesignField value={supplier} label="Supplier" onChangeText={setSupplier} />
           <SelectionField
             label="Purchase date"
             value={formatDateForDisplay(purchaseDate, profile.dateFormat)}
@@ -377,7 +380,18 @@ export default function SetupMedicinesScreen() {
           <AnimatedPopupCard visible={showDatePicker && Platform.OS === 'ios'} style={styles.modalCard} onPress={() => undefined}>
             <View style={styles.modalHeader}>
               <Text style={styles.selectionTitle}>{datePickerTarget === 'purchase' ? 'Select purchase date' : 'Select expiry date'}</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Done" onPress={() => setShowDatePicker(false)}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Done"
+                onPress={() => {
+                  // Commits whatever date the spinner is currently showing —
+                  // onChange only fires once the user actually scrolls a
+                  // wheel, so without this, tapping Done on an
+                  // already-correct date silently saved nothing.
+                  setPickedDate(formatDateForStorage(pickedDateValue ? parseStoredDate(pickedDateValue) ?? new Date() : new Date()));
+                  setShowDatePicker(false);
+                }}
+              >
                 <Text style={styles.modalDone}>Done</Text>
               </Pressable>
             </View>

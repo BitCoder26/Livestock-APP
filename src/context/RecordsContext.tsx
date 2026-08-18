@@ -611,12 +611,22 @@ function rebuildAnimalsState(
       };
     }
 
+    // Unlike weight/location above, status is always written — an animal
+    // with no remaining Death/Sale record must resolve back to Active, not
+    // keep whatever status a since-deleted or since-edited-away record had
+    // set. This is what makes deleting a Death/Sale record correctly revive
+    // /un-sell the animal (see Status's read-only helper text on the Edit
+    // Animal screen: "Status updates automatically from Death, Sale, and
+    // Purchase records" — true only if the absence of one also counts).
     const latestLifecycleRecord = findLatestDimensionRecord(records, animal.uid, 'status');
-    if (latestLifecycleRecord) {
-      const nextStatus =
-        latestLifecycleRecord.type === 'Death' ? 'Deceased' : latestLifecycleRecord.type === 'Sale' ? 'Sold' : 'Active';
-      next = { ...next, status: nextStatus };
-    }
+    const nextStatus = latestLifecycleRecord
+      ? latestLifecycleRecord.type === 'Death'
+        ? 'Deceased'
+        : latestLifecycleRecord.type === 'Sale'
+          ? 'Sold'
+          : 'Active'
+      : 'Active';
+    next = { ...next, status: nextStatus };
 
     return next;
   });

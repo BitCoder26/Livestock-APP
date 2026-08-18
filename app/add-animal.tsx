@@ -117,7 +117,11 @@ export function AddAnimalScreen() {
   const [paddock, setPaddock] = useState(existingAnimal ? resolveAnimalPaddockName(existingAnimal, paddockEntities) : '');
   const [group, setGroup] = useState(existingAnimal?.group ?? '');
   const [source, setSource] = useState<AnimalSource | ''>(existingAnimal?.source ?? '');
-  const [farmEntryDate, setFarmEntryDate] = useState(existingAnimal?.farmEntryDate ?? '');
+  // Defaults to today for a new animal — most animals join the farm "now",
+  // and leaving it blank meant the field silently stayed empty unless the
+  // user opened the picker and explicitly touched it (see the Done-button
+  // fix below for the general version of that problem).
+  const [farmEntryDate, setFarmEntryDate] = useState(existingAnimal?.farmEntryDate ?? formatDateForStorage(new Date()));
   const [notes, setNotes] = useState(existingAnimal?.notes ?? '');
   const [imageUris, setImageUris] = useState<string[]>(() =>
     filterAccessibleImageUris(existingAnimal?.imageUris),
@@ -697,15 +701,26 @@ export function AddAnimalScreen() {
               setActivePicker('group');
             }}
           />
-          <BouncyPressable
-            accessibilityLabel="Add group"
-            accessibilityRole="button"
-            containerStyle={styles.helperLinkWrap}
-            onPress={() => openSetupScreen('/setup-groups')}
-            style={({ pressed }) => [pressed && styles.pressed]}
-          >
-            <Text style={styles.helperLink}>+ Add Group</Text>
-          </BouncyPressable>
+          <View style={styles.helperLinkRow}>
+            <BouncyPressable
+              accessibilityLabel="Add group"
+              accessibilityRole="button"
+              onPress={() => openSetupScreen('/setup-groups')}
+              style={({ pressed }) => [pressed && styles.pressed]}
+            >
+              <Text style={styles.helperLink}>+ Add Group</Text>
+            </BouncyPressable>
+            {group ? (
+              <BouncyPressable
+                accessibilityLabel="Clear group"
+                accessibilityRole="button"
+                onPress={() => setGroup('')}
+                style={({ pressed }) => [pressed && styles.pressed]}
+              >
+                <Text style={styles.helperLink}>Clear Group</Text>
+              </BouncyPressable>
+            ) : null}
+          </View>
 
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
@@ -896,7 +911,15 @@ export function AddAnimalScreen() {
               <Pressable
                 accessibilityLabel="Done"
                 accessibilityRole="button"
-                onPress={() => setShowDatePicker(false)}
+                onPress={() => {
+                  // Commits whatever date the spinner is currently showing —
+                  // onChange only fires once the user actually scrolls a
+                  // wheel, so without this, opening the picker on an already-
+                  // correct date and tapping Done straight away silently
+                  // saved nothing.
+                  setDateOfBirth(formatDateForStorage(parsedDateOfBirth ?? new Date()));
+                  setShowDatePicker(false);
+                }}
               >
                 <Text style={styles.modalDone}>Done</Text>
               </Pressable>
@@ -924,7 +947,10 @@ export function AddAnimalScreen() {
               <Pressable
                 accessibilityLabel="Done"
                 accessibilityRole="button"
-                onPress={() => setShowEntryDatePicker(false)}
+                onPress={() => {
+                  setFarmEntryDate(formatDateForStorage(parsedFarmEntryDate ?? new Date()));
+                  setShowEntryDatePicker(false);
+                }}
               >
                 <Text style={styles.modalDone}>Done</Text>
               </Pressable>
@@ -1034,9 +1060,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginTop: -6,
-  },
-  helperLinkWrap: {
-    alignSelf: 'flex-start',
   },
   helperLinkRow: {
     flexDirection: 'row',
