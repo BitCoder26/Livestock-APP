@@ -1864,6 +1864,9 @@ h2,
 .about-band {
   position: relative;
   z-index: 0;
+  /* Keeps the blobs' bleed inside the band instead of running under the
+     header or footer. */
+  overflow: hidden;
   width: 100%;
   padding: 56px 0 72px;
   background: var(--bg);
@@ -1890,28 +1893,31 @@ h2,
     z-index: -1;
   }
 
+  /* Each blob is drawn hard against one edge of its own canvas - 2 and 4 on
+     the right, 3 and the original on the left - so the offsets below are set
+     from that edge, not from the canvas as a whole. */
   .page-blob-right-top {
-    right: -180px;
-    top: -140px;
-    width: 640px;
+    right: -40px;
+    top: -120px;
+    width: 700px;
   }
 
   .page-blob-left-mid {
-    left: -240px;
-    top: 380px;
-    width: 560px;
+    left: -40px;
+    top: 300px;
+    width: 900px;
   }
 
   .page-blob-left-top {
-    left: -260px;
-    top: -60px;
-    width: 560px;
+    left: -150px;
+    top: -40px;
+    width: 620px;
   }
 
   .page-blob-right-low {
-    right: -200px;
-    top: 240px;
-    width: 600px;
+    right: -140px;
+    top: 120px;
+    width: 700px;
   }
 
   /* The canvas is ~26% transparent margin each side, so the bird itself
