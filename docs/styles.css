@@ -332,10 +332,27 @@ h2,
 }
 
 .reports-teaser {
+  position: relative;
   width: min(var(--content-frame-width), calc(100% - 48px));
   margin: 0 auto;
   padding: 12px 0 40px;
   text-align: center;
+}
+
+.reports-accent {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .reports-accent {
+    display: block;
+    position: absolute;
+    top: 30px;
+    right: -80px;
+    width: 460px;
+    height: auto;
+    pointer-events: none;
+  }
 }
 
 .section-chip {
@@ -379,18 +396,19 @@ h2,
   .copy-accent {
     display: block;
     position: absolute;
-    top: calc(100% - 140px);
+    top: calc(100% - 60px);
     left: 50%;
     transform: translateX(-50%);
-    width: 640px;
+    width: 768px;
     height: auto;
     pointer-events: none;
   }
 }
 
 .reports-graphic {
-  margin: 18px auto 0;
-  width: min(860px, 100%);
+  /* Negative offset absorbs the transparent padding above the artwork. */
+  margin: -60px auto 0;
+  width: min(1032px, 100%);
 }
 
 .reports-graphic img {
@@ -415,10 +433,11 @@ h2,
 }
 
 .faq-item {
-  border: 1px solid rgba(201, 86, 86, 0.25);
-  border-radius: 14px;
-  margin-bottom: 10px;
+  border: 0;
+  border-radius: 28px;
+  margin-bottom: 14px;
   background: #ffffff;
+  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.25);
 }
 
 .faq-item summary {
@@ -461,6 +480,42 @@ h2,
   color: #000000;
   font-size: 0.94rem;
   line-height: 1.6;
+}
+
+.community-banner {
+  width: 100%;
+  margin: 6px 0 18px;
+  padding: 44px 24px 48px;
+  border-radius: 28px;
+  background: var(--banner-red);
+  text-align: center;
+}
+
+.community-banner h2 {
+  margin: 0 0 12px;
+  color: #ffffff;
+  font-size: clamp(1.7rem, 2.8vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.community-banner p {
+  margin: 0 auto 22px;
+  max-width: 40rem;
+  color: #ffffff;
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.community-banner-link {
+  display: inline-block;
+  padding: 13px 26px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--banner-red);
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
 }
 
 .faq-view-all {
