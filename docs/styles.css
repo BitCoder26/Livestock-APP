@@ -433,7 +433,7 @@ h2,
    stays centred. */
 @media (min-width: 901px) {
   .feature-story-list > .feature-story-graphic:nth-child(1) {
-    grid-template-columns: minmax(320px, 880px) minmax(260px, 1fr);
+    grid-template-columns: minmax(320px, 800px) minmax(260px, 1fr);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(1) .feature-story-screen {
@@ -446,8 +446,12 @@ h2,
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) .feature-story-screen {
-    width: calc(100% + 140px);
-    margin-right: -140px;
+    width: calc(100% + 200px);
+    margin-right: -200px;
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(2) .feature-story-copy {
+    text-align: right;
   }
 
   /* 0.85x the other stories' artwork. */
@@ -456,8 +460,8 @@ h2,
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(3) .feature-story-screen {
-    width: calc(100% + 220px);
-    margin-left: -220px;
+    width: calc(100% + 320px);
+    margin-left: -320px;
   }
 }
 
