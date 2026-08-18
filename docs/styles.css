@@ -560,7 +560,13 @@ h2,
     max-width: none;
     padding-left: 0;
     padding-right: 0;
+    padding-bottom: 0;
     text-align: left;
+    /* The animals artwork below carries a deep transparent top margin, so the
+       heading sits lower and the stories are pulled up to close the gap the
+       canvas leaves behind. */
+    margin-top: 130px;
+    margin-bottom: -110px;
   }
 
   /* Specific enough to beat the margin shorthand on .section-intro h2. */
