@@ -346,6 +346,15 @@ h2,
   text-align: left;
 }
 
+.reports-teaser-side {
+  text-align: left;
+}
+
+.reports-teaser-side .coming-soon {
+  width: fit-content;
+  margin: 46px 0 0 auto;
+}
+
 .reports-teaser-side h3 {
   margin: 0 0 8px;
   color: #000000;
@@ -432,7 +441,7 @@ h2,
 
 .reports-graphic {
   /* Negative offset absorbs the transparent padding above the artwork. */
-  margin: -60px auto 0;
+  margin: -60px auto 0 -90px;
   width: min(1032px, 100%);
 }
 
@@ -1126,7 +1135,7 @@ h2,
   width: 100%;
   height: auto;
   margin-top: -11%;
-  margin-bottom: -4.6%;
+  margin-bottom: -6.8%;
 }
 
 .footer-copyright {
