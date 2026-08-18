@@ -132,7 +132,7 @@ h2,
 
 .hero-copy {
   color: #4e1a21;
-  padding: 24px 0 12px;
+  padding: 48px 0 12px;
   max-width: 34rem;
 }
 
@@ -388,6 +388,16 @@ h2,
 
 .feature-story.reverse {
   grid-template-columns: minmax(320px, 1fr) minmax(240px, 340px);
+}
+
+/* Graphic stories carry wide artwork (phones on a blob), not a lone phone
+   mockup, so the media column gets more room and the image fills it. */
+.feature-story-graphic {
+  grid-template-columns: minmax(280px, 460px) minmax(320px, 1fr);
+}
+
+.feature-story-graphic .feature-story-screen {
+  width: 100%;
 }
 
 .feature-story-screen {
@@ -783,7 +793,7 @@ h2,
   }
 
   .hero-copy {
-    padding-top: 16px;
+    padding-top: 28px;
   }
 
   .feature-story {
