@@ -1828,15 +1828,54 @@ h2,
 
 /* Contact page: one panel on the plain page background, like the rest of
    the site's sections. */
-.contact-band {
+.contact-band,
+.about-band {
   width: 100%;
   padding: 56px 0 72px;
   background: var(--bg);
 }
 
+/* Same page furniture and type as the contact page, but the copy sits
+   directly on the page rather than inside a panel. */
+.about-shell {
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.about-shell h1 {
+  margin: 0 0 26px;
+  color: #000000;
+  font-size: clamp(2.1rem, 4.4vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.about-shell h2 {
+  margin: 40px 0 22px;
+  color: #c95656;
+  font-size: clamp(1.35rem, 2.4vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.about-shell p {
+  margin: 0 0 22px;
+  max-width: 46rem;
+  color: #000000;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.about-shell a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 /* The band already carries the gap the footer's top margin would add, and
    the panel is the only thing this page needs separated. */
-.contact-band + .site-footer {
+.contact-band + .site-footer,
+.about-band + .site-footer {
   margin-top: 0;
   border-top: 0;
 }
@@ -1925,13 +1964,18 @@ h2,
 }
 
 @media (max-width: 680px) {
-  .contact-band {
+  .contact-band,
+  .about-band {
     padding: 32px 0 44px;
   }
 
   .contact-shell {
     width: min(var(--content-frame-width), calc(100% - 32px));
     padding: 28px 24px 32px;
+  }
+
+  .about-shell {
+    width: min(var(--content-frame-width), calc(100% - 32px));
   }
 
   .contact-help-row {
