@@ -491,12 +491,12 @@ h2,
    stays centred. */
 @media (min-width: 901px) {
   .feature-story-list > .feature-story-graphic:nth-child(1) {
-    grid-template-columns: minmax(320px, 820px) minmax(260px, 1fr);
+    grid-template-columns: minmax(320px, 680px) minmax(260px, 1fr);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(1) .feature-story-screen {
-    width: calc(100% + 175px);
-    margin-left: -175px;
+    width: calc(100% + 315px);
+    margin-left: -315px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) {
@@ -506,8 +506,8 @@ h2,
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) .feature-story-screen {
-    width: calc(100% + 280px);
-    margin-right: -280px;
+    width: calc(100% + 172px);
+    margin-right: -172px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) .feature-story-copy {
@@ -520,17 +520,17 @@ h2,
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(3) .feature-story-screen {
-    width: calc(100% + 300px);
-    margin-left: -300px;
+    width: calc(100% + 191px);
+    margin-left: -191px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(4) {
-    grid-template-columns: minmax(260px, 1fr) minmax(320px, 880px);
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 740px);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(4) .feature-story-screen {
-    width: calc(100% + 200px);
-    margin-right: -200px;
+    width: calc(100% + 286px);
+    margin-right: -286px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(4) .feature-story-copy {
