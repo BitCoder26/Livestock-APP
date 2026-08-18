@@ -1920,6 +1920,12 @@ h2,
     width: 700px;
   }
 
+  .page-blob-right-corner {
+    right: -60px;
+    top: -300px;
+    width: 620px;
+  }
+
   /* The canvas is ~26% transparent margin each side, so the bird itself
      lands well clear of the 46rem copy column. */
   .about-ostrich {
