@@ -1,7 +1,7 @@
 :root {
-  --bg: #fdf9f3;
-  --surface: #fdf9f3;
-  --surface-soft: #fdf9f3;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-soft: #ffffff;
   --line: rgba(33, 29, 24, 0.1);
   --text: #4e1a21;
   --muted: #4e1a21;
@@ -396,11 +396,21 @@ h2,
    phone-layout rules in the max-width blocks below. */
 @media (min-width: 901px) {
   .feature-story-graphic {
-    grid-template-columns: minmax(280px, 460px) minmax(320px, 1fr);
+    grid-template-columns: minmax(320px, 560px) minmax(300px, 1fr);
+    gap: 40px;
   }
 
   .feature-story.reverse.feature-story-graphic {
-    grid-template-columns: minmax(320px, 1fr) minmax(280px, 460px);
+    grid-template-columns: minmax(300px, 1fr) minmax(320px, 560px);
+  }
+
+  /* Keep the copy beside its artwork instead of drifting to the frame edge:
+     the copy column is 1fr, so a stretched copy box leaves its text far from
+     the image on reverse rows. */
+  .feature-story.reverse.feature-story-graphic .feature-story-copy {
+    width: auto;
+    max-width: 26rem;
+    justify-self: end;
   }
 }
 
