@@ -1088,11 +1088,11 @@ h2,
     top: 115px;
   }
 
-  /* Export (left) down to Ready to Share (right). It rides lower than the
-     others so it lands nearer the graphic it points into. */
+  /* Export (left) down to Ready to Share (right), sitting just under the
+     export mockup rather than down on the sharing artwork. */
   .story-arrow-3 {
     left: 39%;
-    top: 20px;
+    top: -70px;
   }
 }
 
