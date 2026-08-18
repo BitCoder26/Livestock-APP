@@ -388,6 +388,12 @@ h2,
     width: 130%;
     max-width: none;
   }
+
+  /* At that size the tile's empty lower band is deep, which left the label
+     floating well under the drawing. */
+  .benefits-row .benefit-label {
+    margin-top: -56px;
+  }
 }
 
 .hero-benefit-icon {
@@ -2112,7 +2118,7 @@ h2,
   /* The folded rows leave room for bigger icons than the four-across
      desktop line does; 1.3 of the responsive size the row starts from. */
   .how-flow .flow-step img {
-    width: calc(clamp(150px, 20vw, var(--icon-size)) * 1.3);
+    width: calc(clamp(150px, 20vw, var(--icon-size)) * 1.43);
     max-width: none;
   }
 
