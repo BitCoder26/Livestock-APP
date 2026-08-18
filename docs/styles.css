@@ -2149,10 +2149,20 @@ h2,
   margin: -100px auto -116px;
 }
 
+@media (min-width: 901px) {
+  .page-animal-mobile-only {
+    display: none;
+  }
+}
+
 /* On a phone the box is narrower, so the transparent band it has to take
    back is smaller too - the desktop pull would push the art out through
    the bottom of the card it sits in. */
 @media (max-width: 900px) {
+  .page-animal-desktop-only {
+    display: none;
+  }
+
   .page-animal-flow {
     margin: -46px auto -54px;
   }
