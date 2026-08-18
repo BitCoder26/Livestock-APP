@@ -1886,7 +1886,7 @@ h2,
 
 .contact-shell h1 {
   margin: 0 0 26px;
-  color: #000000;
+  color: var(--banner-red);
   font-size: clamp(2.1rem, 4.4vw, 3.2rem);
   font-weight: 800;
   letter-spacing: -0.04em;
@@ -1900,8 +1900,10 @@ h2,
   line-height: 1.6;
 }
 
+/* The page's one accent colour is the site red, so the address matches the
+   heading and the pills rather than the green used elsewhere. */
 .contact-email {
-  color: var(--accent);
+  color: var(--banner-red);
   font-weight: 700;
 }
 
