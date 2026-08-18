@@ -339,6 +339,12 @@ h2,
   text-align: center;
 }
 
+@media (min-width: 901px) {
+  .reports-teaser {
+    margin-top: -160px;
+  }
+}
+
 .reports-story {
   display: grid;
   gap: 24px;
@@ -351,17 +357,18 @@ h2,
 }
 
 .reports-copy h3 {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   color: #000000;
-  font-size: 1.25rem;
+  font-size: clamp(1.7rem, 2.8vw, 2.2rem);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.04em;
+  line-height: 1.04;
 }
 
 .reports-copy .coming-soon p {
   margin: 0;
   color: #000000;
-  font-size: 1rem;
+  font-size: 1.06rem;
   line-height: 1.6;
 }
 
@@ -376,11 +383,10 @@ h2,
 
   .reports-accent {
     display: block;
-    position: absolute;
-    top: -20px;
-    right: -40px;
     width: 380px;
     height: auto;
+    /* The canvas is mostly transparent margin; pull the flow in around it. */
+    margin: -70px auto -70px;
     pointer-events: none;
   }
 }
@@ -521,7 +527,7 @@ h2,
 
 .community-banner {
   width: 100%;
-  margin: 6px 0 18px;
+  margin: 6px 0 52px;
   padding: 44px 24px 48px;
   border-radius: 28px;
   background: #c95656;
