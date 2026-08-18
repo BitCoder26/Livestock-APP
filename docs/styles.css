@@ -1925,12 +1925,10 @@ h2,
     display: none;
   }
 
-  .benefit-label {
-    gap: 2px;
-  }
-
+  /* The check keeps the same clearance from its label as on desktop; the
+     narrower canvas inset here only pulls the mark in from the tile edge. */
   .benefit-check {
-    margin: -35px -34px -35px -42px;
+    margin: -35px -30px -35px -42px;
   }
 
   .footer-illustration img {
