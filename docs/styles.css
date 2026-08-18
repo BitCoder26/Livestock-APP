@@ -1846,12 +1846,11 @@ h2,
     font-size: clamp(2.1rem, 12vw, 3.4rem);
   }
 
-  /* Full-bleed on phones: the graphic is a wide 4-across flow, so it needs
-     every pixel of viewport width for its labels to stay readable. */
-  /* Less lift than desktop: stacked full-bleed puts the blob's high right
-     shoulder directly under the store badges. */
+  /* The mockups lead the figure on phones, and their canvas carries barely
+     any margin above the handsets, so the artwork ran straight into the
+     store badges. Give it room instead of the desktop lift. */
   .hero-usp {
-    margin-top: -20px;
+    margin-top: 28px;
     padding-left: 0;
   }
 
