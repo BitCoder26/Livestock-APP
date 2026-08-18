@@ -367,6 +367,38 @@ h2,
   line-height: 1.6;
 }
 
+.feature-story-graphic .feature-story-copy {
+  position: relative;
+}
+
+.copy-accent {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .copy-accent {
+    display: block;
+    position: absolute;
+    top: calc(100% - 140px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 640px;
+    height: auto;
+    pointer-events: none;
+  }
+}
+
+.reports-graphic {
+  margin: 18px auto 0;
+  width: min(860px, 100%);
+}
+
+.reports-graphic img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
 .faq-section {
   width: min(640px, calc(100% - 48px));
   margin: 0 auto;
@@ -578,11 +610,12 @@ h2,
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(3) .story-accent {
-    top: -340px;
+    top: -240px;
+    left: 58%;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(4) .story-accent {
-    top: -520px;
+    top: -400px;
     left: 58%;
   }
 }
