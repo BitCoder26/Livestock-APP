@@ -360,8 +360,12 @@ h2,
   padding-left: calc((100% - min(var(--content-frame-width), 100% - 48px)) / 2);
 }
 
+/* The artwork is pulled up over the hero copy, where it sat on top of the
+   store badges and ate their clicks. It is entirely decorative, so let
+   pointer events fall through to the links underneath. */
 .hero-usp {
   position: relative;
+  pointer-events: none;
 }
 
 .hero-usp > img:first-child {
@@ -375,7 +379,7 @@ h2,
    margins, hence the generous widths. */
 .hero-phone {
   position: absolute;
-  top: 4%;
+  top: -6%;
   right: 8%;
   width: 48.4%;
   height: auto;
@@ -385,15 +389,6 @@ h2,
   position: absolute;
   height: auto;
   pointer-events: none;
-}
-
-/* Was baked into landing-page.png facing right; lifted out so it can be
-   mirrored and moved independently of the blob. */
-.hero-animal-goat {
-  left: 13%;
-  top: 32%;
-  width: 38.4%;
-  transform: scaleX(-1);
 }
 
 .hero-animal-rabbit {
@@ -738,9 +733,9 @@ h2,
 @media (min-width: 901px) {
   .reports-graphic {
     /* Bleed leftward like the story graphics; text-side edge stays put.
-       The extra 77px over the base bleed scales the mockups by 1.1. */
-    width: calc(100% + 227px);
-    margin-left: -227px;
+       The extra bleed over the base 150px scales the mockups by 1.1 twice. */
+    width: calc(100% + 312px);
+    margin-left: -312px;
   }
 }
 
