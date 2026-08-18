@@ -1091,7 +1091,8 @@ h2,
 }
 
 .footer-badges .store-badge-image {
-  height: 40px;
+  width: 140px;
+  height: auto;
 }
 
 .footer-col h3 {
@@ -1113,11 +1114,19 @@ h2,
   color: #000000;
 }
 
+/* The artwork carries white sky above and a white strip below the ground;
+   the wrapper clips both so the landscape sits tight under the links. */
 .footer-illustration {
+  overflow: hidden;
+  margin-top: 18px;
+}
+
+.footer-illustration img {
   display: block;
   width: 100%;
   height: auto;
-  margin-top: 26px;
+  margin-top: -11%;
+  margin-bottom: -4.6%;
 }
 
 .footer-copyright {
