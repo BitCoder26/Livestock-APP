@@ -1826,17 +1826,16 @@ h2,
   }
 }
 
-/* Contact page: a coloured band carrying one light panel, in the same red the
-   rest of the site uses for its banners. */
+/* Contact page: one panel on the plain page background, like the rest of
+   the site's sections. */
 .contact-band {
   width: 100%;
   padding: 56px 0 72px;
-  background: linear-gradient(180deg, var(--banner-red) 0%, #c95656 100%);
+  background: var(--bg);
 }
 
-/* The footer's top margin is white space the home page wants between its
-   sections; here it would open a white strip under the coloured band. The
-   divider rule goes too - the band's own edge is the separation. */
+/* The band already carries the gap the footer's top margin would add, and
+   the panel is the only thing this page needs separated. */
 .contact-band + .site-footer {
   margin-top: 0;
   border-top: 0;
@@ -1846,8 +1845,9 @@ h2,
   width: min(var(--content-frame-width), calc(100% - 48px));
   margin: 0 auto;
   padding: 44px 48px 48px;
+  border: 1px solid var(--line);
   border-radius: 28px;
-  background: #f7f7f7;
+  background: var(--surface);
   box-shadow: var(--shadow);
 }
 
