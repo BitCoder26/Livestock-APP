@@ -308,9 +308,13 @@ h2,
   }
 
   /* Its artwork fills less of its canvas than the other three, so it needs a
-     wider box to read at the same size. */
+     wider box to read at the same size - and its canvas seats the drawing
+     higher, so at that width the icon floated 24px above its neighbours.
+     Nudged down without moving the label under it. */
   .benefits-row .benefit-tile-offline {
     width: calc(var(--icon-size) * 1.21);
+    position: relative;
+    top: 24px;
   }
 }
 
