@@ -2123,9 +2123,11 @@ h2,
     width: 900px;
   }
 
-  /* Second graphic down the left margin of the long terms page. */
+  /* Second graphic down the left margin of the long terms page. Its canvas
+     draws the shape across the left half only, so the box has to sit far
+     enough out for that half to stop short of the copy column. */
   .page-blob-left-low {
-    left: -170px;
+    left: -300px;
     top: 1500px;
     width: 820px;
   }
