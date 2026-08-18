@@ -548,6 +548,27 @@ h2,
   margin-top: 56px;
 }
 
+/* Signposts the feature stories, sharing the left edge the other two
+   section intros take from the nav bar. */
+.features-intro {
+  margin-top: 56px;
+}
+
+@media (min-width: 901px) {
+  .section-intro.features-intro {
+    width: 100%;
+    max-width: none;
+    padding-left: 0;
+    padding-right: 0;
+    text-align: left;
+  }
+
+  /* Specific enough to beat the margin shorthand on .section-intro h2. */
+  .section-intro.features-intro h2 {
+    margin-left: var(--nav-inset);
+  }
+}
+
 /* Mirrors the "How it works" intro: header block hugs the right edge with
    the horse riding its right side. */
 @media (min-width: 901px) {
