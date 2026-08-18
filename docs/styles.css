@@ -296,7 +296,7 @@ h2,
   /* The PNG carries 19.5% transparent padding on top, and its left side (which
      sits under the hero copy) stays empty until 35.6% down, so it can be
      pulled up hard without the artwork colliding with the text. */
-  margin: -310px 0 0;
+  margin: -285px 0 0;
   padding-left: calc((100% - min(var(--content-frame-width), 100% - 48px)) / 2);
 }
 
