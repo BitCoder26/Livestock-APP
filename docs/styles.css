@@ -1064,7 +1064,7 @@ h2,
 .site-footer {
   width: 100%;
   margin: 28px 0 0;
-  padding: 42px 0 26px;
+  padding: 42px 0 0;
   background: var(--bg);
   border-top: 1px solid rgba(33, 29, 24, 0.12);
 }
@@ -1111,6 +1111,13 @@ h2,
 
 .footer-col a:hover {
   color: #000000;
+}
+
+.footer-illustration {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 26px;
 }
 
 .footer-copyright {
