@@ -449,11 +449,11 @@ h2,
      and records graphics; the cow stays tucked right under its graphic.
      Offsets compensate for the transparent margins baked into each canvas. */
   .feature-story-list > .feature-story-graphic:nth-child(1) .story-accent {
-    top: calc(100% - 50px);
+    top: calc(100% - 125px);
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) .story-accent {
-    top: calc(100% - 260px);
+    top: calc(100% - 335px);
   }
 }
 
@@ -474,6 +474,8 @@ h2,
 
   .feature-story-list > .feature-story-graphic:nth-child(2) {
     grid-template-columns: minmax(260px, 1fr) minmax(320px, 800px);
+    /* Close up the canvas padding between this story and the one above. */
+    margin-top: -150px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(2) .feature-story-screen {
@@ -487,6 +489,7 @@ h2,
 
   .feature-story-list > .feature-story-graphic:nth-child(3) {
     grid-template-columns: minmax(320px, 550px) minmax(260px, 1fr);
+    margin-top: -150px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(3) .feature-story-screen {
