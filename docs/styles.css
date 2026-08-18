@@ -391,9 +391,17 @@ h2,
 }
 
 /* Graphic stories carry wide artwork (phones on a blob), not a lone phone
-   mockup, so the media column gets more room and the image fills it. */
-.feature-story-graphic {
-  grid-template-columns: minmax(280px, 460px) minmax(320px, 1fr);
+   mockup, so the media column gets more room and the image fills it. The
+   column widths live behind min-width so their specificity cannot beat the
+   phone-layout rules in the max-width blocks below. */
+@media (min-width: 901px) {
+  .feature-story-graphic {
+    grid-template-columns: minmax(280px, 460px) minmax(320px, 1fr);
+  }
+
+  .feature-story.reverse.feature-story-graphic {
+    grid-template-columns: minmax(320px, 1fr) minmax(280px, 460px);
+  }
 }
 
 .feature-story-graphic .feature-story-screen {
