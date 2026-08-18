@@ -408,9 +408,21 @@ h2,
   text-align: center;
 }
 
+/* Both intro sections are wider than .site-header-inner, so this pad brings
+   their right edge back in line with the nav bar's last link. The percentages
+   resolve against .how-why-wrap, the full-width parent both sections share. */
+@media (min-width: 901px) {
+  .section-intro.how-it-works,
+  .section-intro.why-intro {
+    padding-right: calc(
+      (min(1264px, 100% - 32px) - min(var(--hero-frame-width), 100% - 32px)) / 2 + 24px
+    );
+  }
+}
+
 .how-intro-text {
   width: fit-content;
-  margin: 0 6% 0 auto;
+  margin: 0 0 0 auto;
   text-align: right;
 }
 
@@ -442,7 +454,7 @@ h2,
 }
 
 .how-flow img {
-  width: clamp(140px, 15vw, 205px);
+  width: clamp(120px, 11.5vw, 158px);
   height: auto;
   display: block;
   margin: 0;
@@ -472,8 +484,8 @@ h2,
 .flow-arrow {
   display: inline-flex;
   flex: 0 0 auto;
-  width: clamp(26px, 2.6vw, 38px);
-  margin-top: -40px;
+  width: clamp(22px, 2vw, 28px);
+  margin-top: -32px;
 }
 
 .flow-arrow svg {
@@ -495,7 +507,6 @@ h2,
     width: min(1264px, calc(100% - 32px));
     max-width: none;
     margin: 56px auto 0;
-    padding-right: 6%;
     text-align: right;
   }
 
