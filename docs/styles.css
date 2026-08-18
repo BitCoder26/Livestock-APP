@@ -260,7 +260,7 @@ h2,
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  width: min(940px, calc(100% - 48px));
+  width: min(1100px, calc(100% - 48px));
 }
 
 .benefits-row li {
@@ -276,7 +276,7 @@ h2,
 }
 
 .benefit-tile {
-  width: min(230px, 100%);
+  width: min(290px, 100%);
   height: auto;
   display: block;
 }
@@ -415,7 +415,7 @@ h2,
 
   .reports-accent {
     display: block;
-    width: 380px;
+    width: 470px;
     height: auto;
     /* The canvas is mostly transparent margin; pull the flow in around it. */
     margin: -70px auto -70px;
@@ -558,10 +558,11 @@ h2,
 }
 
 .community-banner {
-  width: 100%;
-  margin: 6px 0 88px;
-  padding: 44px 24px 48px;
-  border-radius: 28px;
+  /* Full-bleed band: wider than the page shell it sits in. */
+  width: 100vw;
+  margin: 64px calc((100% - 100vw) / 2) 110px;
+  padding: 52px 24px 56px;
+  border-radius: 0;
   background: #c95656;
   text-align: center;
 }
@@ -1413,5 +1414,57 @@ h2,
   }
   .placeholder-row {
     flex-direction: column;
+  }
+}
+
+
+/* Mobile: stacked graphic-over-text stories, enlarged artwork, and the
+   compact footer illustration. */
+@media (max-width: 900px) {
+  .hero-usp img {
+    width: 125%;
+    margin-left: -12.5%;
+  }
+
+  .feature-story-list > .feature-story-graphic,
+  .feature-story-list > .feature-story-graphic.reverse {
+    grid-template-columns: 1fr;
+    grid-template-areas: "media" "copy";
+    max-width: none;
+    width: 100%;
+    gap: 0;
+  }
+
+  .feature-story-list > .feature-story-graphic .feature-story-screen {
+    grid-area: media;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+  }
+
+  .feature-story-list > .feature-story-graphic .feature-story-copy {
+    grid-area: copy;
+    max-width: none;
+    width: 100%;
+    margin-top: -14vw;
+    padding: 0 8px;
+  }
+
+  /* The export copy keeps its own line flow on phones. */
+  .feature-story-list > .feature-story-graphic:nth-child(3) h2 br,
+  .feature-story-list > .feature-story-graphic:nth-child(3) .feature-story-copy > p br {
+    display: none;
+  }
+
+  .benefit-label {
+    gap: 2px;
+  }
+
+  .benefit-check {
+    margin: -35px -34px -35px -42px;
+  }
+
+  .footer-illustration img {
+    margin-top: -22%;
+    margin-bottom: -16.5%;
   }
 }
