@@ -1872,22 +1872,16 @@ h2,
   font-weight: 700;
 }
 
-/* The band already carries the gap the footer's top margin would add, and
-   the panel is the only thing this page needs separated. */
+/* The band already carries the gap the footer's top margin would add; the
+   footer's own rule stays as the divider. */
 .contact-band + .site-footer,
 .about-band + .site-footer {
   margin-top: 0;
-  border-top: 0;
 }
 
 .contact-shell {
   width: min(var(--content-frame-width), calc(100% - 48px));
   margin: 0 auto;
-  padding: 44px 48px 48px;
-  border: 1px solid var(--line);
-  border-radius: 28px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
 }
 
 .contact-shell h1 {
@@ -1927,40 +1921,22 @@ h2,
 }
 
 .contact-help-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px;
-}
-
-/* Both cards keep the same box; only the fill and text colour differ, so the
-   filled and outlined variants line up row for row. */
-.contact-help-card {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 22px 24px;
-  border: 2px solid #c95656;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #000000;
-  text-align: center;
-  text-decoration: none;
+  flex-wrap: wrap;
+  gap: 14px;
 }
 
-.contact-help-card.primary {
+/* The same pill the home page uses for "View all FAQ" and the community
+   banner's link. */
+.contact-help-button {
+  display: inline-block;
+  padding: 13px 26px;
+  border-radius: 999px;
   background: #c95656;
-  border-color: #c95656;
   color: #ffffff;
-}
-
-.contact-help-title {
-  font-size: 1.3rem;
   font-weight: 700;
-}
-
-.contact-help-sub {
-  font-size: 0.98rem;
+  font-size: 0.95rem;
+  text-decoration: none;
 }
 
 @media (max-width: 680px) {
@@ -1971,7 +1947,6 @@ h2,
 
   .contact-shell {
     width: min(var(--content-frame-width), calc(100% - 32px));
-    padding: 28px 24px 32px;
   }
 
   .about-shell {
@@ -1979,7 +1954,7 @@ h2,
   }
 
   .contact-help-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
