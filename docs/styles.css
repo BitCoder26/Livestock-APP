@@ -18,7 +18,7 @@
   /* Left edge of the nav bar's content, for sections that need to line up
      with it. Resolves against the using element's containing block, so only
      use it on full-width sections. */
-  --nav-inset: calc((100% - min(var(--hero-frame-width), 100% - 32px)) / 2 + 24px);
+  --nav-inset: calc((100% - min(var(--content-frame-width), 100% - 48px)) / 2);
   /* One size for both icon rows - the how-it-works steps and the benefit
      tiles sit on identical 2000px canvases, so a shared box width is what
      makes them render at matching scale. */
@@ -79,13 +79,16 @@ h2,
   z-index: 5;
 }
 
+/* Takes the same frame as .page-shell, .hero-shell and the footer grid, with
+   no horizontal padding of its own, so the brand and the last nav link sit on
+   the exact edges the page content does at every width. */
 .site-header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  width: min(var(--hero-frame-width), calc(100% - 32px));
-  padding: 14px 24px;
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  padding: 14px 0;
   margin: 0 auto;
 }
 
@@ -1880,9 +1883,19 @@ h2,
     margin-left: 0;
   }
 
-  /* The side animals have no room on the stacked layout. */
+  /* Only the rabbit comes along on phones, sitting in the empty right half
+     of the blob now that the mockups have moved below it. */
   .hero-animal {
     display: none;
+  }
+
+  .hero-animal.hero-animal-rabbit {
+    display: block;
+    left: auto;
+    right: -8%;
+    top: 20%;
+    bottom: auto;
+    width: 74%;
   }
 
   /* Out of the blob and into the flow beneath it, at a size a phone screen
@@ -1935,6 +1948,14 @@ h2,
     margin-top: -6vw;
     padding: 0;
     text-align: left;
+  }
+
+  /* The llama follows the reporting copy in the flow rather than sitting
+     beside it, so it cannot cover the text. */
+  .reports-accent {
+    display: block;
+    width: min(260px, 72%);
+    margin: -44px 0 -56px;
   }
 
   /* Farm reporting gets the same treatment as the stories. */
@@ -2090,6 +2111,17 @@ h2,
     top: 760px;
     width: 430px;
   }
+}
+
+/* An animal scene closing out a page's copy. It sits in the flow, so it can
+   never land on top of anything; the canvas carries roughly 28% transparent
+   margin above and below the scene, which the negative margins take back. */
+.page-animal-flow {
+  display: block;
+  width: min(360px, 100%);
+  height: auto;
+  margin: -66px auto -78px;
+  pointer-events: none;
 }
 
 /* Same page furniture and type as the contact page, but the copy sits
