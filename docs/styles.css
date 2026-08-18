@@ -1485,6 +1485,32 @@ h2,
   }
 }
 
+/* The card carried no padding of its own, so its copy ran to the very edge
+   of the panel and sat flush against the top of the viewport. */
+.legal-shell {
+  margin-top: 48px;
+  margin-bottom: 56px;
+  padding: 40px 44px;
+}
+
+/* Section headings on the About/legal pages read as coloured signposts
+   between blocks of body copy. */
+.legal-shell h2 {
+  margin: 34px 0 12px;
+  color: var(--banner-red);
+  font-size: clamp(1.35rem, 2.4vw, 1.7rem);
+  font-weight: 700;
+}
+
+.legal-shell ul {
+  margin: 0 0 18px;
+  padding-left: 22px;
+}
+
+.legal-shell li {
+  margin-bottom: 8px;
+}
+
 .back-link {
   display: inline-flex;
   align-items: center;
@@ -1797,5 +1823,111 @@ h2,
     /* Break out of the page shell to true viewport width. */
     width: calc(100vw - 32px);
     margin-inline: calc((100% - (100vw - 32px)) / 2);
+  }
+}
+
+/* Contact page: a coloured band carrying one light panel, in the same red the
+   rest of the site uses for its banners. */
+.contact-band {
+  width: 100%;
+  padding: 56px 0 72px;
+  background: linear-gradient(180deg, var(--banner-red) 0%, #c95656 100%);
+}
+
+.contact-shell {
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+  padding: 44px 48px 48px;
+  border-radius: 28px;
+  background: #f7f7f7;
+  box-shadow: var(--shadow);
+}
+
+.contact-shell h1 {
+  margin: 0 0 26px;
+  color: #000000;
+  font-size: clamp(2.1rem, 4.4vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.contact-shell p {
+  margin: 0 0 22px;
+  color: #000000;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.contact-email {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.contact-divider {
+  height: 1px;
+  margin: 36px 0 30px;
+  border: 0;
+  background: rgba(33, 29, 24, 0.14);
+}
+
+.contact-shell h2 {
+  margin: 0 0 22px;
+  color: #c95656;
+  font-size: clamp(1.35rem, 2.4vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.contact-help-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+/* Both cards keep the same box; only the fill and text colour differ, so the
+   filled and outlined variants line up row for row. */
+.contact-help-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 24px;
+  border: 2px solid #c95656;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #000000;
+  text-align: center;
+  text-decoration: none;
+}
+
+.contact-help-card.primary {
+  background: #c95656;
+  border-color: #c95656;
+  color: #ffffff;
+}
+
+.contact-help-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.contact-help-sub {
+  font-size: 0.98rem;
+}
+
+@media (max-width: 680px) {
+  .contact-band {
+    padding: 32px 0 44px;
+  }
+
+  .contact-shell {
+    width: min(var(--content-frame-width), calc(100% - 32px));
+    padding: 28px 24px 32px;
+  }
+
+  .contact-help-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
   }
 }
