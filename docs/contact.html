@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" sizes="96x96" href="./favicon-96x96.png?v=20260724" />
   <link rel="icon" type="image/png" sizes="192x192" href="./favicon-192x192.png?v=20260724" />
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=20260724" />
-  <link rel="stylesheet" href="./styles.css?v=20260821r" />
+  <link rel="stylesheet" href="./styles.css?v=20260821s" />
 </head>
 <body>
   <header class="site-header">
@@ -22,12 +22,19 @@
         <img class="brand-logo" src="./images/app_logo.png" alt="LivestockBook logo" />
         <span class="brand-text">LivestockBook</span>
       </a>
+      <input class="nav-toggle" type="checkbox" id="nav-toggle" />
+      <label class="nav-button" for="nav-toggle" aria-label="Menu">
+        <span class="nav-bar"></span>
+        <span class="nav-bar"></span>
+        <span class="nav-bar"></span>
+      </label>
       <nav class="top-nav" aria-label="Primary">
         <a href="./index.html#features">Features</a>
         <a href="./about.html">About</a>
         <a href="https://www.facebook.com/groups/1353099223626390" target="_blank" rel="noreferrer">Facebook Group</a>
         <a href="./contact.html" aria-current="page">Contact</a>
       </nav>
+      <label class="nav-scrim" for="nav-toggle" aria-hidden="true"></label>
     </div>
   </header>
 

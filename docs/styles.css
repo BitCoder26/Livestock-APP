@@ -122,6 +122,22 @@ h2,
   color: #000000;
 }
 
+/* The menu is a checkbox and two labels so it works without scripting: the
+   button toggles the box, the scrim below the open panel toggles it back. */
+.nav-toggle,
+.nav-button,
+.nav-scrim {
+  display: none;
+}
+
+.nav-bar {
+  display: block;
+  width: 22px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: #000000;
+}
+
 .footer-links a,
 .back-link {
   text-decoration: none;
@@ -1654,10 +1670,76 @@ h2,
 }
 
 @media (max-width: 680px) {
-  .site-header-inner,
   .site-footer-inner {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  /* Phones get the brand on one side and a three-bar button on the other,
+     with the links in a panel that drops out of the header. */
+  .site-header-inner {
+    position: relative;
+  }
+
+  .nav-toggle {
+    /* Hidden but still focusable, so the button can be reached by keyboard. */
+    display: block;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .nav-button {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 42px;
+    height: 42px;
+    margin-left: auto;
+    border-radius: 12px;
+    cursor: pointer;
+  }
+
+  .nav-toggle:focus-visible ~ .nav-button {
+    outline: 2px solid var(--banner-red);
+    outline-offset: 2px;
+  }
+
+  .top-nav {
+    display: none;
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    left: 0;
+    z-index: 1;
+    flex-direction: column;
+    gap: 0;
+    padding: 6px 0;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+  }
+
+  .nav-toggle:checked ~ .top-nav {
+    display: flex;
+  }
+
+  .top-nav a {
+    padding: 13px 20px;
+    font-weight: 600;
+  }
+
+  /* Sits behind the header's own background but over the page, so a press
+     anywhere below the open panel closes it. */
+  .nav-toggle:checked ~ .nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: -1;
   }
 
   .hero-band {
