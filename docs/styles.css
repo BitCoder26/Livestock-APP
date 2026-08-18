@@ -263,6 +263,17 @@ h2,
   width: min(1264px, calc(100% - 32px));
 }
 
+/* The benefit tiles sit tighter and hug the left edge, mirroring the
+   right-hugging "How it works" flow above them. */
+@media (min-width: 901px) {
+  .benefits-row {
+    margin-left: 24px;
+    margin-right: auto;
+    width: min(980px, calc(100% - 48px));
+    gap: 8px;
+  }
+}
+
 .benefits-row li {
   display: flex;
   flex-direction: column;
@@ -349,8 +360,8 @@ h2,
    margins, hence the generous widths. */
 .hero-phone {
   position: absolute;
-  top: 2%;
-  right: 6%;
+  top: 12%;
+  right: 8%;
   width: 44%;
   height: auto;
 }
@@ -362,9 +373,11 @@ h2,
 }
 
 .hero-animal-rabbit {
-  left: 10%;
-  bottom: 6%;
-  width: 20%;
+  /* The canvas carries wide transparent margins, so the box overhangs the
+     left edge to seat the rabbit itself near it. */
+  left: -4%;
+  bottom: -16%;
+  width: 42%;
 }
 
 .how-why-wrap {
@@ -397,8 +410,15 @@ h2,
 
 .how-intro-text {
   width: fit-content;
-  margin: 0 auto;
-  text-align: left;
+  margin: 0 6% 0 auto;
+  text-align: right;
+}
+
+.how-intro-text h2 {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
 }
 
 .how-flow {
@@ -409,6 +429,12 @@ h2,
   margin-top: 6px;
 }
 
+@media (min-width: 901px) {
+  .how-flow {
+    justify-content: flex-end;
+  }
+}
+
 .flow-step {
   display: flex;
   flex-direction: column;
@@ -416,7 +442,7 @@ h2,
 }
 
 .how-flow img {
-  width: clamp(140px, 21vw, 285px);
+  width: clamp(140px, 15vw, 205px);
   height: auto;
   display: block;
   margin: 0;
@@ -446,8 +472,8 @@ h2,
 .flow-arrow {
   display: inline-flex;
   flex: 0 0 auto;
-  width: clamp(30px, 4vw, 52px);
-  margin-top: -46px;
+  width: clamp(26px, 2.6vw, 38px);
+  margin-top: -40px;
 }
 
 .flow-arrow svg {
@@ -461,10 +487,30 @@ h2,
   margin-top: 56px;
 }
 
-.why-intro h2 {
-  display: flex;
-  align-items: center;
-  gap: 18px;
+/* Mirrors the "How it works" intro: header block hugs the right edge with
+   the horse riding its right side. */
+@media (min-width: 901px) {
+  /* Same frame as .how-it-works above, so both headers share a right edge. */
+  .section-intro.why-intro {
+    width: min(1264px, calc(100% - 32px));
+    max-width: none;
+    margin: 56px auto 0;
+    padding-right: 6%;
+    text-align: right;
+  }
+
+  .why-intro h2 {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 20px;
+  }
+
+  /* The horse takes ~284px of the h2's own line; pad the strapline by the
+     same amount so both end on the heading text's right edge. */
+  .why-intro p {
+    padding-right: 284px;
+  }
 }
 
 .why-horse {
@@ -474,9 +520,11 @@ h2,
 @media (min-width: 901px) {
   .why-horse {
     display: inline-block;
-    width: 130px;
+    width: 340px;
     max-width: none;
     height: auto;
+    /* The canvas carries transparent margin around the horse. */
+    margin: -100px -56px -85px 0;
   }
 }
 
@@ -555,11 +603,11 @@ h2,
 
   .reports-accent {
     display: block;
-    width: 560px;
+    width: 350px;
     max-width: none;
     height: auto;
     /* The canvas is mostly transparent margin; pull the flow in around it. */
-    margin: -10px auto -70px;
+    margin: -10px auto -55px;
     pointer-events: none;
   }
 }
@@ -608,7 +656,7 @@ h2,
     top: calc(100% - 60px);
     left: 50%;
     transform: translateX(-50%);
-    width: 900px;
+    width: 560px;
     max-width: none;
     height: auto;
     pointer-events: none;
