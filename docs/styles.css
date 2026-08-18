@@ -753,10 +753,12 @@ h2,
 
 @media (min-width: 901px) {
   .reports-graphic {
-    /* Bleed leftward like the story graphics; text-side edge stays put.
-       The extra bleed over the base 150px scales the mockups by 1.1 twice. */
+    /* Bleeds leftward like the story graphics, but sat far off the copy with
+       a wide gap between them; shifted 120px right to close it. The box now
+       overhangs the copy column, so it must not swallow clicks. */
     width: calc(100% + 312px);
-    margin-left: -312px;
+    margin-left: -192px;
+    pointer-events: none;
   }
 }
 
