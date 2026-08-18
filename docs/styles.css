@@ -460,16 +460,18 @@ h2,
   /* The goat sits roughly halfway down the whitespace between the animals
      and records graphics; the cow stays tucked right under its graphic.
      Offsets compensate for the transparent margins baked into each canvas. */
-  .feature-story-list > .feature-story-graphic:nth-child(1) .story-accent {
-    top: calc(100% - 240px);
-  }
-
+  /* Each accent now sits ABOVE its story's own graphic, on that side of
+     the screen: cow over records, goat over export, pig over sharing. */
   .feature-story-list > .feature-story-graphic:nth-child(2) .story-accent {
-    top: calc(100% - 300px);
+    top: -300px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(3) .story-accent {
-    top: calc(100% - 200px);
+    top: -340px;
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(4) .story-accent {
+    top: -300px;
   }
 }
 
@@ -526,7 +528,7 @@ h2,
     margin-right: -286px;
     position: relative;
     top: -90px;
-    left: 80px;
+    left: -180px;
   }
 
   .feature-story-list > .feature-story-graphic:nth-child(4) .feature-story-copy {
