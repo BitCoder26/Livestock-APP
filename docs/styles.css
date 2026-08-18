@@ -276,7 +276,7 @@ h2,
 }
 
 .benefit-tile {
-  width: min(290px, 100%);
+  width: min(330px, 100%);
   height: auto;
   display: block;
 }
@@ -334,14 +334,80 @@ h2,
   padding-left: calc((100% - min(var(--content-frame-width), 100% - 48px)) / 2);
 }
 
-.hero-usp img {
+.hero-usp {
+  position: relative;
+}
+
+.hero-usp > img:first-child {
   width: 100%;
   height: auto;
   display: block;
 }
 
+/* The phone and animals sit inside the blob; percentages track the blob
+   image so they scale with it. Their canvases carry large transparent
+   margins, hence the generous widths. */
+.hero-phone {
+  position: absolute;
+  top: 2%;
+  right: 6%;
+  width: 44%;
+  height: auto;
+}
+
+.hero-animal {
+  position: absolute;
+  height: auto;
+  pointer-events: none;
+}
+
+.hero-animal-left {
+  left: 4%;
+  bottom: 4%;
+  width: 26%;
+}
+
+.hero-animal-right {
+  right: 2%;
+  bottom: 2%;
+  width: 18%;
+}
+
 .section-intro.how-it-works {
   padding-bottom: 46px;
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  text-align: center;
+}
+
+.how-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-top: 6px;
+}
+
+.how-flow img {
+  width: clamp(120px, 19vw, 250px);
+  height: auto;
+  display: block;
+  /* Swallow some of each tile's transparent side margins. */
+  margin: 0 -2.5%;
+}
+
+.how-flow {
+  margin-top: 18px;
+}
+
+.flow-arrow {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: clamp(30px, 4vw, 52px);
+}
+
+.flow-arrow svg {
+  width: 100%;
+  height: auto;
 }
 
 .section-intro {
@@ -419,7 +485,7 @@ h2,
 
   .reports-accent {
     display: block;
-    width: 470px;
+    width: 340px;
     height: auto;
     /* The canvas is mostly transparent margin; pull the flow in around it. */
     margin: -10px auto -70px;
@@ -1424,10 +1490,22 @@ h2,
 /* Mobile: stacked graphic-over-text stories, enlarged artwork, and the
    compact footer illustration. */
 @media (max-width: 900px) {
-  .hero-usp img {
+  .hero-usp > img:first-child {
     width: 125%;
     max-width: none;
     margin-left: -25%;
+  }
+
+  /* The side animals have no room on the stacked layout; the phone rides
+     the blob alone. */
+  .hero-animal {
+    display: none;
+  }
+
+  .hero-phone {
+    width: 58%;
+    top: 4%;
+    right: 4%;
   }
 
   .feature-story-list > .feature-story-graphic,
@@ -1470,5 +1548,17 @@ h2,
   .footer-illustration img {
     margin-top: -22%;
     margin-bottom: -16.5%;
+  }
+
+  .footer-brand-row .brand-logo {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+  }
+
+  .faq-section {
+    /* Break out of the page shell to true viewport width. */
+    width: calc(100vw - 32px);
+    margin-inline: calc((100% - (100vw - 32px)) / 2);
   }
 }
