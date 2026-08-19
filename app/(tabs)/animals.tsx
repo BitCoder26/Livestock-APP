@@ -16,6 +16,7 @@ import { useOnboarding, useSpotlightTarget } from '../../src/context/OnboardingC
 import { useSetup } from '../../src/context/SetupContext';
 import type { Animal, AnimalTone } from '../../src/entities/animal';
 import { tokens } from '../../src/theme/tokens';
+import { motionDuration } from '../../src/utils/motion';
 
 const SPECIES_FILTER_OPTIONS = [
   { icon: 'cow-copy', label: 'Cattle' },
@@ -77,7 +78,7 @@ function sortAnimals(list: Animal[], sort: SortOption): Animal[] {
 }
 
 const NEW_ANIMAL_CARD_ENTRANCE_DELAY = 700;
-const NEW_ANIMAL_CARD_DURATION = 420;
+const NEW_ANIMAL_CARD_DURATION = motionDuration(420);
 let lastAnimatedAnimalUid: string | null = null;
 
 export default function AnimalsScreen() {
@@ -128,7 +129,7 @@ export default function AnimalsScreen() {
 
     Animated.timing(sheetEntrance, {
       toValue: 1,
-      duration: 380,
+      duration: motionDuration(380),
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
@@ -142,7 +143,7 @@ export default function AnimalsScreen() {
 
     Animated.timing(sortSheetEntrance, {
       toValue: 1,
-      duration: 380,
+      duration: motionDuration(380),
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();

@@ -25,6 +25,7 @@ import { DEFAULT_RECORD_FILTERS, type RecordFilters, useRecords } from '../src/c
 import { useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
+import { motionDuration } from '../src/utils/motion';
 
 type MultiSelectKey = 'species' | 'recordTypes' | 'farms' | 'paddocks';
 type DateFieldKey = 'startDate' | 'endDate';
@@ -45,7 +46,7 @@ export default function RecordsFilterScreen() {
   useEffect(() => {
     Animated.timing(entrance, {
       toValue: 1,
-      duration: 380,
+      duration: motionDuration(380),
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();

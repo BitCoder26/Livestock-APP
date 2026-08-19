@@ -10,6 +10,7 @@ import { useRecords } from '../src/context/RecordsContext';
 import { useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
 import { resolveAnimalFarmName, resolveAnimalPaddockName } from '../src/utils/recordLocations';
+import { motionDuration } from '../src/utils/motion';
 
 type SelectionMode = 'animals' | 'groups';
 
@@ -65,7 +66,7 @@ export default function SelectRecordAnimalScreen() {
   useEffect(() => {
     Animated.timing(entrance, {
       toValue: 1,
-      duration: 380,
+      duration: motionDuration(380),
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();

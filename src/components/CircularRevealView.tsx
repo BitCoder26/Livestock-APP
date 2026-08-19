@@ -2,11 +2,12 @@ import MaskedView from '@react-native-masked-view/masked-view';
 import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { motionDuration } from '../utils/motion';
 
 const BUTTON_DIAMETER = 68;
 const BUTTON_RIGHT = 24;
 const BUTTON_BOTTOM_ABOVE_TAB_BAR = 112;
-const REVEAL_DURATION = 650;
+const REVEAL_DURATION = motionDuration(650, 350);
 
 export function CircularRevealView({
   active,

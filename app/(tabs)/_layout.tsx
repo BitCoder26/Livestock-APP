@@ -10,10 +10,11 @@ import { CircularRevealView } from '../../src/components/CircularRevealView';
 import { OnboardingSpotlight } from '../../src/components/OnboardingSpotlight';
 import { useOnboarding, type OnboardingStep } from '../../src/context/OnboardingContext';
 import { TAB_BAR_STYLE, tokens } from '../../src/theme/tokens';
+import { motionDuration } from '../../src/utils/motion';
 const TAB_ICON_SIZE = 20;
 const ANIMAL_TAB_ICON_SIZE = 21;
 const TAB_TRANSITION_DISTANCE_FACTOR = 0.16;
-const TAB_TRANSITION_DURATION = 320;
+const TAB_TRANSITION_DURATION = motionDuration(320);
 const TAB_TRANSITION_EASING = Easing.bezier(0.2, 0, 0, 1);
 
 type SpotlightCopy = {

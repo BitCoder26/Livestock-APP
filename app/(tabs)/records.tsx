@@ -21,11 +21,12 @@ import type { RecordEntry } from '../../src/entities/record';
 import { tokens } from '../../src/theme/tokens';
 import { formatDateForDisplay } from '../../src/utils/dateFormat';
 import { resolveRecordDisplayTags } from '../../src/utils/recordAnimals';
+import { motionDuration } from '../../src/utils/motion';
 
 const FACEBOOK_GROUP_URL = 'https://www.facebook.com/groups/1353099223626390/';
 const FACEBOOK_CARD_DISMISSED_KEY = 'facebookGroupCardDismissed';
 const NEW_RECORD_CARD_ENTRANCE_DELAY = 700;
-const RECORD_CARD_MOTION_DURATION = 420;
+const RECORD_CARD_MOTION_DURATION = motionDuration(420);
 let lastAnimatedRecordId: string | null = null;
 
 function formatAnimalSummary(record: RecordEntry, animals: Animal[]) {
