@@ -190,6 +190,15 @@ h2,
   color: var(--banner-red);
 }
 
+/* Underlines scale with the type they sit under, and keep clear of the
+   descenders in "better". */
+.hero-underline {
+  text-decoration: underline;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.14em;
+  text-decoration-skip-ink: none;
+}
+
 .hero-text,
 .section-copy p,
 .feature-card p,
