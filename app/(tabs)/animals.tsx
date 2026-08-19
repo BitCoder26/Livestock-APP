@@ -297,10 +297,17 @@ export default function AnimalsScreen() {
                 // is resolved by label rather than by tone as animals are.
                 const theme = getSpeciesThemeByLabel(collective.species);
                 const tone = getToneForSpecies(collective.species);
-                const title =
-                  collective.name.trim() ||
-                  collective.id.trim() ||
-                  `${collective.species} ${term}`;
+                // Reference leads, mirroring the individual card where the tag
+                // is the title; the name is a human label, so it trails in
+                // parentheses. Falls back to the name, then to the species term,
+                // because a reference is not required for every species.
+                const reference = collective.id.trim();
+                const label = collective.name.trim();
+                const title = reference
+                  ? label
+                    ? `${reference} (${label})`
+                    : reference
+                  : label || `${collective.species} ${term}`;
 
                 return (
                   <BouncyPressable
@@ -342,7 +349,7 @@ export default function AnimalsScreen() {
                           </Text>
                         </View>
                         <Text style={styles.metaText} numberOfLines={1}>
-                          {`${count} ${count === 1 ? 'animal' : 'animals'}${collective.id.trim() && collective.name.trim() ? ` · ${collective.id.trim()}` : ''}`}
+                          {`${count} ${count === 1 ? 'animal' : 'animals'}`}
                         </Text>
                       </View>
                       <View style={styles.footerRow}>
