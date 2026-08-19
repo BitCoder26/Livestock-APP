@@ -1,4 +1,5 @@
 import { SPECIES_OPTIONS } from '../constants/records';
+import type { AnimalWeightUnit } from './animal';
 
 /**
  * A collective is a group of animals recorded as one unit rather than
@@ -24,8 +25,17 @@ export type Collective = {
   farm: string;
   paddockUid?: string;
   paddock: string;
-  /** Date the collective was established or acquired. */
+  /** Date the collective was established or acquired onto this farm. */
   startDate: string;
+  /** When the animals were born or hatched — distinct from when they arrived. */
+  birthDate: string;
+  /** Where they came from: hatchery, market, another keeper. */
+  supplier: string;
+  /** Purchase cost per animal, in the profile's currency. */
+  cost: string;
+  /** Representative weight for the group rather than any one animal. */
+  averageWeight: string;
+  weightUnit: AnimalWeightUnit;
   /** Date it was closed out — sold, cleared, or finished. */
   endDate: string;
   purpose: string;

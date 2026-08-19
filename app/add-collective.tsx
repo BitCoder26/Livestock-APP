@@ -1,13 +1,16 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { BouncyPressable } from '../src/components/BouncyPressable';
+import { FloatingActionButton } from '../src/components/FloatingActionButton';
 import { InfoModal } from '../src/components/InfoModal';
 import { SPECIES_OPTIONS } from '../src/constants/records';
+import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
 import { useCollectives } from '../src/context/CollectivesContext';
 import { useSetup } from '../src/context/SetupContext';
 import {
@@ -49,6 +52,11 @@ export default function AddCollectiveScreen() {
   const [startingCount, setStartingCount] = useState(
     existing ? String(getCollectiveCount(existing)) : '',
   );
+  const [birthDate, setBirthDate] = useState(existing?.birthDate ?? '');
+  const [supplier, setSupplier] = useState(existing?.supplier ?? '');
+  const [cost, setCost] = useState(existing?.cost ?? '');
+  const [averageWeight, setAverageWeight] = useState(existing?.averageWeight ?? '');
+  const [showSpeciesPicker, setShowSpeciesPicker] = useState(false);
   const [showCountHelp, setShowCountHelp] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -96,6 +104,11 @@ export default function AddCollectiveScreen() {
       farm: farm.trim(),
       paddock: paddock.trim(),
       startDate: startDate.trim(),
+      birthDate: birthDate.trim(),
+      supplier: supplier.trim(),
+      cost: cost.trim(),
+      averageWeight: averageWeight.trim(),
+      weightUnit: existing?.weightUnit ?? 'kg',
       endDate: existing?.endDate ?? '',
       purpose: purpose.trim(),
       notes: notes.trim(),
@@ -141,40 +154,29 @@ export default function AddCollectiveScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionLabel}>Species</Text>
-        <View style={styles.speciesGrid}>
-          {SPECIES_OPTIONS.map((option) => {
-            const selected = species === option.label;
-            return (
-              <BouncyPressable
-                key={option.label}
-                accessibilityLabel={option.label}
-                accessibilityRole="button"
-                onPress={() => setSpecies(option.label)}
-                style={({ pressed }) => [
-                  styles.speciesChip,
-                  selected && styles.speciesChipSelected,
-                  pressed && styles.pressed,
-                ]}
-              >
+        <View style={styles.block}>
+          <Text style={styles.sectionLabel}>Species *</Text>
+          <Pressable
+            accessibilityLabel="Choose species"
+            accessibilityRole="button"
+            onPress={() => setShowSpeciesPicker(true)}
+            style={({ pressed }) => [styles.pickerField, pressed && styles.pressed]}
+          >
+            <View style={styles.fieldWithIcon}>
+              {species ? (
                 <AppIcon
-                  name={SPECIES_ICONS.get(option.label) ?? 'animals'}
-                  size={18}
-                  color={selected ? '#fff' : '#171717'}
+                  name={SPECIES_ICONS.get(species) ?? 'animals'}
+                  size={20}
+                  color={tokens.colors.text}
                 />
-                <Text style={[styles.speciesChipText, selected && styles.speciesChipTextSelected]}>
-                  {option.label}
-                </Text>
-              </BouncyPressable>
-            );
-          })}
+              ) : null}
+              <Text style={[styles.pickerValue, !species && styles.pickerPlaceholder]}>
+                {species || 'Select species'}
+              </Text>
+            </View>
+            <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+          </Pressable>
         </View>
-
-        {species ? (
-          <Text style={styles.termHint}>
-            {`Recorded as a ${species.toLowerCase()} ${term}.`}
-          </Text>
-        ) : null}
 
         <Field label="Name" value={name} onChangeText={setName} placeholder="Layer Flock A" />
         <Field
@@ -200,6 +202,26 @@ export default function AddCollectiveScreen() {
 
         <Field label="Breed or type" value={breed} onChangeText={setBreed} placeholder="Optional" />
         <Field
+          label="Average weight"
+          value={averageWeight}
+          onChangeText={setAverageWeight}
+          placeholder="Typical weight per animal"
+          keyboardType="number-pad"
+        />
+        <Field
+          label="Cost per animal"
+          value={cost}
+          onChangeText={setCost}
+          placeholder="What each one cost"
+          keyboardType="number-pad"
+        />
+        <Field
+          label="Supplier"
+          value={supplier}
+          onChangeText={setSupplier}
+          placeholder="Hatchery, market, or keeper"
+        />
+        <Field
           label="Farm"
           value={farm}
           onChangeText={setFarm}
@@ -211,6 +233,14 @@ export default function AddCollectiveScreen() {
           value={startDate}
           onChangeText={setStartDate}
           placeholder="YYYY-MM-DD"
+          hint="When this group arrived or was formed on your farm."
+        />
+        <Field
+          label="Born or hatched"
+          value={birthDate}
+          onChangeText={setBirthDate}
+          placeholder="YYYY-MM-DD"
+          hint="Only if it differs from the date above."
         />
         <Field
           label="Purpose"
@@ -220,15 +250,58 @@ export default function AddCollectiveScreen() {
         />
         <Field label="Notes" value={notes} onChangeText={setNotes} placeholder="Optional" multiline />
 
-        <BouncyPressable
-          accessibilityLabel={isEditing ? 'Save changes' : 'Add herd or flock'}
-          accessibilityRole="button"
-          onPress={() => void handleSave()}
-          style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.saveButtonText}>{isEditing ? 'Save changes' : 'Add'}</Text>
-        </BouncyPressable>
       </ScrollView>
+
+      <FloatingActionButton
+        accessibilityLabel={isEditing ? 'Save changes' : 'Add herd or flock'}
+        icon="check"
+        onPress={() => void handleSave()}
+      />
+
+      <Modal
+        transparent
+        animationType="none"
+        visible={showSpeciesPicker}
+        onRequestClose={() => setShowSpeciesPicker(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowSpeciesPicker(false)}>
+          <AnimatedPopupCard
+            visible={showSpeciesPicker}
+            style={styles.modalCard}
+            onPress={() => undefined}
+          >
+            <View style={styles.speciesModalHeader}>
+              <Text style={styles.speciesModalTitle}>Species</Text>
+            </View>
+            <ScrollView contentContainerStyle={styles.speciesModalGrid} showsVerticalScrollIndicator={false}>
+              {SPECIES_OPTIONS.map((item) => {
+                const theme = getSpeciesThemeByLabel(item.label);
+
+                return (
+                  <Pressable
+                    key={item.label}
+                    accessibilityRole="button"
+                    onPress={() => {
+                      setSpecies(item.label);
+                      setShowSpeciesPicker(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.speciesModalCard,
+                      { backgroundColor: theme.chipBackground },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <AppIcon name={item.icon} size={26} color={theme.icon} />
+                    <Text style={[styles.speciesModalCardLabel, { color: theme.text }]}>
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </AnimatedPopupCard>
+        </Pressable>
+      </Modal>
 
       <InfoModal
         visible={showCountHelp}
@@ -281,7 +354,7 @@ function Field({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: tokens.colors.background },
-  content: { paddingHorizontal: 26, paddingTop: 16, paddingBottom: 48, gap: 14 },
+  content: { paddingHorizontal: 26, paddingTop: 16, paddingBottom: 120, gap: 14 },
   sectionLabel: {
     color: tokens.colors.textSoft,
     fontSize: 12,
@@ -289,25 +362,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
-  speciesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  speciesChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 18,
-    backgroundColor: tokens.colors.surfaceMuted,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.colors.border,
-  },
-  speciesChipSelected: {
-    backgroundColor: tokens.colors.accent,
-    borderColor: tokens.colors.accent,
-  },
-  speciesChipText: { color: '#171717', fontSize: 13, fontWeight: '600' },
-  speciesChipTextSelected: { color: '#fff' },
-  termHint: { color: tokens.colors.textSoft, fontSize: 12, fontStyle: 'italic' },
   field: { gap: 6 },
   fieldLabel: { color: tokens.colors.text, fontSize: 13, fontWeight: '700' },
   fieldHint: { color: tokens.colors.textSoft, fontSize: 11, lineHeight: 15 },
@@ -324,14 +378,56 @@ const styles = StyleSheet.create({
   },
   inputMultiline: { minHeight: 84, textAlignVertical: 'top' },
   inputDisabled: { opacity: 0.6 },
-  saveButton: {
-    minHeight: 50,
-    borderRadius: 25,
-    backgroundColor: tokens.colors.accent,
+  pressed: { opacity: 0.85 },
+  block: { gap: 6 },
+  pickerField: {
+    minHeight: 46,
+    borderRadius: 14,
+    backgroundColor: tokens.colors.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.colors.border,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  fieldWithIcon: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pickerValue: { color: tokens.colors.text, fontSize: 15, fontWeight: '500' },
+  pickerPlaceholder: { color: '#B4A9B1', fontWeight: '400' },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    paddingHorizontal: 24,
   },
-  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  pressed: { opacity: 0.85 },
+  modalCard: {
+    width: '100%',
+    maxHeight: '76%',
+    borderRadius: 24,
+    backgroundColor: tokens.colors.surface,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  speciesModalHeader: { alignItems: 'center', justifyContent: 'center' },
+  speciesModalTitle: { color: tokens.colors.text, fontSize: 17, fontWeight: '700' },
+  speciesModalGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingTop: 18,
+    paddingBottom: 12,
+  },
+  speciesModalCard: {
+    width: '48%',
+    minHeight: 74,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingLeft: 20,
+    paddingRight: 14,
+  },
+  speciesModalCardLabel: { fontSize: 15, fontWeight: '500' },
 });
