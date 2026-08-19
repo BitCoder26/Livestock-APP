@@ -9,6 +9,8 @@ import { AppTopBar } from '../../src/components/AppTopBar';
 import { AnimatedPopupCard } from '../../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../../src/components/BouncyPressable';
 import { TabSwipeView } from '../../src/components/TabSwipeView';
+import { useCollectives } from '../../src/context/CollectivesContext';
+import { collectiveTermForSpecies, getCollectiveCount } from '../../src/entities/collective';
 import { getSpeciesThemeByTone } from '../../src/constants/speciesTheme';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton';
 import { useAnimals } from '../../src/context/AnimalsContext';
@@ -16,7 +18,7 @@ import { useOnboarding, useSpotlightTarget } from '../../src/context/OnboardingC
 import { useSetup } from '../../src/context/SetupContext';
 import type { Animal, AnimalTone } from '../../src/entities/animal';
 import { tokens } from '../../src/theme/tokens';
-import { motionDuration } from '../../src/utils/motion';
+import { MODAL_SHEET_ENTRANCE_DURATION, motionDuration } from '../../src/utils/motion';
 
 const SPECIES_FILTER_OPTIONS = [
   { icon: 'cow-copy', label: 'Cattle' },
@@ -77,8 +79,15 @@ function sortAnimals(list: Animal[], sort: SortOption): Animal[] {
   }
 }
 
-const NEW_ANIMAL_CARD_ENTRANCE_DELAY = 700;
-const NEW_ANIMAL_CARD_DURATION = motionDuration(420);
+// Holds the new card back until the circular reveal has all but finished, so
+// it lands on a settled screen rather than sliding in behind the mask. It was
+// 700ms, which was tuned against a 650ms reveal; the reveal is now 380ms and
+// the old value left the card visibly late.
+const NEW_ANIMAL_CARD_ENTRANCE_DELAY = 340;
+const ANIMAL_CARD_ENTRANCE_DURATION = motionDuration(260);
+// Removal is a response to a tap, so it runs shorter than the entrance and
+// without any delay at all — see the exit effect.
+const ANIMAL_CARD_EXIT_DURATION = motionDuration(200);
 let lastAnimatedAnimalUid: string | null = null;
 
 export default function AnimalsScreen() {
@@ -118,6 +127,10 @@ export default function AnimalsScreen() {
     [animals, groups],
   );
 
+  const { collectives } = useCollectives();
+  // Individual animals and collectives are different entities with different
+  // forms, so the tab is a view switch rather than a filter over one list.
+  const [animalView, setAnimalView] = useState<'individual' | 'collectives'>('individual');
   const fabRef = useRef<View>(null);
   useSpotlightTarget('animal', step === 'animal' && isFocused, fabRef);
 
@@ -129,7 +142,7 @@ export default function AnimalsScreen() {
 
     Animated.timing(sheetEntrance, {
       toValue: 1,
-      duration: motionDuration(380),
+      duration: MODAL_SHEET_ENTRANCE_DURATION,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
@@ -143,7 +156,7 @@ export default function AnimalsScreen() {
 
     Animated.timing(sortSheetEntrance, {
       toValue: 1,
-      duration: motionDuration(380),
+      duration: MODAL_SHEET_ENTRANCE_DURATION,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
@@ -245,8 +258,70 @@ export default function AnimalsScreen() {
         contentContainerStyle={[styles.content, filteredAnimals.length === 0 && styles.emptyContent]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.countText}>{hasActiveFilters ? `${filteredAnimals.length} of ${animals.length} animals` : `${animals.length} animals`}</Text>
-        {filteredAnimals.length === 0 ? (
+        <View style={styles.viewToggle}>
+          {(['individual', 'collectives'] as const).map((option) => {
+            const selected = animalView === option;
+            return (
+              <BouncyPressable
+                key={option}
+                accessibilityLabel={option === 'individual' ? 'Individual animals' : 'Herds and flocks'}
+                accessibilityRole="button"
+                onPress={() => setAnimalView(option)}
+                containerStyle={styles.viewToggleOptionWrap}
+                style={({ pressed }) => [
+                  styles.viewToggleOption,
+                  selected && styles.viewToggleOptionSelected,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={[styles.viewToggleText, selected && styles.viewToggleTextSelected]}>
+                  {option === 'individual' ? 'Individual' : 'Herds & flocks'}
+                </Text>
+              </BouncyPressable>
+            );
+          })}
+        </View>
+        <Text style={styles.countText}>{animalView === 'collectives' ? `${collectives.length} herds & flocks` : hasActiveFilters ? `${filteredAnimals.length} of ${animals.length} animals` : `${animals.length} animals`}</Text>
+        {animalView === 'collectives' ? (
+          collectives.length === 0 ? (
+            <View style={styles.emptyState}>
+              <AppIcon name="animals3" size={78} color="#E5E0E7" opacity={1} />
+              <Text style={styles.emptyTitle}>Empty</Text>
+              <Text style={styles.emptyText}>Add a herd or flock below</Text>
+            </View>
+          ) : (
+            <>
+              {collectives.map((collective) => {
+                const term = collectiveTermForSpecies(collective.species);
+                const count = getCollectiveCount(collective);
+                return (
+                  <BouncyPressable
+                    key={collective.uid}
+                    accessibilityLabel={collective.name || `${collective.species} ${term}`}
+                    accessibilityRole="button"
+                    onPress={() =>
+                      router.push({
+                        pathname: '/add-collective',
+                        params: { collectiveUid: collective.uid },
+                      })
+                    }
+                    style={({ pressed }) => [styles.collectiveCard, pressed && styles.pressed]}
+                  >
+                    <View style={styles.collectiveCopy}>
+                      <Text style={styles.collectiveTitle}>
+                        {collective.name || `${collective.species} ${term}`}
+                      </Text>
+                      <Text style={styles.collectiveMeta}>
+                        {`${count} ${count === 1 ? 'animal' : 'animals'} · ${collective.species}${collective.id ? ` · ${collective.id}` : ''}`}
+                      </Text>
+                    </View>
+                    <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
+                  </BouncyPressable>
+                );
+              })}
+            </>
+          )
+        ) : filteredAnimals.length === 0 ? (
           <View style={styles.emptyState}>
             <AppIcon name="goat-face" size={78} color="#E5E0E7" opacity={1} />
             <Text style={styles.emptyTitle}>Empty</Text>
@@ -338,7 +413,7 @@ export default function AnimalsScreen() {
       </ScrollView>
       <FloatingActionButton
         accessibilityLabel="Add animal"
-        onPress={() => router.push({ pathname: '/add-animal', params: { reveal: '1' } })}
+        onPress={() => router.push('/add-choose')}
         positionerRef={fabRef}
       />
       <Modal transparent animationType="none" visible={showFilterSheet} onRequestClose={() => setShowFilterSheet(false)}>
@@ -677,7 +752,7 @@ function AnimalCardMotion({
       Animated.delay(NEW_ANIMAL_CARD_ENTRANCE_DELAY),
       Animated.timing(entrance, {
         toValue: 1,
-        duration: NEW_ANIMAL_CARD_DURATION,
+        duration: ANIMAL_CARD_ENTRANCE_DURATION,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -692,15 +767,15 @@ function AnimalCardMotion({
       return;
     }
 
-    const animation = Animated.sequence([
-      Animated.delay(NEW_ANIMAL_CARD_ENTRANCE_DELAY),
-      Animated.timing(entrance, {
-        toValue: 0,
-        duration: NEW_ANIMAL_CARD_DURATION,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]);
+    // No delay here. A delete is a direct response to the user's tap, and the
+    // 340ms that stops a new card racing the reveal is just dead air when the
+    // card is on its way out.
+    const animation = Animated.timing(entrance, {
+      toValue: 0,
+      duration: ANIMAL_CARD_EXIT_DURATION,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    });
 
     animation.start(({ finished }) => {
       if (!finished) {
@@ -714,7 +789,7 @@ function AnimalCardMotion({
 
         Animated.timing(entrance, {
           toValue: 1,
-          duration: NEW_ANIMAL_CARD_DURATION,
+          duration: ANIMAL_CARD_ENTRANCE_DURATION,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }).start();
@@ -759,6 +834,63 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 120,
     gap: 8,
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    backgroundColor: tokens.colors.surfaceMuted,
+    borderRadius: 20,
+    padding: 3,
+    marginBottom: 12,
+    gap: 3,
+  },
+  // BouncyPressable renders an outer wrapper, so the flex has to sit there —
+  // on the inner style it sizes to its text and the bar doesn't split evenly.
+  viewToggleOptionWrap: {
+    flex: 1,
+  },
+  viewToggleOption: {
+    minHeight: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewToggleOptionSelected: {
+    backgroundColor: tokens.colors.surface,
+  },
+  viewToggleText: {
+    color: '#8A7F87',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  viewToggleTextSelected: {
+    color: tokens.colors.text,
+    fontWeight: '700',
+  },
+  collectiveCard: {
+    minHeight: 72,
+    borderRadius: 18,
+    backgroundColor: tokens.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  collectiveCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  collectiveTitle: {
+    color: tokens.colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  collectiveMeta: {
+    color: tokens.colors.textSoft,
+    fontSize: 13,
   },
   countText: {
     color: '#8A7F87',

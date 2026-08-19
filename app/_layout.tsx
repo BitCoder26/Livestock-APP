@@ -1,6 +1,8 @@
 import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { PostHogProvider } from 'posthog-react-native';
+
+import { CollectivesProvider } from '../src/context/CollectivesContext';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -26,6 +28,7 @@ export default function RootLayout() {
         <SubscriptionProvider>
           <SetupProvider>
             <AnimalsProvider>
+              <CollectivesProvider>
               <RecordsProvider>
                 <AccountProvider>
                   <OnboardingProvider>
@@ -33,6 +36,7 @@ export default function RootLayout() {
                   </OnboardingProvider>
                 </AccountProvider>
               </RecordsProvider>
+              </CollectivesProvider>
             </AnimalsProvider>
           </SetupProvider>
         </SubscriptionProvider>
@@ -67,7 +71,13 @@ function AppDataGate() {
                         headerShown: false,
                         contentStyle: { backgroundColor: '#F7F5F6' },
                         animation: 'simple_push',
-                        animationDuration: 280,
+                        // Short enough to feel immediate, long enough to still
+                        // read as a movement. Below roughly 150ms the slide
+                        // stops registering as direction and becomes a flicker,
+                        // which is worse than having no animation at all.
+                        // react-native-screens honours animationDuration for
+                        // simple_push on both platforms.
+                        animationDuration: 160,
                       }}
                     >
                       <Stack.Screen
