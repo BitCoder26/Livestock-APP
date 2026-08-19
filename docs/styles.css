@@ -2284,6 +2284,14 @@ h2,
     width: 430px;
   }
 
+  /* The guide's copy keeps the same 46rem measure, so its animal uses the
+     free right margin too, level with the middle steps. */
+  .guide-goat {
+    right: 40px;
+    top: 820px;
+    width: 320px;
+  }
+
 }
 
 /* The stacked layout's own animals; the desktop layout has its accents. */

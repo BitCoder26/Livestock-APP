@@ -541,15 +541,15 @@ export function AddAnimalScreen() {
           </View>
 
           <View style={styles.block}>
-            <Text style={styles.label}>Farm Entry Date</Text>
+            <Text style={styles.label}>Acquired Date</Text>
             <Pressable
-              accessibilityLabel="Select farm entry date"
+              accessibilityLabel="Select acquired date"
               accessibilityRole="button"
               onPress={() => setShowEntryDatePicker(true)}
               style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
             >
               <Text style={[styles.dateValue, !farmEntryDate && styles.placeholderValue]}>
-                {displayedFarmEntryDate || 'Select farm entry date'}
+                {displayedFarmEntryDate || 'Select acquired date'}
               </Text>
               <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
             </Pressable>
@@ -943,7 +943,7 @@ export function AddAnimalScreen() {
         <Pressable style={styles.modalBackdrop} onPress={() => setShowEntryDatePicker(false)}>
           <AnimatedPopupCard visible={showEntryDatePicker && Platform.OS === 'ios'} style={styles.modalCard} onPress={() => undefined}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select farm entry date</Text>
+              <Text style={styles.modalTitle}>Select acquired date</Text>
               <Pressable
                 accessibilityLabel="Done"
                 accessibilityRole="button"
