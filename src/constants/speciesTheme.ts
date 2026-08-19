@@ -84,6 +84,11 @@ export function getSpeciesThemeByLabel(label: string) {
   return THEMES[inferToneFromSpecies(label)];
 }
 
+/** Species label to tone, for records that carry a species but no stored tone. */
+export function getToneForSpecies(label: string): AnimalTone {
+  return inferToneFromSpecies(label);
+}
+
 function inferToneFromSpecies(label: string): AnimalTone {
   const normalized = label.trim().toLowerCase();
 

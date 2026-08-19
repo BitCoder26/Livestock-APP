@@ -11,7 +11,7 @@ import { BouncyPressable } from '../../src/components/BouncyPressable';
 import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { useCollectives } from '../../src/context/CollectivesContext';
 import { collectiveTermForSpecies, getCollectiveCount } from '../../src/entities/collective';
-import { getSpeciesThemeByTone } from '../../src/constants/speciesTheme';
+import { getSpeciesThemeByLabel, getSpeciesThemeByTone, getToneForSpecies } from '../../src/constants/speciesTheme';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton';
 import { useAnimals } from '../../src/context/AnimalsContext';
 import { useOnboarding, useSpotlightTarget } from '../../src/context/OnboardingContext';
@@ -293,10 +293,19 @@ export default function AnimalsScreen() {
               {collectives.map((collective) => {
                 const term = collectiveTermForSpecies(collective.species);
                 const count = getCollectiveCount(collective);
+                // Collectives carry a species label but no tone, so the theme
+                // is resolved by label rather than by tone as animals are.
+                const theme = getSpeciesThemeByLabel(collective.species);
+                const tone = getToneForSpecies(collective.species);
+                const title =
+                  collective.name.trim() ||
+                  collective.id.trim() ||
+                  `${collective.species} ${term}`;
+
                 return (
                   <BouncyPressable
                     key={collective.uid}
-                    accessibilityLabel={collective.name || `${collective.species} ${term}`}
+                    accessibilityLabel={title}
                     accessibilityRole="button"
                     onPress={() =>
                       router.push({
@@ -304,15 +313,51 @@ export default function AnimalsScreen() {
                         params: { collectiveUid: collective.uid },
                       })
                     }
-                    style={({ pressed }) => [styles.collectiveCard, pressed && styles.pressed]}
+                    style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
                   >
-                    <View style={styles.collectiveCopy}>
-                      <Text style={styles.collectiveTitle}>
-                        {collective.name || `${collective.species} ${term}`}
-                      </Text>
-                      <Text style={styles.collectiveMeta}>
-                        {`${count} ${count === 1 ? 'animal' : 'animals'} · ${collective.species}${collective.id ? ` · ${collective.id}` : ''}`}
-                      </Text>
+                    <View
+                      style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}
+                    >
+                      <AppIcon
+                        name={getSpeciesIconName(collective.species, tone)}
+                        size={26}
+                        color={theme.icon}
+                      />
+                    </View>
+                    <View style={styles.cardCopy}>
+                      <View style={styles.headerRow}>
+                        <Text style={styles.cardTitle}>{title}</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <View
+                          style={[styles.speciesChip, { backgroundColor: theme.chipBackground }]}
+                        >
+                          <AppIcon
+                            name={getSpeciesIconName(collective.species, tone)}
+                            size={11}
+                            color={theme.icon}
+                          />
+                          <Text style={[styles.speciesChipText, { color: theme.text }]}>
+                            {collective.species}
+                          </Text>
+                        </View>
+                        <Text style={styles.metaText} numberOfLines={1}>
+                          {`${count} ${count === 1 ? 'animal' : 'animals'}${collective.id.trim() && collective.name.trim() ? ` · ${collective.id.trim()}` : ''}`}
+                        </Text>
+                      </View>
+                      <View style={styles.footerRow}>
+                        <View style={styles.statusRow}>
+                          <View
+                            style={[
+                              styles.statusDot,
+                              collective.status === 'Closed'
+                                ? styles.statusSold
+                                : styles.statusActive,
+                            ]}
+                          />
+                          <Text style={styles.statusText}>{collective.status}</Text>
+                        </View>
+                      </View>
                     </View>
                     <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
                   </BouncyPressable>
@@ -872,32 +917,6 @@ const styles = StyleSheet.create({
   },
   segmentTextIdle: {
     color: '#8A7F87',
-  },
-  collectiveCard: {
-    minHeight: 72,
-    borderRadius: 18,
-    backgroundColor: tokens.colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  collectiveCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  collectiveTitle: {
-    color: tokens.colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  collectiveMeta: {
-    color: tokens.colors.textSoft,
-    fontSize: 13,
   },
   countText: {
     color: '#8A7F87',
