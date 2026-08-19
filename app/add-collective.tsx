@@ -1,12 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { BouncyPressable } from '../src/components/BouncyPressable';
+import { DesignField } from '../src/components/DesignField';
 import { FloatingActionButton } from '../src/components/FloatingActionButton';
 import { InfoModal } from '../src/components/InfoModal';
 import { SPECIES_OPTIONS } from '../src/constants/records';
@@ -30,6 +31,7 @@ const COUNT_HELP =
 
 export default function AddCollectiveScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { collectiveUid } = useLocalSearchParams<{ collectiveUid?: string }>();
   const { collectives, addCollective, updateCollective } = useCollectives();
   const { farms } = useSetup();
@@ -154,107 +156,87 @@ export default function AddCollectiveScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.block}>
-          <Text style={styles.sectionLabel}>Species *</Text>
-          <Pressable
-            accessibilityLabel="Choose species"
-            accessibilityRole="button"
-            onPress={() => setShowSpeciesPicker(true)}
-            style={({ pressed }) => [styles.pickerField, pressed && styles.pressed]}
-          >
-            <View style={styles.fieldWithIcon}>
-              {species ? (
-                <AppIcon
-                  name={SPECIES_ICONS.get(species) ?? 'animals'}
-                  size={20}
-                  color={tokens.colors.text}
-                />
-              ) : null}
-              <Text style={[styles.pickerValue, !species && styles.pickerPlaceholder]}>
-                {species || 'Select species'}
-              </Text>
-            </View>
-            <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-          </Pressable>
+        <View style={styles.formCard}>
+          <View style={styles.block}>
+            <Text style={styles.label}>Species *</Text>
+            <Pressable
+              accessibilityLabel="Choose species"
+              accessibilityRole="button"
+              onPress={() => setShowSpeciesPicker(true)}
+              style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
+            >
+              <View style={styles.fieldWithIcon}>
+                {species ? (
+                  <AppIcon
+                    name={SPECIES_ICONS.get(species) ?? 'animals'}
+                    size={20}
+                    color={tokens.colors.text}
+                  />
+                ) : null}
+                <Text style={[styles.dateValue, !species && styles.placeholderValue]}>
+                  {species || 'Select species'}
+                </Text>
+              </View>
+              <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+            </Pressable>
+          </View>
+
+          <DesignField value={name} label="Name" onChangeText={setName} />
+
+          <DesignField value={reference} label="Reference" onChangeText={setReference} />
+
+          <DesignField
+            value={startingCount}
+            label={isEditing ? 'Head count' : 'How many animals *'}
+            keyboardType="number-pad"
+            editable={!isEditing}
+            onChangeText={setStartingCount}
+          />
+          {isEditing ? (
+            <Text style={styles.helperText}>
+              Change this from the herd or flock itself, by recording what changed and when.
+            </Text>
+          ) : null}
+
+          <DesignField value={breed} label="Breed or type" onChangeText={setBreed} />
+
+          <DesignField
+            value={averageWeight}
+            label="Average weight"
+            keyboardType="number-pad"
+            onChangeText={setAverageWeight}
+          />
+
+          <DesignField
+            value={cost}
+            label="Cost per animal"
+            keyboardType="number-pad"
+            onChangeText={setCost}
+          />
+
+          <DesignField value={supplier} label="Supplier" onChangeText={setSupplier} />
+
+          <DesignField value={farm} label="Farm" onChangeText={setFarm} />
+
+          <DesignField value={paddock} label="Location" onChangeText={setPaddock} />
+
+          <DesignField value={startDate} label="Date established" onChangeText={setStartDate} />
+          <Text style={styles.helperText}>When this group arrived or was formed on your farm.</Text>
+
+          <DesignField value={birthDate} label="Born or hatched" onChangeText={setBirthDate} />
+          <Text style={styles.helperText}>Only if it differs from the date above.</Text>
+
+          <DesignField value={purpose} label="Purpose" onChangeText={setPurpose} />
+
+          <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
         </View>
-
-        <Field label="Name" value={name} onChangeText={setName} placeholder="Layer Flock A" />
-        <Field
-          label="Reference"
-          value={reference}
-          onChangeText={setReference}
-          placeholder="Flock mark or batch number"
-        />
-
-        <Field
-          label={isEditing ? 'Head count' : 'How many animals'}
-          value={startingCount}
-          onChangeText={setStartingCount}
-          placeholder="0"
-          keyboardType="number-pad"
-          editable={!isEditing}
-          hint={
-            isEditing
-              ? 'Change this from the herd or flock itself, by recording what changed and when.'
-              : undefined
-          }
-        />
-
-        <Field label="Breed or type" value={breed} onChangeText={setBreed} placeholder="Optional" />
-        <Field
-          label="Average weight"
-          value={averageWeight}
-          onChangeText={setAverageWeight}
-          placeholder="Typical weight per animal"
-          keyboardType="number-pad"
-        />
-        <Field
-          label="Cost per animal"
-          value={cost}
-          onChangeText={setCost}
-          placeholder="What each one cost"
-          keyboardType="number-pad"
-        />
-        <Field
-          label="Supplier"
-          value={supplier}
-          onChangeText={setSupplier}
-          placeholder="Hatchery, market, or keeper"
-        />
-        <Field
-          label="Farm"
-          value={farm}
-          onChangeText={setFarm}
-          placeholder={farms[0] ?? 'Optional'}
-        />
-        <Field label="Location" value={paddock} onChangeText={setPaddock} placeholder="Optional" />
-        <Field
-          label="Date established"
-          value={startDate}
-          onChangeText={setStartDate}
-          placeholder="YYYY-MM-DD"
-          hint="When this group arrived or was formed on your farm."
-        />
-        <Field
-          label="Born or hatched"
-          value={birthDate}
-          onChangeText={setBirthDate}
-          placeholder="YYYY-MM-DD"
-          hint="Only if it differs from the date above."
-        />
-        <Field
-          label="Purpose"
-          value={purpose}
-          onChangeText={setPurpose}
-          placeholder="Laying, fattening, breeding…"
-        />
-        <Field label="Notes" value={notes} onChangeText={setNotes} placeholder="Optional" multiline />
 
       </ScrollView>
 
       <FloatingActionButton
         accessibilityLabel={isEditing ? 'Save changes' : 'Add herd or flock'}
         icon="check"
+        bottomOffset={insets.bottom + 78}
         onPress={() => void handleSave()}
       />
 
@@ -313,87 +295,49 @@ export default function AddCollectiveScreen() {
   );
 }
 
-type FieldProps = {
-  label: string;
-  value: string;
-  onChangeText: (next: string) => void;
-  placeholder?: string;
-  keyboardType?: 'default' | 'number-pad';
-  multiline?: boolean;
-  editable?: boolean;
-  hint?: string;
-};
-
-function Field({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  keyboardType = 'default',
-  multiline = false,
-  editable = true,
-  hint,
-}: FieldProps) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        editable={editable}
-        keyboardType={keyboardType}
-        multiline={multiline}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#B4A9B1"
-        style={[styles.input, multiline && styles.inputMultiline, !editable && styles.inputDisabled]}
-        value={value}
-      />
-      {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: tokens.colors.background },
   content: { paddingHorizontal: 26, paddingTop: 16, paddingBottom: 120, gap: 14 },
-  sectionLabel: {
+  pressed: { opacity: 0.85 },
+  // Mirrors add-animal: fields are white pills inside a grey form card, rather
+  // than grey inputs sitting directly on the page.
+  formCard: {
+    borderRadius: 24,
+    backgroundColor: '#F5F3F7',
+    padding: 16,
+    gap: 14,
+  },
+  block: { gap: 8 },
+  label: {
+    color: tokens.colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  helperText: {
+    marginTop: -6,
     color: tokens.colors.textSoft,
     fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    fontWeight: '500',
+    lineHeight: 18,
   },
-  field: { gap: 6 },
-  fieldLabel: { color: tokens.colors.text, fontSize: 13, fontWeight: '700' },
-  fieldHint: { color: tokens.colors.textSoft, fontSize: 11, lineHeight: 15 },
-  input: {
-    minHeight: 46,
-    borderRadius: 14,
-    backgroundColor: tokens.colors.surfaceMuted,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: tokens.colors.text,
-    fontSize: 15,
-  },
-  inputMultiline: { minHeight: 84, textAlignVertical: 'top' },
-  inputDisabled: { opacity: 0.6 },
-  pressed: { opacity: 0.85 },
-  block: { gap: 6 },
-  pickerField: {
-    minHeight: 46,
-    borderRadius: 14,
-    backgroundColor: tokens.colors.surfaceMuted,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.colors.border,
-    paddingHorizontal: 14,
+  dateField: {
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  dateValue: {
+    color: '#2b2b2b',
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+    paddingRight: 10,
+  },
+  placeholderValue: { color: '#7a7a7a' },
   fieldWithIcon: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  pickerValue: { color: tokens.colors.text, fontSize: 15, fontWeight: '500' },
-  pickerPlaceholder: { color: '#B4A9B1', fontWeight: '400' },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.35)',

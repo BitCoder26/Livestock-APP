@@ -923,7 +923,9 @@ const styles = StyleSheet.create({
   segmentRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 12,
+    // No extra margin — the content container's own gap is the only spacing
+    // between the toggle and the import card, keeping them visually paired.
+    marginBottom: 0,
   },
   segmentButton: {
     flex: 1,
