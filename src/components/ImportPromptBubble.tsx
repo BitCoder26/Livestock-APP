@@ -109,10 +109,6 @@ const styles = StyleSheet.create({
   card: {
     minHeight: 84,
     borderRadius: 18,
-    // Opaque rather than a translucent tint, for the same reason as the Setup
-    // tab's card: this card sets `elevation`, and Android draws the elevation
-    // shadow through a translucent background, casting a muddy grey over the
-    // fill.
     backgroundColor: '#FCEAEA',
     paddingLeft: 14,
     paddingRight: 24,
@@ -120,11 +116,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
   },
   cardPressed: {
     opacity: 0.92,
