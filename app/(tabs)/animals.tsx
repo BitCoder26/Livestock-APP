@@ -281,9 +281,7 @@ export default function AnimalsScreen() {
             );
           })}
         </View>
-        {animalView === 'individual' ? (
-          <ImportPromptBubble onPress={() => router.push('/import-animals')} />
-        ) : null}
+        <ImportPromptBubble onPress={() => router.push('/import-animals')} />
         <Text style={styles.countText}>{animalView === 'collectives' ? `${collectives.length} herds & flocks` : hasActiveFilters ? `${filteredAnimals.length} of ${animals.length} animals` : `${animals.length} animals`}</Text>
         {animalView === 'collectives' ? (
           collectives.length === 0 ? (
