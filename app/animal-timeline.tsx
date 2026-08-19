@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Dimensions, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Svg, { Circle, Polyline } from 'react-native-svg';
@@ -19,6 +19,8 @@ import type { RecordEntry } from '../src/entities/record';
 import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, parseStoredDate } from '../src/utils/dateFormat';
 import { resolveRecordAnimalUids } from '../src/utils/recordAnimals';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 import {
   resolveAnimalFarmName,
   resolveAnimalGroupName,
@@ -51,6 +53,16 @@ export default function AnimalTimelineScreen() {
   const animalGroupName = animal ? resolveAnimalGroupName(animal, groupEntities) : '';
 
   const [showStatusPicker, setShowStatusPicker] = useState(false);
+  // The dropdown is drawn in a Modal so it can escape the ScrollView's clipping,
+  // which puts it in the window's coordinate space — so the pill is measured and
+  // the menu placed at those coordinates rather than anchored by layout.
+  const [pillAnchor, setPillAnchor] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const pillRef = useRef<View | null>(null);
 
   const timelineRecords = useMemo(() => {
     if (!animal) {
@@ -191,9 +203,16 @@ export default function AnimalTimelineScreen() {
                 </View>
               </View>
               <Pressable
+                ref={pillRef}
+                collapsable={false}
                 accessibilityLabel={`Status: ${animal.status}. Change status`}
                 accessibilityRole="button"
-                onPress={() => setShowStatusPicker(true)}
+                onPress={() => {
+                  pillRef.current?.measureInWindow((x, y, width, height) => {
+                    setPillAnchor({ x, y, width, height });
+                  });
+                  setShowStatusPicker(true);
+                }}
                 style={({ pressed }) => [styles.statusPill, pressed && styles.cardPressed]}
               >
                 <View
@@ -310,40 +329,43 @@ export default function AnimalTimelineScreen() {
         visible={showStatusPicker}
         onRequestClose={() => setShowStatusPicker(false)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowStatusPicker(false)}>
-          <AnimatedPopupCard
-            visible={showStatusPicker}
-            style={styles.modalCard}
-            onPress={() => undefined}
+        <Pressable style={styles.menuBackdrop} onPress={() => setShowStatusPicker(false)}>
+          <View
+            style={[
+              styles.menuCard,
+              pillAnchor
+                ? {
+                    top: pillAnchor.y + pillAnchor.height + 6,
+                    right: Math.max(12, SCREEN_WIDTH - (pillAnchor.x + pillAnchor.width)),
+                  }
+                : styles.menuFallback,
+            ]}
           >
-            <Text style={styles.modalTitle}>Status</Text>
-            <View style={styles.optionList}>
-              {(['Active', 'Sold', 'Deceased'] as AnimalStatus[]).map((status) => (
-                <BouncyPressable
-                  key={status}
-                  accessibilityLabel={status}
-                  accessibilityRole="button"
-                  onPress={() => void applyStatus(status)}
-                  style={({ pressed }) => [styles.optionRow, pressed && styles.cardPressed]}
-                >
-                  <View
-                    style={[
-                      styles.statusDot,
-                      status === 'Sold'
-                        ? styles.statusSold
-                        : status === 'Deceased'
-                          ? styles.statusDeceased
-                          : styles.statusActive,
-                    ]}
-                  />
-                  <Text style={styles.optionText}>{status}</Text>
-                  {animal?.status === status ? (
-                    <AppIcon name="check" size={16} color={tokens.colors.accent} />
-                  ) : null}
-                </BouncyPressable>
-              ))}
-            </View>
-          </AnimatedPopupCard>
+            {(['Active', 'Sold', 'Deceased'] as AnimalStatus[]).map((status) => (
+              <BouncyPressable
+                key={status}
+                accessibilityLabel={status}
+                accessibilityRole="button"
+                onPress={() => void applyStatus(status)}
+                style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
+              >
+                <View
+                  style={[
+                    styles.statusDot,
+                    status === 'Sold'
+                      ? styles.statusSold
+                      : status === 'Deceased'
+                        ? styles.statusDeceased
+                        : styles.statusActive,
+                  ]}
+                />
+                <Text style={styles.menuText}>{status}</Text>
+                {animal?.status === status ? (
+                  <AppIcon name="check" size={15} color={tokens.colors.accent} />
+                ) : null}
+              </BouncyPressable>
+            ))}
+          </View>
         </Pressable>
       </Modal>
     </SafeAreaView>
@@ -771,39 +793,40 @@ const styles = StyleSheet.create({
   cardPressed: {
     opacity: 0.92,
   },
-  modalBackdrop: {
+  menuBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.28)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.12)',
   },
-  modalCard: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 26,
-  },
-  modalTitle: {
-    color: tokens.colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  optionList: {
-    marginTop: 16,
-    gap: 8,
-  },
-  optionRow: {
-    minHeight: 52,
+  menuCard: {
+    position: 'absolute',
+    minWidth: 176,
     borderRadius: 16,
-    backgroundColor: tokens.colors.surfaceMuted,
-    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    gap: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+  },
+  menuFallback: {
+    top: 120,
+    right: 16,
+  },
+  menuRow: {
+    minHeight: 44,
+    borderRadius: 11,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  optionText: {
+  menuRowPressed: {
+    backgroundColor: tokens.colors.surfaceMuted,
+  },
+  menuText: {
     flex: 1,
     color: tokens.colors.text,
     fontSize: 15,
