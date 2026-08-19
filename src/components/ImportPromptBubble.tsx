@@ -81,7 +81,9 @@ export function ImportPromptBubble({ onPress }: ImportPromptBubbleProps) {
         </View>
         <View style={styles.copy}>
           <Text style={styles.title}>Got a list of your animals?</Text>
-          <Text style={styles.text}>Import them instead of adding one by one.</Text>
+          <Text style={styles.text}>
+            Import them instead of adding one by one. Access in settings.
+          </Text>
         </View>
         <View style={styles.actionButton}>
           <Text style={styles.actionButtonText}>Import</Text>
@@ -108,7 +110,7 @@ const styles = StyleSheet.create({
   },
   card: {
     minHeight: 84,
-    borderRadius: 18,
+    borderRadius: 22,
     backgroundColor: '#FCEAEA',
     paddingLeft: 14,
     paddingRight: 24,
