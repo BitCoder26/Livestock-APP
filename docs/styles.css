@@ -420,8 +420,9 @@ h2,
   width: 100%;
   /* The PNG carries 19.5% transparent padding on top, and its left side (which
      sits under the hero copy) stays empty until 35.6% down, so it can be
-     pulled up hard without the artwork colliding with the text. */
-  margin: -285px 0 0;
+     pulled up without the artwork colliding with the text. Less lift than it
+     once took, now that the headline is two lines rather than three. */
+  margin: -225px 0 0;
   padding-left: calc((100% - min(var(--content-frame-width), 100% - 48px)) / 2);
 }
 
@@ -2004,7 +2005,8 @@ h2,
     /* Phone-sized on a phone; the cap keeps it sane on tablet widths, which
        this breakpoint also covers. */
     max-width: 430px;
-    margin: -4% auto 0;
+    /* The negative bottom draws the blob up under the mockups. */
+    margin: -4% auto -6%;
   }
 
   /* The list picks up 22px of side padding from the panel rule it shares
