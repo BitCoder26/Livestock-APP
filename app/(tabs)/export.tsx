@@ -491,7 +491,7 @@ export default function ExportScreen() {
       ) : null}
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={activeDateField !== null && Platform.OS === 'ios'}
         onRequestClose={() => setActiveDateField(null)}
@@ -530,7 +530,7 @@ export default function ExportScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={activeMultiSelect !== null}
         onRequestClose={() => setActiveMultiSelect(null)}
@@ -1355,7 +1355,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   segmentButtonActive: {
-    backgroundColor: tokens.colors.accentSoft,
+    // #FCEAEA, shared by hand with the Animals toggle, the Setup feedback card
+    // and the import prompt card.
+    backgroundColor: '#FCEAEA',
   },
   segmentButtonIdle: {
     backgroundColor: '#F5F3F7',
