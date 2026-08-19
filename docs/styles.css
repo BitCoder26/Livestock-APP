@@ -192,9 +192,14 @@ h2,
 
 /* Underlines scale with the type they sit under, and keep clear of the
    descenders in "better". */
-/* A line break the narrow layout takes and the wide one ignores. */
+/* Line breaks each layout takes on its own: the narrow one uses
+   .phone-break, the wide one .wide-break. */
 .phone-break {
   display: none;
+}
+
+.wide-break {
+  display: inline;
 }
 
 .hero-underline {
@@ -2094,10 +2099,14 @@ h2,
     margin-right: 0;
   }
 
-  /* The export copy keeps the breaks the desktop layout uses, plus one more
-     after "records" that only phones need. */
+  /* The export copy breaks where the narrow column wants to, not where the
+     wide one does. */
   .phone-break {
     display: inline;
+  }
+
+  .wide-break {
+    display: none;
   }
 
   /* The check keeps the same clearance from its label as on desktop; the
