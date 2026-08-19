@@ -173,8 +173,8 @@ export default function AddCollectiveScreen() {
       <AppTopBar
         title={isEditing ? `Edit ${term || 'group'}` : heading}
         leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: handleBack }}
-        actions={[
-          ...(isEditing
+        actions={
+          isEditing
             ? [
                 {
                   icon: 'trash' as const,
@@ -183,13 +183,14 @@ export default function AddCollectiveScreen() {
                   size: 28,
                 },
               ]
-            : []),
-          {
-            icon: 'help-circle' as const,
-            accessibilityLabel: 'How the head count works',
-            onPress: () => setShowCountHelp(true),
-          },
-        ]}
+            : [
+                {
+                  icon: 'help-circle' as const,
+                  accessibilityLabel: 'How the head count works',
+                  onPress: () => setShowCountHelp(true),
+                },
+              ]
+        }
       />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
