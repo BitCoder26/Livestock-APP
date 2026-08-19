@@ -33,7 +33,7 @@ export default function AddCollectiveScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { collectiveUid } = useLocalSearchParams<{ collectiveUid?: string }>();
-  const { collectives, addCollective, updateCollective } = useCollectives();
+  const { collectives, addCollective, updateCollective, deleteCollective } = useCollectives();
   const { farms } = useSetup();
 
   const existing = useMemo(
@@ -60,6 +60,7 @@ export default function AddCollectiveScreen() {
   const [averageWeight, setAverageWeight] = useState(existing?.averageWeight ?? '');
   const [showSpeciesPicker, setShowSpeciesPicker] = useState(false);
   const [showCountHelp, setShowCountHelp] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // "flock" once poultry is picked, "herd" for cattle and pigs, "batch" for
@@ -77,6 +78,24 @@ export default function AddCollectiveScreen() {
 
     router.replace('/(tabs)/animals');
   };
+
+  async function confirmDelete() {
+    if (!existing) {
+      return;
+    }
+
+    setShowDeleteConfirm(false);
+    const result = await deleteCollective(existing.uid);
+
+    if (!result.ok) {
+      Alert.alert('Could not delete', result.message);
+      return;
+    }
+
+    // Back twice: the view screen behind this one is now showing a record that
+    // no longer exists.
+    router.replace('/(tabs)/animals');
+  }
 
   async function handleSave() {
     if (saving) {
@@ -155,8 +174,18 @@ export default function AddCollectiveScreen() {
         title={isEditing ? `Edit ${term || 'group'}` : heading}
         leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: handleBack }}
         actions={[
+          ...(isEditing
+            ? [
+                {
+                  icon: 'trash' as const,
+                  accessibilityLabel: `Delete ${term || 'group'}`,
+                  onPress: () => setShowDeleteConfirm(true),
+                  size: 28,
+                },
+              ]
+            : []),
           {
-            icon: 'help-circle',
+            icon: 'help-circle' as const,
             accessibilityLabel: 'How the head count works',
             onPress: () => setShowCountHelp(true),
           },
@@ -356,6 +385,47 @@ export default function AddCollectiveScreen() {
         </Pressable>
       </Modal>
 
+      <Modal
+        animationType="none"
+        transparent
+        visible={showDeleteConfirm}
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <Pressable
+          style={styles.centeredModalBackdrop}
+          onPress={() => setShowDeleteConfirm(false)}
+        >
+          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
+            <Text style={styles.deleteConfirmTitle}>{`Delete ${term || 'group'}?`}</Text>
+            <Text style={styles.deleteConfirmText}>
+              {existing && existing.countEvents.length > 0
+                ? `This removes the group and its ${existing.countEvents.length} recorded ${existing.countEvents.length === 1 ? 'change' : 'changes'} to the head count. This action cannot be undone.`
+                : 'This action cannot be undone.'}
+            </Text>
+            <View style={styles.deleteConfirmActions}>
+              <BouncyPressable
+                accessibilityLabel="Cancel delete"
+                accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
+                onPress={() => setShowDeleteConfirm(false)}
+                style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </BouncyPressable>
+              <BouncyPressable
+                accessibilityLabel="Confirm delete"
+                accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
+                onPress={() => void confirmDelete()}
+                style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+              </BouncyPressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <InfoModal
         visible={showCountHelp}
         onClose={() => setShowCountHelp(false)}
@@ -370,6 +440,64 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: tokens.colors.background },
   content: { paddingHorizontal: 26, paddingTop: 16, paddingBottom: 120, gap: 14 },
   pressed: { opacity: 0.85 },
+  centeredModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.46)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  deleteConfirmCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  deleteConfirmTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  deleteConfirmText: {
+    marginTop: 8,
+    color: tokens.colors.textSoft,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  deleteCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E0E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelButtonText: { color: '#544F49', fontSize: 15, fontWeight: '700' },
+  deleteConfirmButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   // Mirrors add-animal: fields are white pills inside a grey form card, rather
   // than grey inputs sitting directly on the page.
   formCard: {

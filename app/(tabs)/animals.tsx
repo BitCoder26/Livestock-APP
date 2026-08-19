@@ -321,7 +321,7 @@ export default function AnimalsScreen() {
                     accessibilityRole="button"
                     onPress={() =>
                       router.push({
-                        pathname: '/add-collective',
+                        pathname: '/view-collective',
                         params: { collectiveUid: collective.uid },
                       })
                     }
