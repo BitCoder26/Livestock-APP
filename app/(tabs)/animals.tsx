@@ -12,7 +12,7 @@ import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { useCollectives } from '../../src/context/CollectivesContext';
 import { collectiveTermForSpecies, getCollectiveCount } from '../../src/entities/collective';
 import { getSpeciesThemeByLabel, getSpeciesThemeByTone, getToneForSpecies } from '../../src/constants/speciesTheme';
-import { FloatingActionButton } from '../../src/components/FloatingActionButton';
+import { FabSpeedDial } from '../../src/components/FabSpeedDial';
 import { useAnimals } from '../../src/context/AnimalsContext';
 import { useOnboarding, useSpotlightTarget } from '../../src/context/OnboardingContext';
 import { useSetup } from '../../src/context/SetupContext';
@@ -465,10 +465,30 @@ export default function AnimalsScreen() {
           })
         )}
       </ScrollView>
-      <FloatingActionButton
+      <FabSpeedDial
         accessibilityLabel="Add animal"
-        onPress={() => router.push('/add-choose')}
         positionerRef={fabRef}
+        actions={[
+          {
+            // The Animals tab's own icon, so the action reads as "another one of
+            // these"; the herd adds a plus to mark it as several at once.
+            icon: 'goat-face',
+            label: 'Add individual',
+            onPress: () => router.push({ pathname: '/add-animal', params: { reveal: '1' } }),
+          },
+          {
+            icon: 'goat-face',
+            badge: 'plus',
+            label: 'Add herd or flock',
+            onPress: () => router.push('/add-collective'),
+          },
+          {
+            glyph: '?',
+            label: 'Help',
+            variant: 'secondary',
+            onPress: () => router.push('/add-choose'),
+          },
+        ]}
       />
       <Modal transparent animationType="none" visible={showFilterSheet} onRequestClose={() => setShowFilterSheet(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowFilterSheet(false)}>
