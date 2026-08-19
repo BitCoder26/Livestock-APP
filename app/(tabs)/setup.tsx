@@ -207,7 +207,12 @@ const styles = StyleSheet.create({
   feedbackCard: {
     minHeight: 84,
     borderRadius: 18,
-    backgroundColor: 'rgba(231, 108, 102, 0.14)',
+    // Opaque rather than rgba(231, 108, 102, 0.14): this card also sets
+    // `elevation`, and Android draws the elevation shadow *through* a
+    // translucent background, casting a muddy grey over the fill. #FCEAEA is
+    // that same tint composited over the screen's white background, so the
+    // card looks identical on both platforms and the shadow renders cleanly.
+    backgroundColor: '#FCEAEA',
     paddingHorizontal: 18,
     paddingVertical: 11,
     flexDirection: 'row',
