@@ -12,13 +12,7 @@ import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useRecords } from '../src/context/RecordsContext';
 import { type FarmEntity, type PaddockEntity, useSetup } from '../src/context/SetupContext';
-import {
-  ANIMAL_STATUS_REASONS,
-  type AnimalStatus,
-  type AnimalStatusChange,
-  type AnimalStatusReason,
-  type AnimalTone,
-} from '../src/entities/animal';
+import { type AnimalStatus, type AnimalTone } from '../src/entities/animal';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import type { RecordEntry } from '../src/entities/record';
@@ -57,7 +51,6 @@ export default function AnimalTimelineScreen() {
   const animalGroupName = animal ? resolveAnimalGroupName(animal, groupEntities) : '';
 
   const [showStatusPicker, setShowStatusPicker] = useState(false);
-  const [pendingStatus, setPendingStatus] = useState<AnimalStatus | null>(null);
 
   const timelineRecords = useMemo(() => {
     if (!animal) {
@@ -68,30 +61,6 @@ export default function AnimalTimelineScreen() {
       .filter((record) => resolveRecordAnimalUids(record, animals).includes(animal.uid))
       .sort((left, right) => getRecordTimestamp(right.date) - getRecordTimestamp(left.date));
   }, [animal, animals, records]);
-
-  // Status changes live on the animal rather than in Records — the Records tab
-  // logs what happened to the animal, not corrections to the bookkeeping, and a
-  // fix-up after a bulk import would otherwise consume the free record
-  // allowance. They are merged in here purely for display.
-  const timelineEntries = useMemo(() => {
-    const recordEntries = timelineRecords.map((record) => ({
-      kind: 'record' as const,
-      id: record.id,
-      date: record.date,
-      record,
-    }));
-
-    const statusEntries = (animal?.statusHistory ?? []).map((change) => ({
-      kind: 'status' as const,
-      id: change.id,
-      date: change.date,
-      change,
-    }));
-
-    return [...recordEntries, ...statusEntries].sort(
-      (left, right) => getRecordTimestamp(right.date) - getRecordTimestamp(left.date),
-    );
-  }, [animal?.statusHistory, timelineRecords]);
 
   const weightHistory = useMemo(
     () => (animal ? buildWeightHistory(animal, records) : []),
@@ -109,47 +78,16 @@ export default function AnimalTimelineScreen() {
   const showPrimaryImage = Boolean(primaryImageUri) && !primaryImageFailed;
   const speciesTheme = animal ? getSpeciesThemeByTone(animal.tone) : null;
 
-  const applyStatus = async (status: AnimalStatus, reason: AnimalStatusReason | '') => {
+  const applyStatus = async (status: AnimalStatus) => {
     if (!animal) {
       return;
     }
 
     setShowStatusPicker(false);
-    setPendingStatus(null);
-
-    const result = await setAnimalStatusManually(animal.uid, {
-      date: new Date().toISOString().slice(0, 10),
-      status,
-      reason,
-      notes: '',
-    });
+    const result = await setAnimalStatusManually(animal.uid, status);
 
     if (!result.ok) {
       Alert.alert('Could not update', 'The status change could not be saved. Please try again.');
-      return;
-    }
-
-    // Sold and Died are real farm events with a buyer, a price or a cause. The
-    // status alone loses all of that, so offer the record that keeps it —
-    // dismissible, since someone tidying up imported history wants neither.
-    if (reason === 'Sold' || reason === 'Died') {
-      Alert.alert(
-        `Set to ${status}`,
-        reason === 'Sold'
-          ? 'Add a Sale record to log the buyer and price?'
-          : 'Add a Death record to log the cause?',
-        [
-          { text: 'Not now', style: 'cancel' },
-          {
-            text: 'Add record',
-            onPress: () =>
-              router.push({
-                pathname: '/add-record',
-                params: { animalUid: animal.uid, type: reason === 'Sold' ? 'Sale' : 'Death' },
-              }),
-          },
-        ],
-      );
     }
   };
 
@@ -317,7 +255,7 @@ export default function AnimalTimelineScreen() {
             <Text style={styles.emptyTitle}>Animal not found</Text>
             <Text style={styles.emptyText}>Return and open an animal card again.</Text>
           </View>
-        ) : timelineEntries.length === 0 ? (
+        ) : timelineRecords.length === 0 ? (
           <View style={styles.emptyState}>
             <AppIcon name="records_" size={80} color="#E5E0E7" opacity={1} />
             <Text style={styles.emptyTitle}>No timeline yet</Text>
@@ -326,45 +264,15 @@ export default function AnimalTimelineScreen() {
         ) : (
           <View style={styles.timelineList}>
             <Text style={styles.timelineListHeading}>
-              Timeline · {timelineEntries.length} {timelineEntries.length === 1 ? 'Entry' : 'Entries'}
+              Timeline · {timelineRecords.length} {timelineRecords.length === 1 ? 'Record' : 'Records'}
             </Text>
-            {timelineEntries.map((entry, index) => {
-              const isLast = index === timelineEntries.length - 1;
+            {timelineRecords.map((record, index) => {
+              const isLast = index === timelineRecords.length - 1;
 
-              if (entry.kind === 'status') {
-                return (
-                  <View key={entry.id} style={styles.timelineRow}>
-                    <Text
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.9}
-                      numberOfLines={1}
-                      style={styles.recordDate}
-                    >
-                      {formatDateForDisplay(entry.date, profile.dateFormat)}
-                    </Text>
-                    <View style={styles.railColumn}>
-                      {!isLast ? <View style={styles.railLine} /> : null}
-                      <View style={[styles.railDot, styles.railDotStatus]} />
-                    </View>
-                    <View style={[styles.recordCard, styles.statusCard]}>
-                      <View style={styles.recordCopy}>
-                        <Text style={styles.recordTitle}>
-                          {`Status changed to ${entry.change.status}`}
-                        </Text>
-                        <Text style={styles.recordDetails}>
-                          {describeStatusChange(entry.change)}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                );
-              }
-
-              const record = entry.record;
               const details = getTimelineDetails(record, farmEntities, paddockEntities);
 
               return (
-                <View key={entry.id} style={styles.timelineRow}>
+                <View key={record.id} style={styles.timelineRow}>
                   <Text
                     adjustsFontSizeToFit
                     minimumFontScale={0.9}
@@ -400,87 +308,46 @@ export default function AnimalTimelineScreen() {
         animationType="none"
         transparent
         visible={showStatusPicker}
-        onRequestClose={() => {
-          setShowStatusPicker(false);
-          setPendingStatus(null);
-        }}
+        onRequestClose={() => setShowStatusPicker(false)}
       >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => {
-            setShowStatusPicker(false);
-            setPendingStatus(null);
-          }}
-        >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowStatusPicker(false)}>
           <AnimatedPopupCard
             visible={showStatusPicker}
             style={styles.modalCard}
             onPress={() => undefined}
           >
-            <Text style={styles.modalTitle}>
-              {pendingStatus ? 'Why?' : 'Change status'}
-            </Text>
-            <Text style={styles.modalSubtitle}>
-              {pendingStatus
-                ? 'Recorded on the timeline so the change can be traced.'
-                : 'Adding a Death, Sale or Purchase record sets this automatically.'}
-            </Text>
-
-            {pendingStatus ? (
-              <View style={styles.optionList}>
-                {ANIMAL_STATUS_REASONS.map((reason) => (
-                  <BouncyPressable
-                    key={reason}
-                    accessibilityLabel={reason}
-                    accessibilityRole="button"
-                    onPress={() => void applyStatus(pendingStatus, reason)}
-                    style={({ pressed }) => [styles.optionRow, pressed && styles.cardPressed]}
-                  >
-                    <Text style={styles.optionText}>{reason}</Text>
-                    <AppIcon name="chevron-right-minimal" size={16} color="#171717" />
-                  </BouncyPressable>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.optionList}>
-                {(['Active', 'Sold', 'Deceased'] as AnimalStatus[]).map((status) => (
-                  <BouncyPressable
-                    key={status}
-                    accessibilityLabel={status}
-                    accessibilityRole="button"
-                    onPress={() => setPendingStatus(status)}
-                    style={({ pressed }) => [styles.optionRow, pressed && styles.cardPressed]}
-                  >
-                    <View
-                      style={[
-                        styles.statusDot,
-                        status === 'Sold'
-                          ? styles.statusSold
-                          : status === 'Deceased'
-                            ? styles.statusDeceased
-                            : styles.statusActive,
-                      ]}
-                    />
-                    <Text style={styles.optionText}>{status}</Text>
-                    {animal?.status === status ? (
-                      <AppIcon name="check" size={16} color={tokens.colors.accent} />
-                    ) : (
-                      <AppIcon name="chevron-right-minimal" size={16} color="#171717" />
-                    )}
-                  </BouncyPressable>
-                ))}
-              </View>
-            )}
+            <Text style={styles.modalTitle}>Status</Text>
+            <View style={styles.optionList}>
+              {(['Active', 'Sold', 'Deceased'] as AnimalStatus[]).map((status) => (
+                <BouncyPressable
+                  key={status}
+                  accessibilityLabel={status}
+                  accessibilityRole="button"
+                  onPress={() => void applyStatus(status)}
+                  style={({ pressed }) => [styles.optionRow, pressed && styles.cardPressed]}
+                >
+                  <View
+                    style={[
+                      styles.statusDot,
+                      status === 'Sold'
+                        ? styles.statusSold
+                        : status === 'Deceased'
+                          ? styles.statusDeceased
+                          : styles.statusActive,
+                    ]}
+                  />
+                  <Text style={styles.optionText}>{status}</Text>
+                  {animal?.status === status ? (
+                    <AppIcon name="check" size={16} color={tokens.colors.accent} />
+                  ) : null}
+                </BouncyPressable>
+              ))}
+            </View>
           </AnimatedPopupCard>
         </Pressable>
       </Modal>
     </SafeAreaView>
   );
-}
-
-function describeStatusChange(change: AnimalStatusChange) {
-  const source = change.manual ? 'Set manually' : 'From a record';
-  return change.reason ? `${change.reason} · ${source}` : source;
 }
 
 function SummaryDetail({ label, value }: { label: string; value: string }) {
@@ -904,8 +771,6 @@ const styles = StyleSheet.create({
   cardPressed: {
     opacity: 0.92,
   },
-  // Bookkeeping entries read quieter than husbandry events: muted fill, no
-  // shadow, no chevron, and a hollow rail dot.
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.28)',
@@ -923,14 +788,6 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
     fontSize: 18,
     fontWeight: '700',
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    marginTop: 6,
-    color: tokens.colors.textSoft,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '500',
     textAlign: 'center',
   },
   optionList: {
@@ -951,17 +808,6 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
     fontSize: 15,
     fontWeight: '600',
-  },
-  statusCard: {
-    backgroundColor: tokens.colors.surfaceMuted,
-    shadowOpacity: 0,
-    elevation: 0,
-    minHeight: 64,
-  },
-  railDotStatus: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: tokens.colors.accent,
   },
   recordCopy: {
     flex: 1,

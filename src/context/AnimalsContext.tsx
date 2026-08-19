@@ -2,7 +2,7 @@ import AsyncStorage from 'expo-sqlite/kv-store';
 import type { PropsWithChildren } from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Animal, AnimalStatusChange, AnimalTone } from '../entities/animal';
+import type { Animal, AnimalStatus, AnimalTone } from '../entities/animal';
 import { createUniqueUuid } from '../utils/createLocalId';
 import { filterAccessibleImageUris } from '../utils/imageStorage';
 import { type FarmEntity, type GroupEntity, type PaddockEntity, useSetup } from './SetupContext';
@@ -38,11 +38,11 @@ type AnimalsContextValue = {
   resetAnimals: () => Promise<AnimalDeleteResult>;
   prepareAnimalAddition: (animal: CreateAnimalInput) => AnimalMutationResult;
   prepareAnimalUpdate: (animalUid: string, animal: CreateAnimalInput) => AnimalMutationResult;
-  /** Sets a status by hand and records why, for cases the three record types
-   *  cannot express — lost, stolen, given away, or historical imports. */
+  /** Sets a status directly, for cases the Death/Sale/Purchase records cannot
+   *  express — lost, stolen, given away, or a historical import. */
   setAnimalStatusManually: (
     animalUid: string,
-    change: Omit<AnimalStatusChange, 'id' | 'manual'>,
+    status: AnimalStatus,
   ) => Promise<AnimalMutationResult>;
   getAnimalsSnapshot: () => Animal[];
   replaceAnimalsFromTransaction: (nextAnimals: Animal[]) => void;
@@ -182,22 +182,14 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
         isLoaded: hasLoadedStoredAnimals,
         prepareAnimalAddition,
         prepareAnimalUpdate,
-        setAnimalStatusManually: async (animalUid, change) => {
+        setAnimalStatusManually: async (animalUid, status) => {
         const existing = animalsRef.current.find((item) => item.uid === animalUid);
 
         if (!existing) {
           return { ok: false, reason: 'not-found' };
         }
 
-        const updated: Animal = {
-          ...existing,
-          status: change.status,
-          statusHistory: [
-            ...(existing.statusHistory ?? []),
-            { ...change, id: createUniqueUuid(new Set()), manual: true },
-          ],
-        };
-
+        const updated: Animal = { ...existing, status };
         const next = animalsRef.current.map((item) =>
           item.uid === animalUid ? updated : item,
         );
@@ -403,25 +395,7 @@ export function normalizeStoredAnimal(
     // Animals stored before these fields existed won't have them at all.
     source: animal.source ?? '',
     farmEntryDate: animal.farmEntryDate ?? '',
-    statusHistory: normalizeStatusHistory(animal.statusHistory),
   };
-}
-
-function normalizeStatusHistory(value: unknown): AnimalStatusChange[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .filter((entry): entry is AnimalStatusChange => !!entry && typeof entry === 'object')
-    .map((entry) => ({
-      id: typeof entry.id === 'string' && entry.id ? entry.id : createUniqueUuid(new Set()),
-      date: typeof entry.date === 'string' ? entry.date : '',
-      status: entry.status === 'Sold' || entry.status === 'Deceased' ? entry.status : 'Active',
-      reason: typeof entry.reason === 'string' ? entry.reason : '',
-      notes: typeof entry.notes === 'string' ? entry.notes : '',
-      manual: entry.manual !== false,
-    }));
 }
 
 function buildAnimal(animal: CreateAnimalInput, uid: string): Animal {
