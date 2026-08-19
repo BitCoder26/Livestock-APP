@@ -2,7 +2,7 @@ import AsyncStorage from 'expo-sqlite/kv-store';
 import type { PropsWithChildren } from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Animal, AnimalStatus, AnimalTone } from '../entities/animal';
+import type { Animal, AnimalStatus, AnimalStatusChange, AnimalTone } from '../entities/animal';
 import { createUniqueUuid } from '../utils/createLocalId';
 import { filterAccessibleImageUris } from '../utils/imageStorage';
 import { type FarmEntity, type GroupEntity, type PaddockEntity, useSetup } from './SetupContext';
@@ -189,7 +189,18 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
           return { ok: false, reason: 'not-found' };
         }
 
-        const updated: Animal = { ...existing, status };
+        const updated: Animal = {
+          ...existing,
+          status,
+          statusHistory: [
+            ...(existing.statusHistory ?? []),
+            {
+              id: createUniqueUuid(new Set()),
+              date: new Date().toISOString().slice(0, 10),
+              status,
+            },
+          ],
+        };
         const next = animalsRef.current.map((item) =>
           item.uid === animalUid ? updated : item,
         );
@@ -395,7 +406,22 @@ export function normalizeStoredAnimal(
     // Animals stored before these fields existed won't have them at all.
     source: animal.source ?? '',
     farmEntryDate: animal.farmEntryDate ?? '',
+    statusHistory: normalizeStatusHistory(animal.statusHistory),
   };
+}
+
+function normalizeStatusHistory(value: unknown): AnimalStatusChange[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((entry): entry is AnimalStatusChange => !!entry && typeof entry === 'object')
+    .map((entry) => ({
+      id: typeof entry.id === 'string' && entry.id ? entry.id : createUniqueUuid(new Set()),
+      date: typeof entry.date === 'string' ? entry.date : '',
+      status: entry.status === 'Sold' || entry.status === 'Deceased' ? entry.status : 'Active',
+    }));
 }
 
 function buildAnimal(animal: CreateAnimalInput, uid: string): Animal {

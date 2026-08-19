@@ -74,6 +74,28 @@ export default function AnimalTimelineScreen() {
       .sort((left, right) => getRecordTimestamp(right.date) - getRecordTimestamp(left.date));
   }, [animal, animals, records]);
 
+  // Status changes are merged in for display only — they live on the animal,
+  // not in Records, which logs husbandry events rather than bookkeeping.
+  const timelineEntries = useMemo(() => {
+    const fromRecords = timelineRecords.map((record) => ({
+      kind: 'record' as const,
+      id: record.id,
+      date: record.date,
+      record,
+    }));
+
+    const fromStatus = (animal?.statusHistory ?? []).map((change) => ({
+      kind: 'status' as const,
+      id: change.id,
+      date: change.date,
+      status: change.status,
+    }));
+
+    return [...fromRecords, ...fromStatus].sort(
+      (left, right) => getRecordTimestamp(right.date) - getRecordTimestamp(left.date),
+    );
+  }, [animal?.statusHistory, timelineRecords]);
+
   const weightHistory = useMemo(
     () => (animal ? buildWeightHistory(animal, records) : []),
     [animal, records],
@@ -274,7 +296,7 @@ export default function AnimalTimelineScreen() {
             <Text style={styles.emptyTitle}>Animal not found</Text>
             <Text style={styles.emptyText}>Return and open an animal card again.</Text>
           </View>
-        ) : timelineRecords.length === 0 ? (
+        ) : timelineEntries.length === 0 ? (
           <View style={styles.emptyState}>
             <AppIcon name="records_" size={80} color="#E5E0E7" opacity={1} />
             <Text style={styles.emptyTitle}>No timeline yet</Text>
@@ -283,15 +305,39 @@ export default function AnimalTimelineScreen() {
         ) : (
           <View style={styles.timelineList}>
             <Text style={styles.timelineListHeading}>
-              Timeline · {timelineRecords.length} {timelineRecords.length === 1 ? 'Record' : 'Records'}
+              Timeline · {timelineEntries.length} {timelineEntries.length === 1 ? 'Entry' : 'Entries'}
             </Text>
-            {timelineRecords.map((record, index) => {
-              const isLast = index === timelineRecords.length - 1;
+            {timelineEntries.map((entry, index) => {
+              const isLast = index === timelineEntries.length - 1;
+
+              if (entry.kind === 'status') {
+                return (
+                  <View key={entry.id} style={styles.timelineRow}>
+                    <Text
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.9}
+                      numberOfLines={1}
+                      style={styles.recordDate}
+                    >
+                      {formatDateForDisplay(entry.date, profile.dateFormat)}
+                    </Text>
+                    <View style={styles.railColumn}>
+                      {!isLast ? <View style={styles.railLine} /> : null}
+                      <View style={[styles.railDot, styles.railDotStatus]} />
+                    </View>
+                    <View style={[styles.recordCard, styles.statusCard]}>
+                      <Text style={styles.statusCardText}>{`Marked ${entry.status}`}</Text>
+                    </View>
+                  </View>
+                );
+              }
+
+              const record = entry.record;
 
               const details = getTimelineDetails(record, farmEntities, paddockEntities);
 
               return (
-                <View key={record.id} style={styles.timelineRow}>
+                <View key={entry.id} style={styles.timelineRow}>
                   <Text
                     adjustsFontSizeToFit
                     minimumFontScale={0.9}
@@ -792,6 +838,24 @@ const styles = StyleSheet.create({
   },
   cardPressed: {
     opacity: 0.92,
+  },
+  // Bookkeeping reads quieter than a husbandry event: muted fill, no shadow,
+  // no chevron, hollow rail dot.
+  statusCard: {
+    backgroundColor: tokens.colors.surfaceMuted,
+    shadowOpacity: 0,
+    elevation: 0,
+    minHeight: 56,
+  },
+  statusCardText: {
+    color: tokens.colors.textSoft,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  railDotStatus: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: tokens.colors.accent,
   },
   menuBackdrop: {
     flex: 1,
