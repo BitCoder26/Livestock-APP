@@ -1316,15 +1316,17 @@ h2,
   color: #000000;
 }
 
+/* The story headings and copy read at the same size as the section
+   headings and body text around them. */
 .feature-story-copy h2 {
   margin: 0 0 14px;
-  font-size: clamp(1.7rem, 2.8vw, 2.2rem);
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
   font-weight: 700;
   line-height: 1.04;
 }
 
 .feature-story-copy p {
-  font-size: 1.02rem;
+  font-size: 1.05rem;
   line-height: 1.8;
 }
 
@@ -1951,12 +1953,10 @@ h2,
   }
 
   .feature-story-copy h2 {
-    font-size: 1.08rem;
     line-height: 1.12;
   }
 
   .feature-story-copy p {
-    font-size: 0.88rem;
     line-height: 1.5;
   }
 
