@@ -253,7 +253,16 @@ export default function AddCollectiveScreen() {
             onPress={() => undefined}
           >
             <View style={styles.speciesModalHeader}>
-              <Text style={styles.speciesModalTitle}>Species</Text>
+              <Text style={styles.speciesModalTitle}>Select Species</Text>
+              <Pressable
+                accessibilityLabel="Close species selector"
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => setShowSpeciesPicker(false)}
+                style={styles.speciesModalClose}
+              >
+                <AppIcon name="close" size={16} color={tokens.colors.text} />
+              </Pressable>
             </View>
             <ScrollView contentContainerStyle={styles.speciesModalGrid} showsVerticalScrollIndicator={false}>
               {SPECIES_OPTIONS.map((item) => {
@@ -338,24 +347,40 @@ const styles = StyleSheet.create({
   },
   placeholderValue: { color: '#7a7a7a' },
   fieldWithIcon: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // Copied from add-animal: a bottom sheet with no height cap. The centred,
+  // maxHeight-capped card this replaced clipped the final row of species.
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    justifyContent: 'flex-end',
   },
   modalCard: {
-    width: '100%',
-    maxHeight: '76%',
-    borderRadius: 24,
-    backgroundColor: tokens.colors.surface,
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 12,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 26,
   },
-  speciesModalHeader: { alignItems: 'center', justifyContent: 'center' },
-  speciesModalTitle: { color: tokens.colors.text, fontSize: 17, fontWeight: '700' },
+  speciesModalHeader: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  speciesModalTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  speciesModalClose: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
   speciesModalGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -369,8 +394,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-start',
     gap: 10,
-    paddingLeft: 20,
+    paddingLeft: 24,
     paddingRight: 14,
   },
   speciesModalCardLabel: { fontSize: 15, fontWeight: '500' },
