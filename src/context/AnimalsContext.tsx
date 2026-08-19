@@ -2,7 +2,7 @@ import AsyncStorage from 'expo-sqlite/kv-store';
 import type { PropsWithChildren } from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Animal, AnimalTone } from '../entities/animal';
+import type { Animal, AnimalStatusChange, AnimalTone } from '../entities/animal';
 import { createUniqueUuid } from '../utils/createLocalId';
 import { filterAccessibleImageUris } from '../utils/imageStorage';
 import { type FarmEntity, type GroupEntity, type PaddockEntity, useSetup } from './SetupContext';
@@ -17,15 +17,33 @@ export type AnimalDeleteResult =
   | { ok: true }
   | { ok: false; reason: 'storage-error' };
 
+export type AnimalBatchSkip = {
+  /** Position in the submitted list, so the caller can name the row. */
+  index: number;
+  tag: string;
+  reason: 'duplicate-tag' | 'invalid-tag';
+};
+
+export type AnimalBatchResult =
+  | { ok: true; added: Animal[]; skipped: AnimalBatchSkip[] }
+  | { ok: false; reason: 'storage-error' };
+
 type AnimalsContextValue = {
   animals: Animal[];
   isLoaded: boolean;
   addAnimal: (animal: CreateAnimalInput) => Promise<AnimalMutationResult>;
+  addAnimalsBatch: (animals: CreateAnimalInput[]) => Promise<AnimalBatchResult>;
   updateAnimal: (animalUid: string, animal: CreateAnimalInput) => Promise<AnimalMutationResult>;
   deleteAnimal: (animalUid: string) => Promise<AnimalDeleteResult>;
   resetAnimals: () => Promise<AnimalDeleteResult>;
   prepareAnimalAddition: (animal: CreateAnimalInput) => AnimalMutationResult;
   prepareAnimalUpdate: (animalUid: string, animal: CreateAnimalInput) => AnimalMutationResult;
+  /** Sets a status by hand and records why, for cases the three record types
+   *  cannot express — lost, stolen, given away, or historical imports. */
+  setAnimalStatusManually: (
+    animalUid: string,
+    change: Omit<AnimalStatusChange, 'id' | 'manual'>,
+  ) => Promise<AnimalMutationResult>;
   getAnimalsSnapshot: () => Animal[];
   replaceAnimalsFromTransaction: (nextAnimals: Animal[]) => void;
 };
@@ -164,7 +182,33 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
         isLoaded: hasLoadedStoredAnimals,
         prepareAnimalAddition,
         prepareAnimalUpdate,
-        getAnimalsSnapshot: () => animalsRef.current,
+        setAnimalStatusManually: async (animalUid, change) => {
+        const existing = animalsRef.current.find((item) => item.uid === animalUid);
+
+        if (!existing) {
+          return { ok: false, reason: 'not-found' };
+        }
+
+        const updated: Animal = {
+          ...existing,
+          status: change.status,
+          statusHistory: [
+            ...(existing.statusHistory ?? []),
+            { ...change, id: createUniqueUuid(new Set()), manual: true },
+          ],
+        };
+
+        const next = animalsRef.current.map((item) =>
+          item.uid === animalUid ? updated : item,
+        );
+
+        if (!(await persistAndReplaceAnimals(next))) {
+          return { ok: false, reason: 'storage-error' };
+        }
+
+        return { ok: true, animal: updated };
+      },
+      getAnimalsSnapshot: () => animalsRef.current,
         replaceAnimalsFromTransaction: replaceAnimals,
         addAnimal: async (animal) => {
           const result = prepareAnimalAddition(animal);
@@ -178,6 +222,61 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
           }
 
           return result;
+        },
+        // Import adds hundreds of animals at once. Doing that through
+        // addAnimal would mean one AsyncStorage write and one state update per
+        // animal, and would leave the register half-filled if a write failed
+        // partway. This validates the whole list against the accumulating set
+        // — so duplicates inside the batch are caught, not just duplicates of
+        // what is already stored — and then writes once.
+        addAnimalsBatch: async (inputs) => {
+          const current = animalsRef.current;
+          const usedUids = new Set(current.map((entry) => entry.uid));
+          const usedTags = new Set(current.map((entry) => normalizeTag(entry.id)));
+          const added: Animal[] = [];
+          const skipped: AnimalBatchSkip[] = [];
+          // Timestamps step backwards through the list so the first row sorts
+          // as the most recent. A single shared timestamp would leave
+          // "Recently Added" with no order at all inside the batch.
+          const baseTime = Date.now();
+
+          inputs.forEach((input, index) => {
+            const tag = input.id.trim();
+
+            if (!tag) {
+              skipped.push({ index, tag: input.id, reason: 'invalid-tag' });
+              return;
+            }
+
+            const normalizedTag = normalizeTag(tag);
+
+            if (usedTags.has(normalizedTag)) {
+              skipped.push({ index, tag, reason: 'duplicate-tag' });
+              return;
+            }
+
+            usedTags.add(normalizedTag);
+            const uid = createUniqueUuid(usedUids);
+            usedUids.add(uid);
+            added.push(
+              buildAnimal(
+                { ...input, createdAt: input.createdAt ?? new Date(baseTime - index).toISOString() },
+                uid,
+              ),
+            );
+          });
+
+          if (added.length === 0) {
+            return { ok: true, added, skipped };
+          }
+
+          const didPersist = await persistAndReplaceAnimals([...added, ...current]);
+
+          if (!didPersist) {
+            return { ok: false, reason: 'storage-error' };
+          }
+
+          return { ok: true, added, skipped };
         },
         updateAnimal: async (animalUid, animal) => {
           const result = prepareAnimalUpdate(animalUid, animal);
@@ -304,7 +403,25 @@ export function normalizeStoredAnimal(
     // Animals stored before these fields existed won't have them at all.
     source: animal.source ?? '',
     farmEntryDate: animal.farmEntryDate ?? '',
+    statusHistory: normalizeStatusHistory(animal.statusHistory),
   };
+}
+
+function normalizeStatusHistory(value: unknown): AnimalStatusChange[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((entry): entry is AnimalStatusChange => !!entry && typeof entry === 'object')
+    .map((entry) => ({
+      id: typeof entry.id === 'string' && entry.id ? entry.id : createUniqueUuid(new Set()),
+      date: typeof entry.date === 'string' ? entry.date : '',
+      status: entry.status === 'Sold' || entry.status === 'Deceased' ? entry.status : 'Active',
+      reason: typeof entry.reason === 'string' ? entry.reason : '',
+      notes: typeof entry.notes === 'string' ? entry.notes : '',
+      manual: entry.manual !== false,
+    }));
 }
 
 function buildAnimal(animal: CreateAnimalInput, uid: string): Animal {
