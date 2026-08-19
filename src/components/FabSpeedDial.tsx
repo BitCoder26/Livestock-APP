@@ -165,7 +165,6 @@ export function FabSpeedDial({
                 style={[
                   styles.actionRow,
                   {
-                    opacity: progress,
                     transform: [
                       {
                         translateY: progress.interpolate({
@@ -173,17 +172,13 @@ export function FabSpeedDial({
                           outputRange: [0, -offset],
                         }),
                       },
-                      {
-                        scale: progress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.4, 1],
-                        }),
-                      },
                     ],
                   },
                 ]}
               >
-                <Text style={styles.actionLabel}>{action.label}</Text>
+                <Animated.Text style={[styles.actionLabel, { opacity: progress }]}>
+                  {action.label}
+                </Animated.Text>
                 <BouncyPressable
                   accessibilityLabel={action.label}
                   accessibilityRole="button"
@@ -196,7 +191,14 @@ export function FabSpeedDial({
                   style={({ pressed }) => [styles.actionPressable, pressed && styles.pressed]}
                 >
                   {action.glyph ? (
-                    <Text style={styles.actionGlyph}>{action.glyph}</Text>
+                    <Text
+                      style={[
+                        styles.actionGlyph,
+                        action.variant === 'secondary' && styles.actionGlyphSecondary,
+                      ]}
+                    >
+                      {action.glyph}
+                    </Text>
                   ) : action.icon ? (
                     <View>
                       <AppIcon name={action.icon} size={28} color="#fff" />
@@ -304,7 +306,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   actionButtonSecondary: {
-    backgroundColor: tokens.colors.text,
+    backgroundColor: tokens.colors.accentSoft,
   },
   actionPressable: {
     width: '100%',
@@ -318,6 +320,9 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '700',
     lineHeight: 34,
+  },
+  actionGlyphSecondary: {
+    color: tokens.colors.text,
   },
   // Sits just off the icon's right edge so the mark reads as "add several"
   // rather than crowding the animal itself.
