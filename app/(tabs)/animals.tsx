@@ -13,6 +13,7 @@ import { useCollectives } from '../../src/context/CollectivesContext';
 import { collectiveTermForSpecies, getCollectiveCount } from '../../src/entities/collective';
 import { getSpeciesThemeByLabel, getSpeciesThemeByTone, getToneForSpecies } from '../../src/constants/speciesTheme';
 import { FabSpeedDial } from '../../src/components/FabSpeedDial';
+import { ImportPromptBubble } from '../../src/components/ImportPromptBubble';
 import { useAnimals } from '../../src/context/AnimalsContext';
 import { useOnboarding, useSpotlightTarget } from '../../src/context/OnboardingContext';
 import { useSetup } from '../../src/context/SetupContext';
@@ -280,6 +281,9 @@ export default function AnimalsScreen() {
             );
           })}
         </View>
+        {animalView === 'individual' ? (
+          <ImportPromptBubble onPress={() => router.push('/import-animals')} />
+        ) : null}
         <Text style={styles.countText}>{animalView === 'collectives' ? `${collectives.length} herds & flocks` : hasActiveFilters ? `${filteredAnimals.length} of ${animals.length} animals` : `${animals.length} animals`}</Text>
         {animalView === 'collectives' ? (
           collectives.length === 0 ? (
@@ -932,7 +936,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   segmentButtonActive: {
-    backgroundColor: tokens.colors.accentSoft,
+    // #FCEAEA rather than accentSoft, to match the import prompt card that sits
+    // directly beneath this toggle on the same screen.
+    backgroundColor: '#FCEAEA',
   },
   segmentButtonIdle: {
     backgroundColor: '#F5F3F7',
