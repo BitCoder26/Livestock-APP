@@ -297,17 +297,20 @@ export default function AnimalsScreen() {
                 // is resolved by label rather than by tone as animals are.
                 const theme = getSpeciesThemeByLabel(collective.species);
                 const tone = getToneForSpecies(collective.species);
-                // Reference leads, mirroring the individual card where the tag
-                // is the title; the name is a human label, so it trails in
-                // parentheses. Falls back to the name, then to the species term,
-                // because a reference is not required for every species.
+                // Mirrors the individual card exactly: the identifier is the
+                // title and the name sits in the meta row beside the quantity,
+                // where an animal's name sits beside its age. Falls back to the
+                // name, then the species term, because a reference is not
+                // required for every species.
                 const reference = collective.id.trim();
                 const label = collective.name.trim();
-                const title = reference
-                  ? label
-                    ? `${reference} (${label})`
-                    : reference
-                  : label || `${collective.species} ${term}`;
+                const title = reference || label || `${collective.species} ${term}`;
+                const meta = [
+                  reference ? label : '',
+                  `${count} ${count === 1 ? 'animal' : 'animals'}`,
+                ]
+                  .filter(Boolean)
+                  .join(' • ');
 
                 return (
                   <BouncyPressable
@@ -349,7 +352,7 @@ export default function AnimalsScreen() {
                           </Text>
                         </View>
                         <Text style={styles.metaText} numberOfLines={1}>
-                          {`${count} ${count === 1 ? 'animal' : 'animals'}`}
+                          {meta}
                         </Text>
                       </View>
                       <View style={styles.footerRow}>
