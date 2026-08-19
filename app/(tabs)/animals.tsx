@@ -258,26 +258,25 @@ export default function AnimalsScreen() {
         contentContainerStyle={[styles.content, filteredAnimals.length === 0 && styles.emptyContent]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.viewToggle}>
+        <View style={styles.segmentRow}>
           {(['individual', 'collectives'] as const).map((option) => {
             const selected = animalView === option;
             return (
-              <BouncyPressable
+              <Pressable
                 key={option}
                 accessibilityLabel={option === 'individual' ? 'Individual animals' : 'Herds and flocks'}
                 accessibilityRole="button"
                 onPress={() => setAnimalView(option)}
-                containerStyle={styles.viewToggleOptionWrap}
                 style={({ pressed }) => [
-                  styles.viewToggleOption,
-                  selected && styles.viewToggleOptionSelected,
+                  styles.segmentButton,
+                  selected ? styles.segmentButtonActive : styles.segmentButtonIdle,
                   pressed && styles.pressed,
                 ]}
               >
-                <Text style={[styles.viewToggleText, selected && styles.viewToggleTextSelected]}>
+                <Text style={[styles.segmentText, selected ? styles.segmentTextActive : styles.segmentTextIdle]}>
                   {option === 'individual' ? 'Individual' : 'Herds & flocks'}
                 </Text>
-              </BouncyPressable>
+              </Pressable>
             );
           })}
         </View>
@@ -843,28 +842,36 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     gap: 3,
   },
-  // BouncyPressable renders an outer wrapper, so the flex has to sit there —
-  // on the inner style it sizes to its text and the bar doesn't split evenly.
-  viewToggleOptionWrap: {
-    flex: 1,
+  // Matches the Export tab's segmented control: two standalone pills rather
+  // than options inside a track.
+  segmentRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
   },
-  viewToggleOption: {
-    minHeight: 34,
-    borderRadius: 17,
+  segmentButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
   },
-  viewToggleOptionSelected: {
-    backgroundColor: tokens.colors.surface,
+  segmentButtonActive: {
+    backgroundColor: tokens.colors.accentSoft,
   },
-  viewToggleText: {
-    color: '#8A7F87',
-    fontSize: 13,
-    fontWeight: '600',
+  segmentButtonIdle: {
+    backgroundColor: '#F5F3F7',
   },
-  viewToggleTextSelected: {
-    color: tokens.colors.text,
+  segmentText: {
+    fontSize: 14,
     fontWeight: '700',
+  },
+  segmentTextActive: {
+    color: tokens.colors.text,
+  },
+  segmentTextIdle: {
+    color: '#8A7F87',
   },
   collectiveCard: {
     minHeight: 72,
