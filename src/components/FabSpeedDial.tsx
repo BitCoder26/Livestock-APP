@@ -10,8 +10,8 @@ export type SpeedDialAction = {
   icon?: AppIconName;
   /** Rendered instead of an icon, for glyphs the icon set does not carry. */
   glyph?: string;
-  /** Small mark overlaid at the icon's right edge, e.g. a plus for "add many". */
-  badge?: AppIconName;
+  /** Renders three smaller copies of this icon in a triangle, for "several". */
+  cluster?: AppIconName;
   label: string;
   onPress: () => void;
   /** Visually separates a secondary action such as help from the primary ones. */
@@ -29,6 +29,7 @@ type FabSpeedDialProps = {
 const FAB_SIZE = 68;
 const ACTION_SIZE = FAB_SIZE;
 const ACTION_GAP = 14;
+const CLUSTER_ICON = 17;
 const OPEN_DURATION = motionDuration(120);
 const CLOSE_DURATION = motionDuration(100);
 
@@ -199,15 +200,20 @@ export function FabSpeedDial({
                     >
                       {action.glyph}
                     </Text>
-                  ) : action.icon ? (
-                    <View>
-                      <AppIcon name={action.icon} size={28} color="#fff" />
-                      {action.badge ? (
-                        <View style={styles.actionBadge}>
-                          <AppIcon name={action.badge} size={12} color="#fff" />
-                        </View>
-                      ) : null}
+                  ) : action.cluster ? (
+                    <View style={styles.cluster}>
+                      <View style={styles.clusterTop}>
+                        <AppIcon name={action.cluster} size={CLUSTER_ICON} color="#fff" />
+                      </View>
+                      <View style={styles.clusterLeft}>
+                        <AppIcon name={action.cluster} size={CLUSTER_ICON} color="#fff" />
+                      </View>
+                      <View style={styles.clusterRight}>
+                        <AppIcon name={action.cluster} size={CLUSTER_ICON} color="#fff" />
+                      </View>
                     </View>
+                  ) : action.icon ? (
+                    <AppIcon name={action.icon} size={28} color="#fff" />
                   ) : null}
                 </BouncyPressable>
               </Animated.View>
@@ -324,12 +330,26 @@ const styles = StyleSheet.create({
   actionGlyphSecondary: {
     color: tokens.colors.text,
   },
-  // Sits just off the icon's right edge so the mark reads as "add several"
-  // rather than crowding the animal itself.
-  actionBadge: {
+  // Three heads in a triangle: one above, two below. Sized so the group reads
+  // as a group at a glance while each head stays recognisable.
+  cluster: {
+    width: CLUSTER_ICON * 2 + 4,
+    height: CLUSTER_ICON * 2 - 2,
+  },
+  clusterTop: {
     position: 'absolute',
-    right: -9,
-    bottom: -2,
+    top: 0,
+    left: (CLUSTER_ICON * 2 + 4 - CLUSTER_ICON) / 2,
+  },
+  clusterLeft: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+  },
+  clusterRight: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
   },
   pressed: {
     opacity: 0.9,

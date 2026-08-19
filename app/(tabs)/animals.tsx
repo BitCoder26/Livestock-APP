@@ -477,8 +477,7 @@ export default function AnimalsScreen() {
             onPress: () => router.push({ pathname: '/add-animal', params: { reveal: '1' } }),
           },
           {
-            icon: 'goat-face',
-            badge: 'plus',
+            cluster: 'goat-face',
             label: 'Add herd or flock',
             onPress: () => router.push('/add-collective'),
           },
