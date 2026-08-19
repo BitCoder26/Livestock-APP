@@ -11,6 +11,9 @@ type DesignFieldProps = {
   left?: ReactNode;
   right?: ReactNode;
   large?: boolean;
+  /** Hint shown while the field is empty. Falls back to the historic
+   *  behaviour of echoing `value`, so existing callers are unaffected. */
+  placeholder?: string;
   keyboardType?: KeyboardTypeOptions;
   onChangeText?: (value: string) => void;
   fieldStyle?: StyleProp<ViewStyle>;
@@ -24,6 +27,7 @@ export function DesignField({
   left,
   right,
   large = false,
+  placeholder,
   keyboardType,
   onChangeText,
   fieldStyle,
@@ -51,7 +55,7 @@ export function DesignField({
           <TextInput
             ref={inputRef}
             defaultValue={onChangeText ? undefined : value}
-            placeholder={value}
+            placeholder={placeholder ?? value}
             placeholderTextColor="#7a7a7a"
             style={[styles.value, large && styles.valueLarge]}
             multiline={large}

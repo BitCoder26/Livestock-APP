@@ -88,6 +88,14 @@ export default function AddCollectiveScreen() {
       return;
     }
 
+    if (!reference.trim()) {
+      Alert.alert(
+        'Reference needed',
+        'Give this group a flock mark, batch number or other reference so you can identify it.',
+      );
+      return;
+    }
+
     const parsedCount = Number.parseInt(startingCount.trim(), 10);
 
     if (!isEditing && (!Number.isFinite(parsedCount) || parsedCount < 0)) {
@@ -181,13 +189,24 @@ export default function AddCollectiveScreen() {
             </Pressable>
           </View>
 
-          <DesignField value={name} label="Name" onChangeText={setName} />
+          <DesignField
+            value={name}
+            label="Name"
+            placeholder="Layer Flock A"
+            onChangeText={setName}
+          />
 
-          <DesignField value={reference} label="Reference" onChangeText={setReference} />
+          <DesignField
+            value={reference}
+            label="Reference *"
+            placeholder="Flock mark or batch number"
+            onChangeText={setReference}
+          />
 
           <DesignField
             value={startingCount}
             label={isEditing ? 'Head count' : 'How many animals *'}
+            placeholder="600"
             keyboardType="number-pad"
             editable={!isEditing}
             onChangeText={setStartingCount}
@@ -198,11 +217,17 @@ export default function AddCollectiveScreen() {
             </Text>
           ) : null}
 
-          <DesignField value={breed} label="Breed or type" onChangeText={setBreed} />
+          <DesignField
+            value={breed}
+            label="Breed or type"
+            placeholder="Lohmann Brown"
+            onChangeText={setBreed}
+          />
 
           <DesignField
             value={averageWeight}
             label="Average weight"
+            placeholder="Typical weight per animal"
             keyboardType="number-pad"
             onChangeText={setAverageWeight}
           />
@@ -210,25 +235,62 @@ export default function AddCollectiveScreen() {
           <DesignField
             value={cost}
             label="Cost per animal"
+            placeholder="Price paid for each one"
             keyboardType="number-pad"
             onChangeText={setCost}
           />
 
-          <DesignField value={supplier} label="Supplier" onChangeText={setSupplier} />
+          <DesignField
+            value={supplier}
+            label="Supplier"
+            placeholder="Hatchery, market, or keeper"
+            onChangeText={setSupplier}
+          />
 
-          <DesignField value={farm} label="Farm" onChangeText={setFarm} />
+          <DesignField
+            value={farm}
+            label="Farm"
+            placeholder={farms[0] ?? 'Which farm they are on'}
+            onChangeText={setFarm}
+          />
 
-          <DesignField value={paddock} label="Location" onChangeText={setPaddock} />
+          <DesignField
+            value={paddock}
+            label="Location"
+            placeholder="Shed, field or paddock"
+            onChangeText={setPaddock}
+          />
 
-          <DesignField value={startDate} label="Date established" onChangeText={setStartDate} />
+          <DesignField
+            value={startDate}
+            label="Date established"
+            placeholder="YYYY-MM-DD"
+            onChangeText={setStartDate}
+          />
           <Text style={styles.helperText}>When this group arrived or was formed on your farm.</Text>
 
-          <DesignField value={birthDate} label="Born or hatched" onChangeText={setBirthDate} />
+          <DesignField
+            value={birthDate}
+            label="Born or hatched"
+            placeholder="YYYY-MM-DD"
+            onChangeText={setBirthDate}
+          />
           <Text style={styles.helperText}>Only if it differs from the date above.</Text>
 
-          <DesignField value={purpose} label="Purpose" onChangeText={setPurpose} />
+          <DesignField
+            value={purpose}
+            label="Purpose"
+            placeholder="Laying, fattening, breeding"
+            onChangeText={setPurpose}
+          />
 
-          <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
+          <DesignField
+            value={notes}
+            label="Notes"
+            placeholder="Anything worth remembering"
+            large
+            onChangeText={setNotes}
+          />
         </View>
 
       </ScrollView>
