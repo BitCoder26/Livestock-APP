@@ -108,7 +108,7 @@ export default function SetupScreen() {
                 <AppIcon name="alert" size={24} color="#171717" />
               </View>
               <View style={styles.feedbackCopy}>
-                <Text style={styles.feedbackTitle} numberOfLines={1}>Need more setup options?</Text>
+                <Text style={styles.feedbackTitle}>Need more setup options?</Text>
                 <Text style={styles.feedbackText}>Leave a suggestion on our feedback board.</Text>
               </View>
               <View style={styles.feedbackActionButton}><Text style={styles.feedbackActionButtonText}>Suggest</Text></View>
@@ -213,11 +213,11 @@ const styles = StyleSheet.create({
     // that same tint composited over the screen's white background, so the
     // card looks identical on both platforms and the shadow renders cleanly.
     backgroundColor: '#FCEAEA',
-    paddingHorizontal: 18,
-    paddingVertical: 11,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
     shadowColor: '#000',
     shadowOpacity: 0.16,
     shadowRadius: 7,
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   feedbackActionButton: {
-    minWidth: 76,
+    minWidth: 72,
     height: 36,
     borderRadius: 18,
     backgroundColor: tokens.colors.accent,
