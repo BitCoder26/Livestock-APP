@@ -25,8 +25,15 @@ import { motionDuration } from '../../src/utils/motion';
 
 const FACEBOOK_GROUP_URL = 'https://www.facebook.com/groups/1353099223626390/';
 const FACEBOOK_CARD_DISMISSED_KEY = 'facebookGroupCardDismissed';
-const NEW_RECORD_CARD_ENTRANCE_DELAY = 700;
-const RECORD_CARD_MOTION_DURATION = motionDuration(420);
+// Holds the new card back until the circular reveal has all but finished, so
+// it lands on a settled screen rather than sliding in behind the mask. It was
+// 700ms, which was tuned against a 650ms reveal; the reveal is now 380ms and
+// the old value left the card visibly late.
+const NEW_RECORD_CARD_ENTRANCE_DELAY = 340;
+const RECORD_CARD_ENTRANCE_DURATION = motionDuration(260);
+// Removal is a response to a tap, so it runs shorter than the entrance and
+// without any delay at all — see the exit effect.
+const RECORD_CARD_EXIT_DURATION = motionDuration(200);
 let lastAnimatedRecordId: string | null = null;
 
 function formatAnimalSummary(record: RecordEntry, animals: Animal[]) {
@@ -130,7 +137,7 @@ export default function RecordsScreen() {
                   <AppIcon name="group" size={24} color="#171717" />
                 </View>
                 <View style={styles.facebookCopy}>
-                  <Text style={styles.facebookTitle} numberOfLines={1}>Join the Facebook group</Text>
+                  <Text style={styles.facebookTitle}>Join the Facebook group</Text>
                   <Text style={styles.facebookText}>Users share tips, discuss the app, and offer support there.</Text>
                 </View>
                 <View style={styles.facebookJoinButton}><Text style={styles.facebookJoinButtonText}>Join</Text></View>
@@ -232,7 +239,7 @@ function RecordCardMotion({
       Animated.delay(NEW_RECORD_CARD_ENTRANCE_DELAY),
       Animated.timing(entrance, {
         toValue: 1,
-        duration: RECORD_CARD_MOTION_DURATION,
+        duration: RECORD_CARD_ENTRANCE_DURATION,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -247,15 +254,15 @@ function RecordCardMotion({
       return;
     }
 
-    const animation = Animated.sequence([
-      Animated.delay(NEW_RECORD_CARD_ENTRANCE_DELAY),
-      Animated.timing(entrance, {
-        toValue: 0,
-        duration: RECORD_CARD_MOTION_DURATION,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]);
+    // No delay here. A delete is a direct response to the user's tap, and the
+    // 340ms that stops a new card racing the reveal is just dead air when the
+    // card is on its way out.
+    const animation = Animated.timing(entrance, {
+      toValue: 0,
+      duration: RECORD_CARD_EXIT_DURATION,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    });
 
     animation.start(({ finished }) => {
       if (!finished) {
@@ -269,7 +276,7 @@ function RecordCardMotion({
 
         Animated.timing(entrance, {
           toValue: 1,
-          duration: RECORD_CARD_MOTION_DURATION,
+          duration: RECORD_CARD_ENTRANCE_DURATION,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }).start();
@@ -418,7 +425,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#FCEAEA',
     overflow: 'hidden',
-    paddingHorizontal: 18,
+    // Extra right padding pulls the action button in off the card's edge; the
+    // copy column is flex, so it reclaims the width by wrapping.
+    paddingLeft: 18,
+    paddingRight: 28,
     paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',

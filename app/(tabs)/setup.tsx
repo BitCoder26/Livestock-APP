@@ -213,7 +213,8 @@ const styles = StyleSheet.create({
     // that same tint composited over the screen's white background, so the
     // card looks identical on both platforms and the shadow renders cleanly.
     backgroundColor: '#FCEAEA',
-    paddingHorizontal: 14,
+    paddingLeft: 14,
+    paddingRight: 24,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
