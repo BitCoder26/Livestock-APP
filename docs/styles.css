@@ -2431,8 +2431,8 @@ h2,
   position: absolute;
   left: 0;
   top: 0.1em;
-  width: 26px;
-  height: 26px;
+  width: var(--guide-icon-size, 26px);
+  height: var(--guide-icon-size, 26px);
   background-color: #c95656;
   -webkit-mask: var(--guide-icon) center / contain no-repeat;
   mask: var(--guide-icon) center / contain no-repeat;
@@ -2442,6 +2442,12 @@ h2,
    glyphs sit in would shrink them to match their own height. */
 .guide-icon-list-wide li::before {
   width: 34px;
+}
+
+/* The tag glyph is drawn corner to corner, so it reads a size larger than the
+   icons beside it at the same box. */
+.guide-icon-tag::before {
+  --guide-icon-size: 22px;
 }
 
 .guide-heading-icon {
