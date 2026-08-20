@@ -2405,6 +2405,39 @@ h2,
   gap: 12px;
 }
 
+/* The two-goat and single-animal drawings from the app's add button. They are
+   white artwork on transparency, so they only show here as a mask taking the
+   list's own accent colour. */
+/* The herd drawing is a wide silhouette rather than a square glyph, so it
+   needs a wider box than the square tab icons to read at the same weight. */
+.guide-heading-icon-wide {
+  width: 1.9em;
+  height: 1.3em;
+}
+
+.guide-icon-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.guide-icon-list li {
+  position: relative;
+  padding-left: 42px;
+  min-height: 30px;
+}
+
+.guide-icon-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.1em;
+  width: 34px;
+  height: 26px;
+  background-color: #c95656;
+  -webkit-mask: var(--guide-icon) center / contain no-repeat;
+  mask: var(--guide-icon) center / contain no-repeat;
+}
+
 .guide-heading-icon {
   flex: none;
   width: 1.15em;
