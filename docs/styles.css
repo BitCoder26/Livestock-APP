@@ -1031,7 +1031,7 @@ h2,
   width: 100%;
   /* The benefit tiles above end tight; this reads as its own claim rather
      than a footnote to them, so it gets clear air first. */
-  padding: 72px 0 24px;
+  padding: 120px 0 0;
 }
 
 .different-shell {
@@ -1055,7 +1055,7 @@ h2,
 }
 
 .different-lead {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   max-width: 42rem;
   color: #000000;
   font-size: 1.05rem;
@@ -1072,10 +1072,13 @@ h2,
 .different-visual {
   position: relative;
   width: 100%;
-  /* The drawing carries an empty band across its top before the blob starts,
-     which reads as a gap under the copy. Pulling it up takes back that band
-     without clipping anything drawn. */
-  margin-top: -6%;
+  /* The drawing is far taller than the row of cards inside it: the blob runs
+     on well above and below them, which reads as dead space around the
+     section rather than as part of it. Pulling it in at both ends closes
+     that up — the copy above and the section below both paint over the
+     drawing's own margins. */
+  margin-top: -14%;
+  margin-bottom: -10%;
 }
 
 .different-visual-image {
@@ -1267,8 +1270,9 @@ h2,
     flex-direction: column;
     align-items: center;
     gap: 14px;
-    /* No drawing here to pull up — the cards stack on their own. */
+    /* No drawing here to pull in — the cards stack on their own. */
     margin-top: 18px;
+    margin-bottom: 8px;
   }
 
   .different-visual-image {
