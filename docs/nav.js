@@ -107,3 +107,54 @@ if (canHover) {
     });
   });
 }
+
+// The middle card shows what the row does the first time it is scrolled to:
+// it turns over, holds long enough to read the answer, and turns back. Once
+// only — a card still flipping while the reader studies the ones beside it
+// is a distraction rather than a hint.
+(function () {
+  var demo = document.querySelectorAll('.flip-card')[1];
+
+  if (!demo || !window.IntersectionObserver) {
+    return;
+  }
+
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return;
+  }
+
+  function turn(flipped) {
+    // Skipped once the pointer is on the card: it is being read by hand now,
+    // and turning it under the reader would take the answer away mid-sentence.
+    if (demo.matches(':hover')) {
+      return false;
+    }
+
+    demo.classList.toggle('is-flipped', flipped);
+    hopCard(demo);
+
+    return true;
+  }
+
+  var observer = new IntersectionObserver(function (entries) {
+    if (!entries.some(function (entry) { return entry.isIntersecting; })) {
+      return;
+    }
+
+    observer.disconnect();
+
+    // Long enough after it comes into view that the reader is looking at it
+    // rather than at whatever scrolled past above.
+    window.setTimeout(function () {
+      if (!turn(true)) {
+        return;
+      }
+
+      window.setTimeout(function () {
+        turn(false);
+      }, 2000);
+    }, 500);
+  }, { threshold: 0.55 });
+
+  observer.observe(demo);
+})();

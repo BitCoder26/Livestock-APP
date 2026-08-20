@@ -1106,6 +1106,38 @@ h2,
   height: auto;
 }
 
+/* A nudge that the cards do something, sitting off the top right corner of
+   the last one with the drawn arrow pointing back down at them. Placed
+   against the drawing so it travels with the composition as it scales. */
+.hover-hint {
+  position: absolute;
+  top: 24%;
+  left: 83%;
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  margin: 0;
+  pointer-events: none;
+}
+
+.hover-hint-word {
+  color: #f3a90a;
+  font-size: clamp(0.9rem, 1.5vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  transform: rotate(-11deg);
+  transform-origin: right bottom;
+}
+
+/* Drawn on a canvas that is mostly transparent margin, hence the width and
+   the negative insets that take the empty space back. */
+.hover-hint-arrow {
+  width: 9vw;
+  max-width: 128px;
+  height: auto;
+  margin: -1.4vw 0 0 -1.6vw;
+}
+
 /* The three shapes are problem/solution cards: the problem face is the pale
    one, and turning the card over gives the LivestockBook answer in coral.
    Each sits over its own place on the backdrop, at the centres measured from
@@ -1294,7 +1326,8 @@ h2,
     margin-bottom: 8px;
   }
 
-  .different-visual-image {
+  .different-visual-image,
+  .hover-hint {
     display: none;
   }
 
