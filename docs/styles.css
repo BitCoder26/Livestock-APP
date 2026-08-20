@@ -985,6 +985,10 @@ h2,
 }
 
 .different-shell {
+  position: relative;
+  /* The drawing is pulled up under this and is flat white where it has no
+     ink, so the copy has to sit above it rather than behind. */
+  z-index: 1;
   width: min(var(--content-frame-width), calc(100% - 48px));
   margin: 0 auto;
 }
@@ -1001,7 +1005,7 @@ h2,
 }
 
 .different-lead {
-  margin: 0 0 40px;
+  margin: 0 0 12px;
   max-width: 42rem;
   color: #000000;
   font-size: 1.05rem;
@@ -1018,6 +1022,10 @@ h2,
 .different-visual {
   position: relative;
   width: 100%;
+  /* The drawing carries an empty band across its top before the blob starts,
+     which reads as a gap under the copy. Pulling it up takes back that band
+     without clipping anything drawn. */
+  margin-top: -6%;
 }
 
 .different-visual-image {
@@ -1143,14 +1151,14 @@ h2,
 /* Both marks are drawn artwork rather than glyphs, so they come in as masks
    and take their colour from the face they sit on. */
 .flip-mark-problem {
-  background-color: #ffffff;
+  background-color: #f3a90a;
   -webkit-mask-image: url('./images/icons/x.png');
   mask-image: url('./images/icons/x.png');
 }
 
 .flip-mark-solution {
   width: 22px;
-  background-color: #ffffff;
+  background-color: #f3a90a;
   -webkit-mask-image: url('./images/icons/tick.png');
   mask-image: url('./images/icons/tick.png');
 }
@@ -1209,6 +1217,8 @@ h2,
     flex-direction: column;
     align-items: center;
     gap: 14px;
+    /* No drawing here to pull up — the cards stack on their own. */
+    margin-top: 18px;
   }
 
   .different-visual-image {
