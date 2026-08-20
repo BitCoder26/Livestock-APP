@@ -973,6 +973,83 @@ h2,
   }
 }
 
+/* The band that answers "why not one of the others" — it follows the benefit
+   tiles, which say what the app is, and turns that into what it is instead of.
+   Cards rather than a comparison table: the point is three separate ideas, and
+   a table would invite a column for apps that are not ours to describe. */
+.different-section {
+  width: 100%;
+  padding: 8px 0 24px;
+}
+
+.different-shell {
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.different-shell h2 {
+  margin: 0 0 14px;
+  color: var(--banner-red);
+  font-size: clamp(1.7rem, 3.2vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  text-align: center;
+}
+
+.different-lead {
+  margin: 0 auto 34px;
+  max-width: 42rem;
+  color: #000000;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.different-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.different-grid li {
+  padding: 26px 24px 28px;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.25);
+}
+
+.different-grid h3 {
+  margin: 0 0 10px;
+  color: #c95656;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.different-grid p {
+  margin: 0;
+  color: #000000;
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+
+/* One column below the point where three cards stop holding a readable line
+   length; the copy is long enough that two narrow columns read worse than a
+   single stacked one. */
+@media (max-width: 900px) {
+  .different-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .different-shell {
+    width: calc(100% - 40px);
+  }
+}
+
 .community-banner {
   width: 100%;
   margin: 48px 0 88px;
