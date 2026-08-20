@@ -1011,9 +1011,13 @@ h2,
 
 /* One drawing holds all three shapes and the pale blob behind them, so the
    copy is laid over it at the shapes' own centres — measured from the file:
-   27%, 50% and 75% across, all on the middle line. */
+   27%, 50% and 75% across, all on the middle line.
+   It runs the full width of the window rather than the content frame: the
+   blob is drawn running off the right of its canvas, and that only reads as
+   intended when the canvas edge is the screen edge. */
 .different-visual {
   position: relative;
+  width: 100%;
 }
 
 .different-visual-image {
@@ -1031,7 +1035,7 @@ h2,
   width: 17%;
   margin: 0;
   color: #ffffff;
-  font-size: clamp(0.72rem, 1.35vw, 1.15rem);
+  font-size: clamp(0.72rem, 1.5vw, 1.6rem);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.3;
