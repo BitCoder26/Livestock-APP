@@ -2287,9 +2287,9 @@ h2,
   /* The guide's copy keeps the same 46rem measure, so its animal uses the
      free right margin too, level with the middle steps. */
   .guide-goat {
-    right: 40px;
-    top: 820px;
-    width: 320px;
+    right: 10px;
+    top: 760px;
+    width: 480px;
   }
 
 }
@@ -2393,6 +2393,25 @@ h2,
   color: #000000;
   font-size: 1.05rem;
   line-height: 1.6;
+}
+
+/* The guide's sections are marked by the app's own tab and menu icons rather
+   than step numbers, so the page reads like the thing it describes. The icons
+   are the app's SVGs, drawn as a mask so they take the heading's colour
+   instead of the flat black a plain <img> would render currentColor as. */
+.guide-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.guide-heading-icon {
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+  background-color: currentColor;
+  -webkit-mask: var(--guide-icon) center / contain no-repeat;
+  mask: var(--guide-icon) center / contain no-repeat;
 }
 
 /* The band already carries the gap the footer's top margin would add; the
