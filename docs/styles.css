@@ -211,7 +211,7 @@ h2,
    third underline in the column once the jump link arrived below it; the
    weight carries the emphasis instead. */
 .hero-highlight {
-  color: #000000;
+  color: var(--banner-red);
   font-weight: 800;
 }
 
@@ -313,7 +313,7 @@ h2,
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  margin-top: 18px;
+  margin-top: 34px;
   padding: 4px 2px;
   color: #766261;
   font-size: 1.25rem;
@@ -386,13 +386,6 @@ h2,
     gap: 0;
   }
 
-  /* Every tile is drawn wider than its column, and a grid item that overflows
-     its track is laid out from the track's start — so all four sat right of
-     centre, the offline one (wider still) furthest of all. Shifting each by
-     half its own overflow puts every drawing back on its column's centre. */
-  .benefits-row .benefit-tile {
-    transform: translateX(calc((206px - 100%) / 2));
-  }
 
   .benefits-row .benefit-tile {
     width: var(--icon-size);
@@ -442,6 +435,10 @@ h2,
 @media (min-width: 901px) {
   .benefits-row li {
     display: grid;
+    /* Pinned to the item's own width: left to itself the column would size to
+       the tile, which is drawn wider than the column it sits in, and the
+       label centred in that wider column drifted right of its icon. */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: calc(var(--icon-size) * 1.21) auto;
     justify-items: center;
   }
@@ -1110,18 +1107,18 @@ h2,
    over the drawing, with the drawn arrow angled down towards the row. */
 .hover-hint {
   position: absolute;
-  /* Beside the line under the heading, in the space its measure leaves, and
-     clear of the heading's own last word above it. */
-  top: 62px;
-  left: 72%;
+  /* Off the top right corner of the row, below the copy: the arrow runs down
+     into the cards and the word sits above its tail. */
+  top: 132px;
+  left: 78%;
   display: flex;
   align-items: flex-start;
-  gap: 4px;
   margin: 0;
   pointer-events: none;
 }
 
 .hover-hint-word {
+  align-self: flex-start;
   color: #f3a90a;
   font-size: clamp(1rem, 1.6vw, 1.6rem);
   font-weight: 800;
@@ -1133,10 +1130,11 @@ h2,
 /* Drawn on a canvas that is mostly transparent margin, hence the width and
    the negative insets that take the empty space back. */
 .hover-hint-arrow {
+  order: -1;
   width: 8vw;
   max-width: 116px;
   height: auto;
-  margin: -0.7vw 0 0 -2vw;
+  margin: 0 -2.2vw 0 0;
 }
 
 /* The three shapes are problem/solution cards: the problem face is the pale
@@ -2759,8 +2757,11 @@ h2,
   line-height: 1.6;
 }
 
+/* Links inside the long-copy pages. The green they took was from a palette
+   nothing else on these pages uses; the yellow is the one the arrows and the
+   marks already carry. */
 .about-shell a {
-  color: var(--accent);
+  color: #f3a90a;
   font-weight: 700;
 }
 
