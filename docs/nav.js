@@ -127,9 +127,13 @@ if (canHover) {
     // Skipped once the pointer is on the card: it is being read by hand now,
     // and turning it under the reader would take the answer away mid-sentence.
     if (demo.matches(':hover')) {
+      demo.classList.remove('is-demo');
       return false;
     }
 
+    // Its own, faster turn — the hand-driven one can afford to be languid,
+    // this one has to be over before it interrupts the reading.
+    demo.classList.add('is-demo');
     demo.classList.toggle('is-flipped', flipped);
     hopCard(demo);
 
@@ -143,8 +147,8 @@ if (canHover) {
 
     observer.disconnect();
 
-    // Long enough after it comes into view that the reader is looking at it
-    // rather than at whatever scrolled past above.
+    // Quick: over, a beat on the answer, and back. Long enough to register
+    // as an invitation, too short to sit there being an animation.
     window.setTimeout(function () {
       if (!turn(true)) {
         return;
@@ -152,8 +156,13 @@ if (canHover) {
 
       window.setTimeout(function () {
         turn(false);
-      }, 2000);
-    }, 500);
+
+        // Back to the slower turn for whoever picks the card up by hand.
+        window.setTimeout(function () {
+          demo.classList.remove('is-demo');
+        }, 400);
+      }, 700);
+    }, 250);
   }, { threshold: 0.55 });
 
   observer.observe(demo);

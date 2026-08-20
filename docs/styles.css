@@ -1106,36 +1106,37 @@ h2,
   height: auto;
 }
 
-/* A nudge that the cards do something, sitting off the top right corner of
-   the last one with the drawn arrow pointing back down at them. Placed
-   against the drawing so it travels with the composition as it scales. */
+/* A nudge that the cards do something, alongside the heading rather than out
+   over the drawing, with the drawn arrow angled down towards the row. */
 .hover-hint {
   position: absolute;
-  top: 24%;
-  left: 83%;
+  /* Beside the line under the heading, in the space its measure leaves, and
+     clear of the heading's own last word above it. */
+  top: 62px;
+  left: 72%;
   display: flex;
   align-items: flex-start;
-  gap: 2px;
+  gap: 4px;
   margin: 0;
   pointer-events: none;
 }
 
 .hover-hint-word {
   color: #f3a90a;
-  font-size: clamp(0.9rem, 1.5vw, 1.5rem);
+  font-size: clamp(1rem, 1.6vw, 1.6rem);
   font-weight: 800;
   letter-spacing: -0.01em;
-  transform: rotate(-11deg);
-  transform-origin: right bottom;
+  transform: rotate(9deg);
+  transform-origin: left bottom;
 }
 
 /* Drawn on a canvas that is mostly transparent margin, hence the width and
    the negative insets that take the empty space back. */
 .hover-hint-arrow {
-  width: 9vw;
-  max-width: 128px;
+  width: 8vw;
+  max-width: 116px;
   height: auto;
-  margin: -1.4vw 0 0 -1.6vw;
+  margin: -1.2vw 0 0 -1.4vw;
 }
 
 /* The three shapes are problem/solution cards: the problem face is the pale
@@ -1190,6 +1191,16 @@ h2,
   height: 100%;
   transition: transform 620ms cubic-bezier(0.2, 0.7, 0.2, 1);
   transform-style: preserve-3d;
+}
+
+/* The card demonstrating itself on scroll turns faster than one turned by
+   hand, and its hop is over in the same time. */
+.flip-card.is-demo .flip-card-inner {
+  transition-duration: 340ms;
+}
+
+.flip-card.is-demo.is-hopping .flip-card-lift {
+  animation-duration: 340ms;
 }
 
 .flip-card:hover .flip-card-inner,
