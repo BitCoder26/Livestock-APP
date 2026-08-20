@@ -207,11 +207,11 @@ h2,
   display: inline;
 }
 
-/* The two words the hero leans on. They were underlined; the colour carries
-   the emphasis now, and the underline was competing with the one under the
-   link below it. */
+/* The word the hero's second line leans on. It was underlined, which put a
+   third underline in the column once the jump link arrived below it; the
+   weight carries the emphasis instead. */
 .hero-highlight {
-  color: #f3a90a;
+  color: #000000;
   font-weight: 800;
 }
 
@@ -315,7 +315,7 @@ h2,
   gap: 2px;
   margin-top: 18px;
   padding: 4px 2px;
-  color: var(--warm-charcoal);
+  color: #766261;
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -326,7 +326,7 @@ h2,
 
 .hero-jump-text {
   text-decoration: underline;
-  text-decoration-color: rgba(78, 26, 33, 0.35);
+  text-decoration-color: rgba(118, 98, 97, 0.45);
   text-underline-offset: 5px;
   text-decoration-thickness: 2px;
 }
@@ -1136,7 +1136,7 @@ h2,
   width: 8vw;
   max-width: 116px;
   height: auto;
-  margin: -1.2vw 0 0 -1.4vw;
+  margin: -0.7vw 0 0 -2vw;
 }
 
 /* The three shapes are problem/solution cards: the problem face is the pale
@@ -1193,14 +1193,14 @@ h2,
   transform-style: preserve-3d;
 }
 
-/* The card demonstrating itself on scroll turns faster than one turned by
-   hand, and its hop is over in the same time. */
+/* The card demonstrating itself on scroll turns a little faster than one
+   turned by hand, and its hop is over in the same time. */
 .flip-card.is-demo .flip-card-inner {
-  transition-duration: 340ms;
+  transition-duration: 460ms;
 }
 
 .flip-card.is-demo.is-hopping .flip-card-lift {
-  animation-duration: 340ms;
+  animation-duration: 460ms;
 }
 
 .flip-card:hover .flip-card-inner,

@@ -108,10 +108,10 @@ if (canHover) {
   });
 }
 
-// The middle card shows what the row does the first time it is scrolled to:
-// it turns over, holds long enough to read the answer, and turns back. Once
-// only — a card still flipping while the reader studies the ones beside it
-// is a distraction rather than a hint.
+// The middle card shows what the row does whenever it is scrolled to: it
+// turns over, holds long enough to read the answer, and turns back. It
+// re-arms once it has left the viewport, so coming back to the section plays
+// it again — but it will not repeat while it is sitting there being read.
 (function () {
   var demo = document.querySelectorAll('.flip-card')[1];
 
@@ -123,6 +123,18 @@ if (canHover) {
     return;
   }
 
+  var armed = true;
+  var timers = [];
+
+  function later(fn, delay) {
+    timers.push(window.setTimeout(fn, delay));
+  }
+
+  function cancel() {
+    timers.forEach(window.clearTimeout);
+    timers = [];
+  }
+
   function turn(flipped) {
     // Skipped once the pointer is on the card: it is being read by hand now,
     // and turning it under the reader would take the answer away mid-sentence.
@@ -131,8 +143,8 @@ if (canHover) {
       return false;
     }
 
-    // Its own, faster turn — the hand-driven one can afford to be languid,
-    // this one has to be over before it interrupts the reading.
+    // Its own turn, a little quicker than the hand-driven one, which can
+    // afford to be languid.
     demo.classList.add('is-demo');
     demo.classList.toggle('is-flipped', flipped);
     hopCard(demo);
@@ -140,30 +152,44 @@ if (canHover) {
     return true;
   }
 
-  var observer = new IntersectionObserver(function (entries) {
-    if (!entries.some(function (entry) { return entry.isIntersecting; })) {
-      return;
-    }
+  function play() {
+    cancel();
 
-    observer.disconnect();
-
-    // Quick: over, a beat on the answer, and back. Long enough to register
-    // as an invitation, too short to sit there being an animation.
-    window.setTimeout(function () {
+    later(function () {
       if (!turn(true)) {
         return;
       }
 
-      window.setTimeout(function () {
+      later(function () {
         turn(false);
 
         // Back to the slower turn for whoever picks the card up by hand.
-        window.setTimeout(function () {
+        later(function () {
           demo.classList.remove('is-demo');
-        }, 400);
-      }, 700);
-    }, 250);
-  }, { threshold: 0.55 });
+        }, 500);
+      }, 1000);
+    }, 300);
+  }
+
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.intersectionRatio >= 0.55) {
+        if (armed) {
+          armed = false;
+          play();
+        }
+
+        return;
+      }
+
+      // Gone from view — drop anything still pending and arm it for the next
+      // time the section is scrolled to.
+      if (entry.intersectionRatio <= 0.05) {
+        cancel();
+        armed = true;
+      }
+    });
+  }, { threshold: [0.05, 0.55] });
 
   observer.observe(demo);
 })();
