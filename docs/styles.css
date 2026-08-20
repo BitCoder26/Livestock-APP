@@ -207,6 +207,14 @@ h2,
   display: inline;
 }
 
+/* The two words the hero leans on. They were underlined; the colour carries
+   the emphasis now, and the underline was competing with the one under the
+   link below it. */
+.hero-highlight {
+  color: #f3a90a;
+  font-weight: 800;
+}
+
 .hero-underline {
   text-decoration: underline;
   text-decoration-thickness: 0.06em;
@@ -308,7 +316,7 @@ h2,
   margin-top: 18px;
   padding: 4px 2px;
   color: var(--warm-charcoal);
-  font-size: 1.05rem;
+  font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   text-decoration: none;
@@ -337,9 +345,9 @@ h2,
    what the negative margins take back — the same trick the features arrow
    below uses. */
 .hero-jump-arrow {
-  width: 74px;
+  width: 88px;
   height: auto;
-  margin: -28px -19px -28px -17px;
+  margin: -33px -23px -33px -20px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -372,8 +380,18 @@ h2,
     width: fit-content;
     margin-left: auto;
     margin-right: auto;
-    grid-template-columns: repeat(4, 212px);
+    /* The same 206px pitch the how-it-works steps run on, so the two rows of
+       icons stand in the same four columns. */
+    grid-template-columns: repeat(4, 206px);
     gap: 0;
+  }
+
+  /* Every tile is drawn wider than its column, and a grid item that overflows
+     its track is laid out from the track's start — so all four sat right of
+     centre, the offline one (wider still) furthest of all. Shifting each by
+     half its own overflow puts every drawing back on its column's centre. */
+  .benefits-row .benefit-tile {
+    transform: translateX(calc((206px - 100%) / 2));
   }
 
   .benefits-row .benefit-tile {
@@ -495,8 +513,9 @@ h2,
   /* The PNG carries 19.5% transparent padding on top, and its left side (which
      sits under the hero copy) stays empty until 35.6% down, so it can be
      pulled up without the artwork colliding with the text. Less lift than it
-     once took, now that the headline is two lines rather than three. */
-  margin: -225px 0 0;
+     once took, now that the headline is two lines rather than three, and 54px
+     more again to absorb the "See how it works" link the copy grew by. */
+  margin: -279px 0 0;
   padding-left: calc((100% - min(var(--content-frame-width), 100% - 48px)) / 2);
 }
 
@@ -521,7 +540,7 @@ h2,
 .hero-phone {
   position: absolute;
   top: -6%;
-  right: 8%;
+  right: 7.2%;
   width: 48.4%;
   height: auto;
 }
