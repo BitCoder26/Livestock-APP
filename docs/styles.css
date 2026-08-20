@@ -1117,7 +1117,7 @@ h2,
 }
 
 .flip-face-problem::before {
-  background-color: #f4f0f0;
+  background-color: #766261;
 }
 
 .flip-face-solution::before {
@@ -1140,16 +1140,19 @@ h2,
   mask-repeat: no-repeat;
 }
 
+/* Both marks are drawn artwork rather than glyphs, so they come in as masks
+   and take their colour from the face they sit on. */
 .flip-mark-problem {
-  background-color: var(--banner-red);
-  -webkit-mask-image: url('./images/icons/close.svg');
-  mask-image: url('./images/icons/close.svg');
+  background-color: #ffffff;
+  -webkit-mask-image: url('./images/icons/x.png');
+  mask-image: url('./images/icons/x.png');
 }
 
 .flip-mark-solution {
+  width: 22px;
   background-color: #ffffff;
-  -webkit-mask-image: url('./images/icons/check.svg');
-  mask-image: url('./images/icons/check.svg');
+  -webkit-mask-image: url('./images/icons/tick.png');
+  mask-image: url('./images/icons/tick.png');
 }
 
 .flip-title {
@@ -1166,12 +1169,14 @@ h2,
   line-height: 1.3;
 }
 
+/* The problem face is dark now, so its copy is white like the answer's;
+   near-black on #766261 could not be read. */
 .flip-face-problem .flip-title {
-  color: #171717;
+  color: #ffffff;
 }
 
 .flip-face-problem .flip-text {
-  color: #4a4442;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .flip-face-solution .flip-title,
