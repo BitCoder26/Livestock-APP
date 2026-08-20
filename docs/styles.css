@@ -2431,11 +2431,17 @@ h2,
   position: absolute;
   left: 0;
   top: 0.1em;
-  width: 34px;
+  width: 26px;
   height: 26px;
   background-color: #c95656;
   -webkit-mask: var(--guide-icon) center / contain no-repeat;
   mask: var(--guide-icon) center / contain no-repeat;
+}
+
+/* The goat drawings are wider than they are tall; the square box the app's
+   glyphs sit in would shrink them to match their own height. */
+.guide-icon-list-wide li::before {
+  width: 34px;
 }
 
 .guide-heading-icon {
