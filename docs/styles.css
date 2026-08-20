@@ -298,6 +298,56 @@ h2,
   height: 48px;
 }
 
+/* The nudge under the store badges down to the feature stories. It has to
+   read as tappable on its own — nothing else in the hero is a plain text
+   link — so it carries an underline and grows under the pointer. */
+.hero-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 18px;
+  padding: 4px 2px;
+  color: var(--warm-charcoal);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  transform-origin: left center;
+  transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.hero-jump-text {
+  text-decoration: underline;
+  text-decoration-color: rgba(78, 26, 33, 0.35);
+  text-underline-offset: 5px;
+  text-decoration-thickness: 2px;
+}
+
+.hero-jump:hover,
+.hero-jump:focus-visible {
+  transform: scale(1.1);
+}
+
+.hero-jump:hover .hero-jump-text,
+.hero-jump:focus-visible .hero-jump-text {
+  text-decoration-color: #f3a90a;
+}
+
+/* The arrow is drawn on a canvas with a wide transparent margin, which is
+   what the negative margins take back — the same trick the features arrow
+   below uses. */
+.hero-jump-arrow {
+  width: 74px;
+  height: auto;
+  margin: -28px -19px -28px -17px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-jump {
+    transition: none;
+  }
+}
+
 .benefits-section {
   width: 100%;
   padding: 0 0 40px;

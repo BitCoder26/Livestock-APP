@@ -61,6 +61,20 @@ document.addEventListener('animationend', function (event) {
   }
 });
 
+// The card's own box never moves — only the artwork inside it lifts and turns
+// — so a pointer still within that box has not left the card, whatever the
+// browser reports on the way.
+function isPointerOverCard(card, event) {
+  var box = card.getBoundingClientRect();
+
+  return (
+    event.clientX > box.left &&
+    event.clientX < box.right &&
+    event.clientY > box.top &&
+    event.clientY < box.bottom
+  );
+}
+
 // Only a pointer that can actually hover gets the enter-hop; a touch screen
 // reports an enter around a tap, which the tap has already handled.
 if (canHover) {
@@ -68,8 +82,28 @@ if (canHover) {
   // not bubble: listening higher up would catch the enter into every span
   // inside the card and hop it again on the way to the text.
   Array.prototype.forEach.call(document.querySelectorAll('.flip-card'), function (card) {
+    // One bounce per visit: the enter that starts the hop latches the card,
+    // and only a leave that genuinely takes the pointer off it unlatches.
+    // Without the latch a card that reports an enter again while the mouse
+    // rests on it — the hop and the turn moving its artwork out from under
+    // the cursor is enough — would sit there hopping on the spot.
+    var isHovered = false;
+
     card.addEventListener('pointerenter', function () {
+      if (isHovered) {
+        return;
+      }
+
+      isHovered = true;
       hopCard(card);
+    });
+
+    card.addEventListener('pointerleave', function (event) {
+      if (isPointerOverCard(card, event)) {
+        return;
+      }
+
+      isHovered = false;
     });
   });
 }
