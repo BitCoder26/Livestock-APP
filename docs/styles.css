@@ -1021,6 +1021,15 @@ h2,
   box-shadow: 0 3px 16px rgba(0, 0, 0, 0.25);
 }
 
+/* One of the hand-drawn shapes per card, as the mark the copy sits under.
+   They are already the site's red, so they go in as plain images. */
+.different-shape {
+  display: block;
+  width: 54px;
+  height: auto;
+  margin: 0 0 16px;
+}
+
 .different-grid h3 {
   margin: 0 0 10px;
   color: #c95656;
