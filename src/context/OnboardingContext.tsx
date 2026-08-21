@@ -7,6 +7,7 @@ import type { View } from 'react-native';
 
 import type { SpotlightRect } from '../components/OnboardingSpotlight';
 import { useAnimals } from './AnimalsContext';
+import { useCollectives } from './CollectivesContext';
 import { useRecords } from './RecordsContext';
 import { useSetup } from './SetupContext';
 
@@ -18,6 +19,9 @@ type OnboardingState = {
   step: OnboardingStep;
   knownFarms: string[];
   knownAnimals: string[];
+  /** Collective uids, not ids: a group's id is keeper-facing and editable,
+   * while its uid is the stable key every record points at. */
+  knownCollectives: string[];
   knownRecords: string[];
 };
 
@@ -41,6 +45,7 @@ const DONE_STATE: OnboardingState = {
   step: 'done',
   knownFarms: [],
   knownAnimals: [],
+  knownCollectives: [],
   knownRecords: [],
 };
 
@@ -48,6 +53,7 @@ const WELCOME_STATE: OnboardingState = {
   step: 'welcome',
   knownFarms: [],
   knownAnimals: [],
+  knownCollectives: [],
   knownRecords: [],
 };
 
@@ -67,7 +73,10 @@ const initialStateProbe: Promise<OnboardingState> = (async () => {
       const parsed: unknown = JSON.parse(storedOnboarding);
 
       if (isStoredOnboarding(parsed)) {
-        return parsed;
+        // knownCollectives arrived after this key shipped. A state written by
+        // the older build is still valid — it simply predates herds and
+        // flocks, and an install partway through onboarding has none yet.
+        return { ...parsed, knownCollectives: parsed.knownCollectives ?? [] };
       }
     }
 
@@ -87,6 +96,7 @@ const initialStateProbe: Promise<OnboardingState> = (async () => {
 export function OnboardingProvider({ children }: PropsWithChildren) {
   const { farms } = useSetup();
   const { animals } = useAnimals();
+  const { collectives } = useCollectives();
   const { records } = useRecords();
   const posthog = usePostHog();
   const [state, setState] = useState<OnboardingState>(DONE_STATE);
@@ -146,6 +156,7 @@ export function OnboardingProvider({ children }: PropsWithChildren) {
         step: 'animal',
         knownFarms: state.knownFarms,
         knownAnimals: animals.map((animal) => animal.id),
+        knownCollectives: collectives.map((collective) => collective.uid),
         knownRecords: state.knownRecords,
       });
       posthog?.capture('onboarding_farm_added');
@@ -160,14 +171,24 @@ export function OnboardingProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    if (state.step === 'animal' && animals.some((animal) => !state.knownAnimals.includes(animal.id))) {
+    // A herd or flock satisfies this step exactly as an individual animal
+    // does. The spotlight offers both routes off the same + button, so a
+    // poultry or sheep keeper who takes the group route must not be left
+    // staring at "Add your first animal" with no way forward.
+    const addedAnimal = animals.some((animal) => !state.knownAnimals.includes(animal.id));
+    const addedCollective = collectives.some(
+      (collective) => !state.knownCollectives.includes(collective.uid),
+    );
+
+    if (state.step === 'animal' && (addedAnimal || addedCollective)) {
       setState({
         step: 'record',
         knownFarms: state.knownFarms,
         knownAnimals: state.knownAnimals,
+        knownCollectives: state.knownCollectives,
         knownRecords: records.map((record) => record.id),
       });
-      posthog?.capture('onboarding_first_animal_added');
+      posthog?.capture(addedAnimal ? 'onboarding_first_animal_added' : 'onboarding_first_collective_added');
       queueNavigation(() => {
         if (router.canDismiss()) {
           router.dismissAll();
@@ -181,7 +202,7 @@ export function OnboardingProvider({ children }: PropsWithChildren) {
       setState({ ...DONE_STATE });
       posthog?.capture('onboarding_completed', { via: 'first_record' });
     }
-  }, [animals, farms, isReady, posthog, records, state]);
+  }, [animals, collectives, farms, isReady, posthog, records, state]);
 
   const value = useMemo<OnboardingContextValue>(
     () => ({
@@ -192,6 +213,7 @@ export function OnboardingProvider({ children }: PropsWithChildren) {
           step: 'setup',
           knownFarms: farms,
           knownAnimals: animals.map((animal) => animal.id),
+          knownCollectives: collectives.map((collective) => collective.uid),
           knownRecords: records.map((record) => record.id),
         });
         posthog?.capture('onboarding_started');
@@ -204,7 +226,7 @@ export function OnboardingProvider({ children }: PropsWithChildren) {
       spotlightTarget,
       setSpotlightTarget,
     }),
-    [animals, farms, isReady, posthog, records, spotlightTarget, state.step],
+    [animals, collectives, farms, isReady, posthog, records, spotlightTarget, state.step],
   );
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;
@@ -221,6 +243,7 @@ function isStoredOnboarding(value: unknown): value is OnboardingState {
     ONBOARDING_STEPS.includes(state.step) &&
     Array.isArray(state.knownFarms) &&
     Array.isArray(state.knownAnimals) &&
+    (state.knownCollectives === undefined || Array.isArray(state.knownCollectives)) &&
     Array.isArray(state.knownRecords)
   );
 }

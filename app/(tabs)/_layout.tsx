@@ -47,9 +47,12 @@ const SPOTLIGHT_COPY: Partial<Record<OnboardingStep, SpotlightCopy>> = {
   },
   record: {
     radius: 34,
-    title: 'First animal added! 🎉',
+    // Reached by adding either an animal or a herd/flock, so it must not
+    // claim which one — a flock keeper being congratulated on their first
+    // animal reads as the app not having noticed what they did.
+    title: 'First one added! 🎉',
     message:
-      'Now that you have added your first animal, add your first record — births, weights, treatments and more. Happy farming!',
+      'Now add your first record — births, weights, treatments and more. Happy farming!',
     placement: 'above',
     actionLabel: 'Got it',
   },
