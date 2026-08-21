@@ -1224,7 +1224,7 @@ h2,
 .reveal {
   --reveal: 0;
   opacity: var(--reveal);
-  transform: translateY(calc(38px * (1 - var(--reveal))));
+  transform: translateY(calc(18px * (1 - var(--reveal))));
 }
 
 @media (prefers-reduced-motion: reduce) {

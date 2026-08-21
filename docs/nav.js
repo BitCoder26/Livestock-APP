@@ -228,12 +228,11 @@ if (canHover) {
     Array.prototype.forEach.call(screens, function (screen) {
       var box = screen.getBoundingClientRect();
 
-      // Nothing happens until the screen has already risen a fifth of the way
-      // up the window — it is on its way in before it starts arriving — and
-      // it is not all the way in until its top edge has nearly reached the
-      // top. Any later a screen would still be arriving as it left.
-      var travelled = height - box.top - height * 0.2;
-      var distance = height * 0.7 + box.height / 3;
+      // Start just before the screen reaches the viewport, then finish the
+      // transition while only its upper edge is visible. This makes the whole
+      // mockup readable well before it occupies the screen.
+      var travelled = height - box.top + height * 0.12;
+      var distance = height * 0.30 + box.height * 0.08;
       // A window with no height is a window drawing nothing; leave the screen
       // showing rather than dividing by it.
       var progress = distance > 0 ? travelled / distance : 1;
