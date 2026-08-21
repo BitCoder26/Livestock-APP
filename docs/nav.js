@@ -196,12 +196,14 @@ if (canHover) {
   observer.observe(demo);
 })();
 
-// The app screens rise into place as they are reached, rather than being
-// there already when the section scrolls into view.
+// The app screens rise into place as they are scrolled to. Tied to the scroll
+// position rather than started by it: the screen is as far in as the reader
+// has scrolled, so it cannot outrun the finger or arrive before the copy
+// beside it.
 (function () {
   var screens = document.querySelectorAll('.feature-screen-image, .reports-graphic img');
 
-  if (!screens.length || !window.IntersectionObserver) {
+  if (!screens.length) {
     return;
   }
 
@@ -209,23 +211,52 @@ if (canHover) {
     return;
   }
 
-  var observer = new IntersectionObserver(function (entries) {
-    entries.forEach(function (entry) {
-      if (!entry.isIntersecting) {
-        return;
+  // The hidden state is added here, not in the stylesheet: a reader whose
+  // script never ran would otherwise be left with blank space where the
+  // screens should be.
+  Array.prototype.forEach.call(screens, function (screen) {
+    screen.classList.add('reveal');
+  });
+
+  var pending = false;
+
+  function draw() {
+    pending = false;
+
+    var height = window.innerHeight;
+
+    Array.prototype.forEach.call(screens, function (screen) {
+      var box = screen.getBoundingClientRect();
+
+      // Starts as the top edge clears the bottom of the window, finishes when
+      // it has travelled a third of the window up from there — a long enough
+      // run that the screen is still arriving while it is being read.
+      var travelled = height - box.top;
+      var distance = height / 3 + box.height / 4;
+      // A window with no height is a window drawing nothing; leave the screen
+      // showing rather than dividing by it.
+      var progress = distance > 0 ? travelled / distance : 1;
+
+      if (progress < 0) {
+        progress = 0;
+      } else if (progress > 1) {
+        progress = 1;
       }
 
-      entry.target.classList.add('is-revealed');
-      // Each screen rises once; coming back to it should find it in place.
-      observer.unobserve(entry.target);
+      screen.style.setProperty('--reveal', progress.toFixed(3));
     });
-  }, { threshold: 0.15 });
+  }
 
-  Array.prototype.forEach.call(screens, function (screen) {
-    // The hidden state is added here, not in the stylesheet: a reader whose
-    // script never ran would otherwise be left with blank space where the
-    // screens should be.
-    screen.classList.add('reveal');
-    observer.observe(screen);
-  });
+  function schedule() {
+    if (pending) {
+      return;
+    }
+
+    pending = true;
+    window.requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('scroll', schedule, { passive: true });
+  window.addEventListener('resize', schedule);
+  draw();
 })();

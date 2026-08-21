@@ -1190,25 +1190,21 @@ h2,
   margin: 0.4vw 0 0 1.2vw;
 }
 
-/* The app screens come up into place as they are scrolled to. The starting
-   state is set by script rather than in the sheet, so nothing is left
-   invisible if the script never runs. */
+/* The app screens come up into place as they are scrolled to. Progress is
+   driven by script, one custom property per screen, so the fade follows the
+   scroll itself rather than running off on its own clock once triggered. The
+   starting state is set by script too, so nothing is left invisible if the
+   script never runs. */
 .reveal {
-  opacity: 0;
-  transform: translateY(26px);
-  transition: opacity 700ms ease, transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-
-.reveal.is-revealed {
-  opacity: 1;
-  transform: none;
+  --reveal: 0;
+  opacity: var(--reveal);
+  transform: translateY(calc(38px * (1 - var(--reveal))));
 }
 
 @media (prefers-reduced-motion: reduce) {
   .reveal {
-    opacity: 1;
+    --reveal: 1;
     transform: none;
-    transition: none;
   }
 }
 
