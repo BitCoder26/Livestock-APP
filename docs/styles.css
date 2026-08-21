@@ -1149,7 +1149,7 @@ h2,
 .hover-hint-word {
   align-self: flex-start;
   /* Up and in from the arrow's tail rather than sitting square on it. */
-  margin: -30px 0 0 66px;
+  margin: -48px 0 0 66px;
   color: #f3a90a;
   font-size: clamp(1rem, 1.6vw, 1.6rem);
   font-weight: 800;
@@ -1166,7 +1166,7 @@ h2,
   width: 6vw;
   max-width: 88px;
   height: auto;
-  margin: -1.2vw 0 0 -1.4vw;
+  margin: -1.2vw 0 0 1.2vw;
 }
 
 /* The app screens come up into place as they are scrolled to. The starting
