@@ -2576,6 +2576,10 @@ h2,
     margin: -4% auto -6%;
   }
 
+  .hero-phone:not(.hero-phone-new) {
+    display: none;
+  }
+
   .hero-phone-new {
     position: absolute;
     top: -4%;
