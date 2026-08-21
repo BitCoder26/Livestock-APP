@@ -2566,13 +2566,12 @@ h2,
 
   .hero-phone {
     display: block;
-    position: absolute;
-    top: -4%;
-    left: 3%;
-    z-index: 2;
+    position: static;
+    order: 1;
     width: 94%;
     max-width: 430px;
     height: auto;
+    margin: -4% auto -6%;
   }
 
   /* The phone artwork already carries its animals, so the separate hero
