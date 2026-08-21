@@ -1198,6 +1198,8 @@ h2,
 .flip-card {
   --turn: 620ms;
   position: absolute;
+  /* No waiting on a double-tap gesture before the tap counts. */
+  touch-action: manipulation;
   top: 50%;
   left: var(--shape-x);
   transform: translate(-50%, -50%);
@@ -1256,10 +1258,26 @@ h2,
   animation-duration: 460ms;
 }
 
-.flip-card:hover .flip-card-inner,
 .flip-card:focus-visible .flip-card-inner,
 .flip-card.is-flipped .flip-card-inner {
   transform: rotateY(180deg);
+}
+
+/* Turning on hover belongs to pointers that hover. A touch screen applies
+   :hover to whatever was tapped last and holds it there, so on a phone the
+   tap and the hover fought each other and the card took two taps to turn. */
+@media (hover: hover) and (pointer: fine) {
+  .flip-card:hover .flip-card-inner {
+    transform: rotateY(180deg);
+  }
+
+  .flip-card:hover .flip-face-solution {
+    opacity: 1;
+  }
+
+  .flip-card:hover .flip-face-problem {
+    opacity: 0;
+  }
 }
 
 .flip-card:focus-visible {
@@ -1290,13 +1308,11 @@ h2,
   opacity: 0;
 }
 
-.flip-card:hover .flip-face-solution,
 .flip-card:focus-visible .flip-face-solution,
 .flip-card.is-flipped .flip-face-solution {
   opacity: 1;
 }
 
-.flip-card:hover .flip-face-problem,
 .flip-card:focus-visible .flip-face-problem,
 .flip-card.is-flipped .flip-face-problem {
   opacity: 0;
