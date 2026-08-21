@@ -1,0 +1,537 @@
+export const INDUSTRY_OPTIONS = [
+  'Livestock farming',
+  'Mixed farming',
+  'Veterinary',
+  'Farm management',
+  'Other',
+] as const;
+
+export const MEASUREMENT_UNIT_OPTIONS = [
+  'Metric',
+  'Imperial',
+] as const;
+
+export const DATE_FORMAT_OPTIONS = [
+  'DD/MM/YYYY',
+  'MM/DD/YYYY',
+  'YYYY-MM-DD',
+  'DD MMM YYYY',
+] as const;
+
+export const PLAN_OPTIONS = [
+  'Basic',
+  'Pro',
+] as const;
+
+export const COUNTRY_OPTIONS = [
+  'United Kingdom',
+  'United States',
+  'Canada',
+  'Australia',
+  'New Zealand',
+  'Ireland',
+  'South Africa',
+  'Afghanistan',
+  'Albania',
+  'Algeria',
+  'Andorra',
+  'Angola',
+  'Antigua and Barbuda',
+  'Argentina',
+  'Armenia',
+  'Austria',
+  'Azerbaijan',
+  'Bahamas',
+  'Bahrain',
+  'Bangladesh',
+  'Barbados',
+  'Belarus',
+  'Belgium',
+  'Belize',
+  'Benin',
+  'Bhutan',
+  'Bolivia',
+  'Bosnia and Herzegovina',
+  'Botswana',
+  'Brazil',
+  'Brunei',
+  'Bulgaria',
+  'Burkina Faso',
+  'Burundi',
+  'Cabo Verde',
+  'Cambodia',
+  'Cameroon',
+  'Central African Republic',
+  'Chad',
+  'Chile',
+  'China',
+  'Colombia',
+  'Comoros',
+  'Congo',
+  'Costa Rica',
+  'Croatia',
+  'Cuba',
+  'Cyprus',
+  'Czech Republic',
+  'Democratic Republic of the Congo',
+  'Denmark',
+  'Djibouti',
+  'Dominica',
+  'Dominican Republic',
+  'Ecuador',
+  'Egypt',
+  'El Salvador',
+  'Equatorial Guinea',
+  'Eritrea',
+  'Estonia',
+  'Eswatini',
+  'Ethiopia',
+  'Fiji',
+  'Finland',
+  'France',
+  'Gabon',
+  'Gambia',
+  'Georgia',
+  'Germany',
+  'Ghana',
+  'Greece',
+  'Grenada',
+  'Guatemala',
+  'Guinea',
+  'Guinea-Bissau',
+  'Guyana',
+  'Haiti',
+  'Honduras',
+  'Hungary',
+  'Iceland',
+  'India',
+  'Indonesia',
+  'Iran',
+  'Iraq',
+  'Israel',
+  'Italy',
+  'Jamaica',
+  'Japan',
+  'Jordan',
+  'Kazakhstan',
+  'Kenya',
+  'Kiribati',
+  'Kuwait',
+  'Kyrgyzstan',
+  'Laos',
+  'Latvia',
+  'Lebanon',
+  'Lesotho',
+  'Liberia',
+  'Libya',
+  'Liechtenstein',
+  'Lithuania',
+  'Luxembourg',
+  'Madagascar',
+  'Malawi',
+  'Malaysia',
+  'Maldives',
+  'Mali',
+  'Malta',
+  'Marshall Islands',
+  'Mauritania',
+  'Mauritius',
+  'Mexico',
+  'Micronesia',
+  'Moldova',
+  'Monaco',
+  'Mongolia',
+  'Montenegro',
+  'Morocco',
+  'Mozambique',
+  'Myanmar',
+  'Namibia',
+  'Nauru',
+  'Nepal',
+  'Netherlands',
+  'Nicaragua',
+  'Niger',
+  'Nigeria',
+  'North Korea',
+  'North Macedonia',
+  'Norway',
+  'Oman',
+  'Pakistan',
+  'Palau',
+  'Panama',
+  'Papua New Guinea',
+  'Paraguay',
+  'Peru',
+  'Philippines',
+  'Poland',
+  'Portugal',
+  'Qatar',
+  'Romania',
+  'Russia',
+  'Rwanda',
+  'Saint Kitts and Nevis',
+  'Saint Lucia',
+  'Saint Vincent and the Grenadines',
+  'Samoa',
+  'San Marino',
+  'Sao Tome and Principe',
+  'Saudi Arabia',
+  'Senegal',
+  'Serbia',
+  'Seychelles',
+  'Sierra Leone',
+  'Singapore',
+  'Slovakia',
+  'Slovenia',
+  'Solomon Islands',
+  'Somalia',
+  'South Korea',
+  'South Sudan',
+  'Spain',
+  'Sri Lanka',
+  'Sudan',
+  'Suriname',
+  'Sweden',
+  'Switzerland',
+  'Syria',
+  'Taiwan',
+  'Tajikistan',
+  'Tanzania',
+  'Thailand',
+  'Timor-Leste',
+  'Togo',
+  'Tonga',
+  'Trinidad and Tobago',
+  'Tunisia',
+  'Turkey',
+  'Turkmenistan',
+  'Tuvalu',
+  'Uganda',
+  'Ukraine',
+  'United Arab Emirates',
+  'Uruguay',
+  'Uzbekistan',
+  'Vanuatu',
+  'Vatican City',
+  'Venezuela',
+  'Vietnam',
+  'Yemen',
+  'Zambia',
+  'Zimbabwe',
+  'Other',
+] as const;
+
+
+export const COUNTRY_CODE_BY_NAME: Record<CountryOption, string> = {
+  'United Kingdom': 'GB',
+  'United States': 'US',
+  'Canada': 'CA',
+  'Australia': 'AU',
+  'New Zealand': 'NZ',
+  'Ireland': 'IE',
+  'South Africa': 'ZA',
+  'Afghanistan': 'AF',
+  'Albania': 'AL',
+  'Algeria': 'DZ',
+  'Andorra': 'AD',
+  'Angola': 'AO',
+  'Antigua and Barbuda': 'AG',
+  'Argentina': 'AR',
+  'Armenia': 'AM',
+  'Austria': 'AT',
+  'Azerbaijan': 'AZ',
+  'Bahamas': 'BS',
+  'Bahrain': 'BH',
+  'Bangladesh': 'BD',
+  'Barbados': 'BB',
+  'Belarus': 'BY',
+  'Belgium': 'BE',
+  'Belize': 'BZ',
+  'Benin': 'BJ',
+  'Bhutan': 'BT',
+  'Bolivia': 'BO',
+  'Bosnia and Herzegovina': 'BA',
+  'Botswana': 'BW',
+  'Brazil': 'BR',
+  'Brunei': 'BN',
+  'Bulgaria': 'BG',
+  'Burkina Faso': 'BF',
+  'Burundi': 'BI',
+  'Cabo Verde': 'CV',
+  'Cambodia': 'KH',
+  'Cameroon': 'CM',
+  'Central African Republic': 'CF',
+  'Chad': 'TD',
+  'Chile': 'CL',
+  'China': 'CN',
+  'Colombia': 'CO',
+  'Comoros': 'KM',
+  'Congo': 'CG',
+  'Costa Rica': 'CR',
+  'Croatia': 'HR',
+  'Cuba': 'CU',
+  'Cyprus': 'CY',
+  'Czech Republic': 'CZ',
+  'Democratic Republic of the Congo': 'CD',
+  'Denmark': 'DK',
+  'Djibouti': 'DJ',
+  'Dominica': 'DM',
+  'Dominican Republic': 'DO',
+  'Ecuador': 'EC',
+  'Egypt': 'EG',
+  'El Salvador': 'SV',
+  'Equatorial Guinea': 'GQ',
+  'Eritrea': 'ER',
+  'Estonia': 'EE',
+  'Eswatini': 'SZ',
+  'Ethiopia': 'ET',
+  'Fiji': 'FJ',
+  'Finland': 'FI',
+  'France': 'FR',
+  'Gabon': 'GA',
+  'Gambia': 'GM',
+  'Georgia': 'GE',
+  'Germany': 'DE',
+  'Ghana': 'GH',
+  'Greece': 'GR',
+  'Grenada': 'GD',
+  'Guatemala': 'GT',
+  'Guinea': 'GN',
+  'Guinea-Bissau': 'GW',
+  'Guyana': 'GY',
+  'Haiti': 'HT',
+  'Honduras': 'HN',
+  'Hungary': 'HU',
+  'Iceland': 'IS',
+  'India': 'IN',
+  'Indonesia': 'ID',
+  'Iran': 'IR',
+  'Iraq': 'IQ',
+  'Israel': 'IL',
+  'Italy': 'IT',
+  'Jamaica': 'JM',
+  'Japan': 'JP',
+  'Jordan': 'JO',
+  'Kazakhstan': 'KZ',
+  'Kenya': 'KE',
+  'Kiribati': 'KI',
+  'Kuwait': 'KW',
+  'Kyrgyzstan': 'KG',
+  'Laos': 'LA',
+  'Latvia': 'LV',
+  'Lebanon': 'LB',
+  'Lesotho': 'LS',
+  'Liberia': 'LR',
+  'Libya': 'LY',
+  'Liechtenstein': 'LI',
+  'Lithuania': 'LT',
+  'Luxembourg': 'LU',
+  'Madagascar': 'MG',
+  'Malawi': 'MW',
+  'Malaysia': 'MY',
+  'Maldives': 'MV',
+  'Mali': 'ML',
+  'Malta': 'MT',
+  'Marshall Islands': 'MH',
+  'Mauritania': 'MR',
+  'Mauritius': 'MU',
+  'Mexico': 'MX',
+  'Micronesia': 'FM',
+  'Moldova': 'MD',
+  'Monaco': 'MC',
+  'Mongolia': 'MN',
+  'Montenegro': 'ME',
+  'Morocco': 'MA',
+  'Mozambique': 'MZ',
+  'Myanmar': 'MM',
+  'Namibia': 'NA',
+  'Nauru': 'NR',
+  'Nepal': 'NP',
+  'Netherlands': 'NL',
+  'Nicaragua': 'NI',
+  'Niger': 'NE',
+  'Nigeria': 'NG',
+  'North Korea': 'KP',
+  'North Macedonia': 'MK',
+  'Norway': 'NO',
+  'Oman': 'OM',
+  'Pakistan': 'PK',
+  'Palau': 'PW',
+  'Panama': 'PA',
+  'Papua New Guinea': 'PG',
+  'Paraguay': 'PY',
+  'Peru': 'PE',
+  'Philippines': 'PH',
+  'Poland': 'PL',
+  'Portugal': 'PT',
+  'Qatar': 'QA',
+  'Romania': 'RO',
+  'Russia': 'RU',
+  'Rwanda': 'RW',
+  'Saint Kitts and Nevis': 'KN',
+  'Saint Lucia': 'LC',
+  'Saint Vincent and the Grenadines': 'VC',
+  'Samoa': 'WS',
+  'San Marino': 'SM',
+  'Sao Tome and Principe': 'ST',
+  'Saudi Arabia': 'SA',
+  'Senegal': 'SN',
+  'Serbia': 'RS',
+  'Seychelles': 'SC',
+  'Sierra Leone': 'SL',
+  'Singapore': 'SG',
+  'Slovakia': 'SK',
+  'Slovenia': 'SI',
+  'Solomon Islands': 'SB',
+  'Somalia': 'SO',
+  'South Korea': 'KR',
+  'South Sudan': 'SS',
+  'Spain': 'ES',
+  'Sri Lanka': 'LK',
+  'Sudan': 'SD',
+  'Suriname': 'SR',
+  'Sweden': 'SE',
+  'Switzerland': 'CH',
+  'Syria': 'SY',
+  'Taiwan': 'TW',
+  'Tajikistan': 'TJ',
+  'Tanzania': 'TZ',
+  'Thailand': 'TH',
+  'Timor-Leste': 'TL',
+  'Togo': 'TG',
+  'Tonga': 'TO',
+  'Trinidad and Tobago': 'TT',
+  'Tunisia': 'TN',
+  'Turkey': 'TR',
+  'Turkmenistan': 'TM',
+  'Tuvalu': 'TV',
+  'Uganda': 'UG',
+  'Ukraine': 'UA',
+  'United Arab Emirates': 'AE',
+  'Uruguay': 'UY',
+  'Uzbekistan': 'UZ',
+  'Vanuatu': 'VU',
+  'Vatican City': 'VA',
+  'Venezuela': 'VE',
+  'Vietnam': 'VN',
+  'Yemen': 'YE',
+  'Zambia': 'ZM',
+  'Zimbabwe': 'ZW',
+  'Other': '',
+};
+export function getCountryFlag(country: string) {
+  const trimmedCountry = country.trim();
+
+  if (!trimmedCountry) {
+    return '';
+  }
+
+  const code = COUNTRY_CODE_BY_NAME[trimmedCountry as CountryOption];
+
+  if (!code) {
+    return '🌍';
+  }
+
+  return code
+    .toUpperCase()
+    .split('')
+    .map((char) => String.fromCodePoint(127397 + char.charCodeAt(0)))
+    .join('');
+}
+
+export type IndustryOption = typeof INDUSTRY_OPTIONS[number];
+export type MeasurementUnitOption = typeof MEASUREMENT_UNIT_OPTIONS[number];
+export type AppDateFormat = typeof DATE_FORMAT_OPTIONS[number];
+export type PlanOption = typeof PLAN_OPTIONS[number];
+export type CountryOption = typeof COUNTRY_OPTIONS[number];
+export type IndustryValue = IndustryOption | '';
+export type PlanValue = PlanOption | '';
+
+export type AccountProfile = {
+  name: string;
+  email: string;
+  plan: PlanValue;
+  country: string;
+  currency: string;
+  industry: IndustryValue;
+  measurementUnits: MeasurementUnitOption;
+  dateFormat: AppDateFormat;
+  /** ISO timestamp of the last time the user completed an Export (CSV/PDF).
+   * Drives the "back up your data" reminder — unset until their first export. */
+  lastExportedAt?: string;
+  /** ISO timestamp until which the backup reminder should stay hidden,
+   * set when the user dismisses it with "Remind me later". */
+  backupNudgeSnoozedUntil?: string;
+  /** Lifetime count of completed Export tab exports (PDF or spreadsheet),
+   * checked against FREE_EXPORT_LIMIT on Basic. Only ever incremented, and
+   * only after an export actually completes — a cancelled or failed one costs
+   * the user nothing. Deliberately outside BackupProfileData: an entitlement
+   * counter is not portable configuration, and carrying it into a backup would
+   * let a restore reset or inflate it. */
+  exportsUsed?: number;
+  /** Business/farm identity shown on exported PDFs — separate from the
+   * operational Farm entities used for animal locations. Falls back to
+   * "LivestockBook" branding on exports when unset. */
+  businessName?: string;
+  businessAddress?: string;
+  /** Local file URI of the persisted logo image, or unset. */
+  businessLogoUri?: string;
+};
+
+export const DEFAULT_ACCOUNT_PROFILE: AccountProfile = {
+  name: '',
+  email: '',
+  plan: 'Basic',
+  country: '',
+  currency: 'GBP',
+  industry: '',
+  measurementUnits: 'Metric',
+  dateFormat: 'DD MMM YYYY',
+};
+
+export function formatCurrencyPrefix(currencyCode: string) {
+  const normalizedCode = currencyCode.trim().toUpperCase() || 'GBP';
+
+  try {
+    const currencyPart = new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: normalizedCode,
+      currencyDisplay: 'narrowSymbol',
+    })
+      .formatToParts(0)
+      .find((part) => part.type === 'currency')?.value;
+
+    if (currencyPart && currencyPart !== normalizedCode) {
+      return currencyPart;
+    }
+  } catch {
+    // Fall through to the unambiguous ISO code.
+  }
+
+  return `${normalizedCode} `;
+}
+
+export function formatCurrencyAmount(value: string, currencyCode: string) {
+  const normalizedCode = currencyCode.trim().toUpperCase() || 'GBP';
+  const numericValue = Number(value.replace(/,/g, '').trim());
+
+  if (Number.isFinite(numericValue)) {
+    try {
+      const formattedValue = new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: normalizedCode,
+        currencyDisplay: 'narrowSymbol',
+      }).format(numericValue);
+
+      return `${formattedValue} ${normalizedCode}`;
+    } catch {
+      // Fall through to formatting the original text value.
+    }
+  }
+
+  const prefix = formatCurrencyPrefix(normalizedCode);
+
+  return prefix.trim() === normalizedCode
+    ? `${normalizedCode} ${value}`
+    : `${prefix}${value} ${normalizedCode}`;
+}

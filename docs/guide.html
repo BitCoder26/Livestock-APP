@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LivestockBook | How to use the app</title>
+  <meta
+    name="description"
+    content="A step-by-step guide to using LivestockBook: set up your farm, add animals, log records, filter and export files."
+  />
+  <link rel="icon" href="./favicon.ico?v=20260724" sizes="any" />
+  <link rel="icon" type="image/png" sizes="48x48" href="./favicon-48x48.png?v=20260724" />
+  <link rel="icon" type="image/png" sizes="96x96" href="./favicon-96x96.png?v=20260724" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./favicon-192x192.png?v=20260724" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=20260724" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="./styles.css?v=20260825x" />
+  <script src="./nav.js?v=20260825c" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="./index.html" aria-label="LivestockBook home">
+        <img class="brand-logo" src="./images/app_logo.png" alt="LivestockBook logo" />
+        <span class="brand-text">LivestockBook</span>
+      </a>
+      <input class="nav-toggle" type="checkbox" id="nav-toggle" />
+      <label class="nav-button" for="nav-toggle" aria-label="Menu">
+        <span class="nav-bar"></span>
+        <span class="nav-bar"></span>
+        <span class="nav-bar"></span>
+      </label>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="./index.html#features">Features</a>
+        <a href="./guide.html">Guide</a>
+        <a href="./about.html">About</a>
+        <a href="./contact.html">Contact</a>
+      </nav>
+      <label class="nav-scrim" for="nav-toggle" aria-hidden="true"></label>
+    </div>
+  </header>
+
+  <main class="about-band">
+    <img class="page-blob page-blob-right-top" src="./images/side-graphic2.png" alt="" aria-hidden="true" loading="lazy" />
+    <img class="page-blob page-blob-left-mid" src="./images/side-graphic3.png" alt="" aria-hidden="true" loading="lazy" />
+    <img class="page-animal guide-goat" src="./images/goat.png" alt="" aria-hidden="true" loading="lazy" />
+    <section class="about-shell">
+      <h1>How to use LivestockBook</h1>
+      <p>
+        A rough walkthrough of the app, from first launch to a finished export. The whole thing works offline, and everything you enter is stored on your own device.
+      </p>
+      <p>
+        The app has four main tabs along the bottom &mdash; <strong>Records</strong>, <strong>Animals</strong>, <strong>Setup</strong> and <strong>Export</strong> &mdash; and that is roughly the order you use them in. Your <strong>Account</strong> is reachable from the top of all four tabs, and that is where Profile, Settings, Reports and the rest live.
+      </p>
+
+      <h2 class="guide-heading"><span class="guide-heading-icon guide-heading-icon-wide" style="--guide-icon: url('./images/icons/herd.png')" aria-hidden="true"></span>Individual animals and herds &amp; flocks</h2>
+      <p>
+        LivestockBook keeps livestock in two ways, and it is worth knowing which you need before you start:
+      </p>
+      <ul>
+        <li><strong>Individual animals</strong> &mdash; one entry per animal, with its own tag or ID and its own timeline. This is what you want for cattle, and usually for sheep and goats, where animals are identified individually.</li>
+        <li><strong>Herds &amp; flocks</strong> &mdash; a group of animals recorded as one unit, with a head count instead of individual identities. This suits laying flocks, batches of weaners, and anything else you manage as a group rather than animal by animal.</li>
+      </ul>
+      <p>
+        You can use both side by side, and the app names the group to suit the species: a herd of pigs, a flock of hens, a batch. Records work slightly differently for each &mdash; see <em>Log records</em> below.
+      </p>
+
+      <h2 class="guide-heading"><span class="guide-heading-icon" style="--guide-icon: url('./images/icons/setup.svg')" aria-hidden="true"></span>Set up your farm</h2>
+      <p>
+        Start in the <strong>Setup</strong> tab. This is where you create the things your animals and records get attached to:
+      </p>
+      <ul class="guide-icon-list">
+        <li style="--guide-icon: url('./images/icons/sprout.svg')"><strong>Farms</strong> &mdash; one entry per holding, if you keep animals in more than one place.</li>
+        <li style="--guide-icon: url('./images/icons/pin.svg')"><strong>Locations</strong> &mdash; wherever animals actually are. You name these yourself, so call them what you call them: paddock, shed, pen, hutch, field, barn, coop.</li>
+        <li class="guide-icon-tag" style="--guide-icon: url('./images/icons/tag.svg')"><strong>Labels</strong> &mdash; your own tags for organising stock, such as <em>Breeding</em>, <em>Organic</em> or <em>Winter shed</em>. An animal can carry several, and a herd or flock can too.</li>
+        <li style="--guide-icon: url('./images/icons/medicine.svg')"><strong>Medicines &amp; Vaccines</strong> &mdash; the products you use, so they can be picked from a list when you log a treatment.</li>
+      </ul>
+      <p>
+        You do not have to fill all of this in before you start. Add what you need now and come back to the rest later.
+      </p>
+      <p>
+        Worth doing once at the start: open <strong>Account</strong> from the top of any of the four main tabs, go to <strong>Profile</strong>, and add your business or farm name and a logo. These appear on the PDFs you export.
+      </p>
+
+      <h2 class="guide-heading"><span class="guide-heading-icon" style="--guide-icon: url('./images/icons/animals.svg')" aria-hidden="true"></span>Add your animals</h2>
+      <p>
+        Go to the <strong>Animals</strong> tab and add your livestock, choosing whether you are adding an individual animal or a herd or flock. Species covered: cattle, sheep, pigs, goats, chickens, ducks, turkeys, geese, donkeys, horses, buffalo, rabbits, alpacas, llamas, camels and ostriches.
+      </p>
+      <p>
+        For an <strong>individual animal</strong>, fill in the details you keep track of &mdash; tag or ID, name, breed, sex, date of birth, acquired date, and the farm, location and labels it belongs to. You can add a photo too. Tapping the animal opens its own page with a full timeline: every record logged against it, in date order.
+      </p>
+      <p>
+        For a <strong>herd or flock</strong>, you give the group a reference, a species and a head count, along with the same farm, location and label details. The group gets its own timeline, and its head count moves as you log births, deaths, sales and purchases against it.
+      </p>
+
+      <h2 class="guide-heading"><span class="guide-heading-icon" style="--guide-icon: url('./images/icons/import.png')" aria-hidden="true"></span>Import an existing list</h2>
+      <p>
+        If your stock is already written down somewhere else, you do not have to retype it. LivestockBook can bring animals in three ways:
+      </p>
+      <ul>
+        <li><strong>Type the tag numbers</strong> &mdash; quickest when you just need the IDs in.</li>
+        <li><strong>Paste a table</strong> &mdash; copy the rows straight out of a spreadsheet or another app.</li>
+        <li><strong>Import a CSV file</strong> &mdash; pick the file, and a blank template is available if you want the right shape to start from.</li>
+      </ul>
+      <p>
+        Whichever route you take, the app shows you what each column holds, lets you correct anything it guessed wrong, and gives you a preview to confirm before a single animal is saved. It is meant to make switching over from another app or a spreadsheet a short job rather than an evening's typing.
+      </p>
+
+      <h2 class="guide-heading"><span class="guide-heading-icon" style="--guide-icon: url('./images/icons/records.svg')" aria-hidden="true"></span>Log records</h2>
+      <p>
+        The <strong>Records</strong> tab is the day-to-day part of the app. Add a record, choose what it applies to, pick the type, set the date and add any notes.
+      </p>
+      <p>These record types are available for both individual animals and herds &amp; flocks:</p>
+      <ul>
+        <li><strong>Movement</strong> &mdash; animals moving between locations or farms.</li>
+        <li><strong>Weight</strong> &mdash; a weigh-in. For a group this is an average across the animals rather than one figure.</li>
+        <li><strong>Birth</strong> &mdash; new arrivals. For a flock of birds this reads as <em>Hatch</em>.</li>
+        <li><strong>Death</strong> &mdash; a loss, with the reason if you want it.</li>
+        <li><strong>Vaccination</strong> and <strong>Medication</strong> &mdash; treatments, pulling from the medicines you set up earlier, with dose and withdrawal details.</li>
+        <li><strong>Health Check</strong> &mdash; a routine inspection and what you found.</li>
+        <li><strong>Sale</strong> and <strong>Purchase</strong> &mdash; stock leaving or joining, with the price.</li>
+        <li><strong>Other</strong> &mdash; anything that does not fit the list above; you give it your own title.</li>
+      </ul>
+      <p>Herds and flocks get a few extra types, because a group has questions an individual does not:</p>
+      <ul>
+        <li><strong>Feed</strong> &mdash; feed bought or used, with the cost, usually the largest running expense.</li>
+        <li><strong>Headcount</strong> &mdash; for putting a total right when the number on screen no longer matches what is in the shed.</li>
+        <li><strong>Egg Production</strong> &mdash; eggs collected. Poultry only, so a sheep keeper is never offered it.</li>
+      </ul>
+      <p>
+        For groups, the count-changing types &mdash; births, deaths, sales and purchases &mdash; ask how many animals were involved and adjust the head count for you.
+      </p>
+      <p>
+        <strong>One record across many animals.</strong> When a record applies to individual animals, you can pick them one by one or pick a <strong>label</strong> and take everyone carrying it in one go. That is what labels are really for: drenching the whole breeding group is one record, not forty.
+      </p>
+      <p>
+        The habit worth building is logging things as they happen rather than trying to reconstruct them later. It only takes a few seconds per record.
+      </p>
+
+      <h2 class="guide-heading"><span class="guide-heading-icon" style="--guide-icon: url('./images/icons/filter.svg')" aria-hidden="true"></span>Find things in the app</h2>
+      <p>
+        Both the Records tab and the Animals tab have their own filter and sort, for looking things up on screen &mdash; narrowing records down by animal, type or date, or narrowing the animal list by farm, location, label, species or status. This filtering only changes what you are looking at; it does not decide what gets exported.
+      </p>
+
+      <h2 class="guide-heading"><span class="guide-heading-icon" style="--guide-icon: url('./images/icons/export.png')" aria-hidden="true"></span>Export your files</h2>
+      <p>
+        Exporting has its own tab, with its own filters, so what you export is chosen there rather than inherited from whatever you were last looking at. In the <strong>Export</strong> tab you pick:
+      </p>
+      <ul>
+        <li>An <strong>animal register</strong> &mdash; your livestock listed with their key details, filtered by farm, location, label, species or status.</li>
+        <li>A <strong>records export</strong> &mdash; the records themselves, filtered by animal, record type and date range.</li>
+      </ul>
+      <p>
+        Either can come out as a PDF or a spreadsheet (CSV) file. PDFs carry your farm name and logo, so they are ready to print, email or hand over at an inspection. The file goes through the normal share sheet, so you can save it to Files, iCloud Drive or Google Drive, or send it straight to someone.
+      </p>
+      <p>
+        Record-keeping requirements differ from country to country, so check what your own local rules ask for. If something they require is missing, <a href="./contact.html">let me know</a> and I will look at adding it.
+      </p>
+
+      <h2 class="guide-heading"><span class="guide-heading-icon" style="--guide-icon: url('./images/icons/reports.svg')" aria-hidden="true"></span>Check your reports</h2>
+      <p>
+        Reports, in the Account area, give you a breakdown of your livestock and your activity over different time periods &mdash; a quick overview of what you have and what has been happening, without going through records one by one.
+      </p>
+
+      <h2 class="guide-heading"><span class="guide-heading-icon" style="--guide-icon: url('./images/icons/backup.png')" aria-hidden="true"></span>Back up your data</h2>
+      <p>
+        Because your data lives on your device rather than on a server, backups matter. In Settings, <strong>Backup</strong> saves everything &mdash; animals, herds and flocks, records, farms, locations, labels, medicines and your profile &mdash; into a single file that you save wherever you like. <strong>Restore</strong> reads that file back in, which is also how you move your data to a new phone.
+      </p>
+      <p>
+        It is worth taking a backup every so often, and definitely before changing phones.
+      </p>
+
+      <h2 class="guide-heading"><span class="guide-heading-icon" style="--guide-icon: url('./images/icons/help.svg')" aria-hidden="true"></span>Still stuck?</h2>
+      <p>
+        The <a href="./faq.html">FAQ</a> answers some of the more common questions, and it is still growing. If yours is not there, ask in the <a href="https://www.facebook.com/groups/1353099223626390" target="_blank" rel="noreferrer">Facebook group</a> or <a href="./contact.html">email me directly</a> &mdash; feedback from users is what shapes the app.
+      </p>
+      <p>
+        And if LivestockBook is doing its job for you, <a href="https://apps.apple.com/gb/app/livestockbook-animal-records/id6790605803?action=write-review" target="_blank" rel="noreferrer">leaving a rating</a> genuinely helps other farmers find it.
+      </p>
+      <img class="page-animal-flow page-animal-mobile-only" src="./images/rabbit-horse.png" alt="" aria-hidden="true" loading="lazy" />
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-grid">
+      <div class="footer-brand">
+        <div class="footer-brand-row">
+          <img class="brand-logo" src="./images/app_logo.png" alt="LivestockBook logo" />
+          <span class="brand-text">LivestockBook</span>
+        </div>
+        <div class="footer-badges store-badges-row">
+          <a href="https://apps.apple.com/gb/app/livestockbook-animal-records/id6790605803" target="_blank" rel="noreferrer"><img class="store-badge-image" src="./images/app_store.svg" alt="Download LivestockBook on the App Store" /></a>
+          <img class="store-badge-image" src="./images/play_store.svg" alt="Google Play badge" />
+        </div>
+      </div>
+      <div class="footer-col">
+        <h3>Application</h3>
+        <a href="./index.html#features">Features</a>
+        <a href="./guide.html">Guide</a>
+        <a href="./faq.html">FAQ</a>
+        <a href="./about.html">About</a>
+      </div>
+      <div class="footer-col">
+        <h3>Community</h3>
+        <a href="https://www.facebook.com/groups/1353099223626390" target="_blank" rel="noreferrer">Facebook Group</a>
+        <a href="./contact.html">Contact us</a>
+      </div>
+      <div class="footer-col">
+        <h3>Legal</h3>
+        <a href="./privacy.html">Privacy Policy</a>
+        <a href="./terms.html">Terms of Service</a>
+      </div>
+    </div>
+    <p class="footer-copyright">© 2026 Thomas Koukouris</p>
+    <div class="footer-illustration">
+      <picture>
+        <source media="(max-width: 680px)" srcset="./images/footer-image-small.png" />
+        <img src="./images/footer-image.png" alt="" aria-hidden="true" loading="lazy" />
+      </picture>
+    </div>
+  </footer>
+</body>
+</html>

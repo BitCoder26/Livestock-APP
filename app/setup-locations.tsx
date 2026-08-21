@@ -1,0 +1,460 @@
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { AppIcon } from '../src/components/AppIcon';
+import { AppTopBar } from '../src/components/AppTopBar';
+import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
+import { BouncyPressable } from '../src/components/BouncyPressable';
+import { DesignField } from '../src/components/DesignField';
+import { InfoModal } from '../src/components/InfoModal';
+import { useAnimals } from '../src/context/AnimalsContext';
+import { useSetup } from '../src/context/SetupContext';
+import { tokens } from '../src/theme/tokens';
+
+type PickerKey = 'farm' | null;
+
+export default function SetupLocationsScreen() {
+  const router = useRouter();
+  const { animals } = useAnimals();
+  const {
+    farms,
+    locationEntities,
+    addLocation,
+    updateLocation,
+    removeLocation,
+    pendingSetupSelectionTarget,
+    resolveSetupSelection,
+  } = useSetup();
+  const [name, setName] = useState('');
+  const [farm, setFarm] = useState('');
+  const [notes, setNotes] = useState('');
+  const [activePicker, setActivePicker] = useState<PickerKey>(null);
+  const [locationPendingDelete, setLocationPendingDelete] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
+  const [editingLocationUid, setEditingLocationUid] = useState<string | null>(null);
+  const isEditingLocation = editingLocationUid !== null;
+
+  const resetLocationForm = () => {
+    setEditingLocationUid(null);
+    setName('');
+    setFarm('');
+    setNotes('');
+  };
+
+  const handleStartEditLocation = (location: (typeof locationEntities)[number]) => {
+    setEditingLocationUid(location.uid ?? null);
+    setName(location.name);
+    setFarm(location.farm);
+    setNotes(location.notes);
+  };
+
+  const handleSaveLocation = async () => {
+    const nextLocationName = name.trim();
+
+    if (!nextLocationName || !farm.trim()) {
+      Alert.alert('Required fields missing', 'Enter a location name and select its farm.');
+      return;
+    }
+
+    const result = editingLocationUid
+      ? await updateLocation(editingLocationUid, { name: nextLocationName, farm, notes })
+      : await addLocation({ name: nextLocationName, farm, notes });
+
+    if (!result.ok) {
+      Alert.alert(
+        result.reason === 'duplicate' ? 'Location already exists' : 'Location could not be saved',
+        result.reason === 'duplicate' ? 'Use a different location name.' : 'Nothing was changed. Please try again.',
+      );
+      return;
+    }
+
+    if (
+      !editingLocationUid &&
+      (pendingSetupSelectionTarget === 'fromLocation' || pendingSetupSelectionTarget === 'toLocation')
+    ) {
+      resolveSetupSelection(nextLocationName);
+      router.back();
+      return;
+    }
+
+    resetLocationForm();
+  };
+
+  const confirmDeleteLocation = async () => {
+    if (!locationPendingDelete) {
+      return;
+    }
+
+    if (animals.some((animal) => animal.location.trim().toLowerCase() === locationPendingDelete.trim().toLowerCase())) {
+      setLocationPendingDelete(null);
+      Alert.alert('Location is in use', 'Move or edit the animals assigned to this location before deleting it.');
+      return;
+    }
+
+    const result = await removeLocation(locationPendingDelete);
+    setLocationPendingDelete(null);
+
+    if (!result.ok) {
+      Alert.alert(
+        result.reason === 'in-use' ? 'Location is in use' : 'Location could not be deleted',
+        result.reason === 'in-use'
+          ? 'Move the animals in this location elsewhere before deleting it.'
+          : 'Nothing was changed. Please try again.',
+      );
+      return;
+    }
+
+    if (equalsIgnoreCase(name, locationPendingDelete)) {
+      resetLocationForm();
+    }
+  };
+
+  const pickerOptions = activePicker === 'farm' ? farms : [];
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+      <AppTopBar
+        title="Locations"
+        leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: () => router.back() }}
+        actions={[
+          {
+            icon: 'help-circle',
+            accessibilityLabel: 'About locations',
+            onPress: () => setShowHelp(true),
+          },
+        ]}
+      />
+      <ScrollView contentContainerStyle={[styles.content, locationEntities.length === 0 && styles.emptyContent]} showsVerticalScrollIndicator={false}>
+        <View style={styles.editorCard}>
+          <Text style={styles.sectionLabel}>{isEditingLocation ? 'Edit location' : 'Locations'}</Text>
+
+          <DesignField value={name} label="Location name *" onChangeText={setName} />
+          <SelectionField
+            label="Farm *"
+            value={farm}
+            emptyLabel={farms.length === 0 ? 'No farms available' : 'Select farm'}
+            onPress={() => setActivePicker('farm')}
+          />
+          <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
+
+          <View style={styles.editorActionsRow}>
+            <BouncyPressable
+              accessibilityRole="button"
+              accessibilityLabel={isEditingLocation ? 'Save location changes' : 'Add location'}
+              containerStyle={styles.editorPrimaryButtonWrap}
+              onPress={handleSaveLocation}
+              style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+            >
+              <AppIcon name={isEditingLocation ? 'check' : 'plus'} size={16} color="#fff" />
+              <Text style={styles.addButtonText}>{isEditingLocation ? 'Save Changes' : 'Add Location'}</Text>
+            </BouncyPressable>
+            {isEditingLocation ? (
+              <BouncyPressable
+                accessibilityRole="button"
+                accessibilityLabel="Cancel editing location"
+                onPress={resetLocationForm}
+                style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </BouncyPressable>
+            ) : null}
+          </View>
+        </View>
+
+        {locationEntities.length === 0 ? (
+          <View style={styles.emptyState}>
+            <AppIcon name="pin" size={90} color="#E5E0E7" opacity={1} />
+            <Text style={styles.emptyTitle}>Empty</Text>
+          </View>
+        ) : (
+          <View style={styles.list}>
+            {locationEntities.map((location) => (
+              <View key={location.uid ?? location.name} style={styles.itemCard}>
+                <View style={styles.itemHeader}>
+                  <View style={styles.itemTitleRow}>
+                    <View style={styles.itemIconBadge}>
+                      <AppIcon name="pin" size={22} color="#171717" />
+                    </View>
+                    <View style={styles.itemHeadingCopy}>
+                      <Text style={styles.itemTitle}>{location.name}</Text>
+                      <Text style={styles.itemSubtitle}>{location.farm || 'No farm selected'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.itemActionsRow}>
+                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Edit ${location.name}`} onPress={() => handleStartEditLocation(location)} style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
+                      <AppIcon name="edit" size={18} color="#171717" />
+                    </BouncyPressable>
+                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Delete ${location.name}`} onPress={() => setLocationPendingDelete(location.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                      <AppIcon name="trash" size={28} color="#fff" />
+                    </BouncyPressable>
+                  </View>
+                </View>
+                {location.notes ? <Text style={styles.itemNotes}>{location.notes}</Text> : null}
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={locationPendingDelete !== null}
+        onRequestClose={() => setLocationPendingDelete(null)}
+      >
+        <Pressable style={styles.centeredModalBackdrop} onPress={() => setLocationPendingDelete(null)}>
+          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
+            <Text style={styles.deleteConfirmTitle}>Delete location?</Text>
+            <Text style={styles.deleteConfirmText}>
+              {locationPendingDelete ? `Are you sure you want to delete ${locationPendingDelete}?` : ''}
+            </Text>
+            <View style={styles.deleteConfirmActions}>
+              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={() => setLocationPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </BouncyPressable>
+              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={confirmDeleteLocation} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
+                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+              </BouncyPressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal transparent animationType="none" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
+          <AnimatedPopupCard visible={activePicker !== null} style={styles.selectionCard} onPress={() => {}}>
+            <Text style={styles.selectionTitle}>Select farm</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.modalList}>
+                {pickerOptions.map((option) => {
+                  const isSelected = farm === option;
+                  return (
+                    <Pressable
+                      key={option}
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setFarm(option);
+                        setActivePicker(null);
+                      }}
+                      style={({ pressed }) => [styles.selectionRow, isSelected && styles.selectionRowActive, pressed && styles.pressed]}
+                    >
+                      <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{option}</Text>
+                      {isSelected ? <AppIcon name="check" size={16} color="#fff" /> : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </AnimatedPopupCard>
+        </Pressable>
+      </Modal>
+      <InfoModal
+        visible={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Locations"
+        description="The fields or enclosures within a farm. Use locations to track where animals are kept or grazing and filter records by location."
+      />
+    </SafeAreaView>
+  );
+}
+
+function SelectionField({
+  label,
+  value,
+  emptyLabel,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  emptyLabel: string;
+  onPress: () => void;
+}) {
+  return (
+    <View style={styles.block}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.dateField}>
+        <Text style={[styles.dateValue, !value && styles.placeholderValue]}>{value || emptyLabel}</Text>
+        <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+      </Pressable>
+    </View>
+  );
+}
+
+function equalsIgnoreCase(left: string, right: string) {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#fff' },
+  content: { paddingHorizontal: 16, paddingTop: 22, paddingBottom: 120, gap: 16 },
+  emptyContent: { flexGrow: 1, justifyContent: 'center' },
+  editorCard: { borderRadius: 24, backgroundColor: '#F5F3F7', padding: 16, gap: 14 },
+  sectionLabel: { color: tokens.colors.text, fontSize: 16, fontWeight: '700' },
+  block: { gap: 8 },
+  label: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
+  dateField: {
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateValue: { color: '#2b2b2b', fontSize: 13, fontWeight: '500', flex: 1, paddingRight: 10 },
+  placeholderValue: { color: '#7a7a7a' },
+  addButton: {
+    marginTop: 4,
+    minHeight: 50,
+    borderRadius: 25,
+    backgroundColor: tokens.colors.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  addButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  editorActionsRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  editorPrimaryButtonWrap: { flex: 1 },
+  cancelButton: { minHeight: 50, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  cancelButtonText: { color: tokens.colors.textSoft, fontSize: 14, fontWeight: '700' },
+  list: { gap: 10 },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingTop: 72 },
+  emptyTitle: { marginTop: 18, color: '#E5E0E7', fontSize: 29, fontWeight: '700' },
+  itemCard: {
+    borderRadius: 22,
+    backgroundColor: '#fff',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  itemHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  itemTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, flex: 1 },
+  itemIconBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: '#FCE5E4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemHeadingCopy: { flex: 1, gap: 2, minWidth: 0 },
+  itemTitle: { color: tokens.colors.text, fontSize: 16, fontWeight: '700' },
+  itemSubtitle: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '600' },
+  itemActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  editButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surfaceMuted,
+  },
+  deleteButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.accent,
+  },
+  itemNotes: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '500', lineHeight: 17 },
+  centeredModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.46)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  deleteConfirmCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  deleteConfirmTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  deleteConfirmText: {
+    marginTop: 8,
+    color: tokens.colors.textSoft,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  deleteCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E0E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelButtonText: {
+    color: '#544F49',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.28)', justifyContent: 'flex-end' },
+  selectionCard: {
+    marginHorizontal: 18,
+    marginBottom: 28,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    gap: 8,
+  },
+  selectionTitle: { color: tokens.colors.text, fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  modalList: { gap: 8 },
+  selectionRow: {
+    minHeight: 46,
+    borderRadius: 18,
+    backgroundColor: '#F5F3F7',
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectionRowActive: { backgroundColor: tokens.colors.accent },
+  selectionText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
+  selectionTextActive: { color: '#fff' },
+  pressed: { opacity: 0.92 },
+});

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path
+    d="M20.59 13.41 11 23l-8.5-8.5V4h10.5l7.59 7.59a2.002 2.002 0 0 1 0 2.82Z"
+    fill="none"
+    stroke="currentColor"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-width="1.8"
+  />
+  <circle
+    cx="7"
+    cy="7"
+    r="1.5"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+  />
+</svg>

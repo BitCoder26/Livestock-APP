@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Livestock App iPhone Preview</title>
+  <style>
+    :root {
+      --phone-w: 430px;
+      --phone-h: 932px;
+      --bezel: 16px;
+      --radius: 48px;
+      --bg: #ece7eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at top, #ffffff 0, #f5f0f3 30%, var(--bg) 100%);
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #222;
+      padding: 24px;
+      gap: 16px;
+    }
+    .caption {
+      text-align: center;
+      font-size: 14px;
+      color: #555;
+    }
+    .phone {
+      position: relative;
+      width: calc(var(--phone-w) + var(--bezel) * 2);
+      height: calc(var(--phone-h) + var(--bezel) * 2);
+      border-radius: calc(var(--radius) + var(--bezel));
+      background: #111;
+      padding: var(--bezel);
+      box-shadow: 0 30px 80px rgba(18, 18, 18, 0.28);
+    }
+    .notch {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 180px;
+      height: 34px;
+      border-radius: 18px;
+      background: #111;
+      z-index: 2;
+    }
+    iframe {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      border: 0;
+      border-radius: var(--radius);
+      background: white;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div class="caption">Live Expo preview framed like iPhone 15 Pro Max</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <iframe src="http://localhost:8082"></iframe>
+  </div>
+</body>
+</html>

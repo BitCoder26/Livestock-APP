@@ -1,0 +1,3099 @@
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-soft: #ffffff;
+  --line: rgba(33, 29, 24, 0.1);
+  --text: #4e1a21;
+  --muted: #4e1a21;
+  --accent: #395845;
+  --accent-soft: #dfe8df;
+  --warm-charcoal: #4e1a21;
+  --hero-red: #a93f3a;
+  --hero-red-deep: #8b2f2b;
+  --banner-red: #dc6560;
+  --app-header-red: #dc6560;
+  --shadow: 0 20px 50px rgba(31, 27, 23, 0.08);
+  --hero-frame-width: 1040px;
+  --content-frame-width: 992px;
+  /* Left edge of the nav bar's content, for sections that need to line up
+     with it. Resolves against the using element's containing block, so only
+     use it on full-width sections. */
+  --nav-inset: calc((100% - min(var(--content-frame-width), 100% - 48px)) / 2);
+  /* One size for both icon rows - the how-it-works steps and the benefit
+     tiles sit on identical 2000px canvases, so a shared box width is what
+     makes them render at matching scale. */
+  --icon-size: 248px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Story graphics bleed past the viewport edges by design; clip instead of
+     growing a horizontal scrollbar. */
+  overflow-x: clip;
+}
+
+body {
+  margin: 0;
+  overflow-x: clip;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  /* Manrope, loaded per page from Google Fonts. Body copy runs at 500; the
+     hero headline is the only 800 on the site. */
+  font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 500;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+.brand-text,
+.site-footer p {
+  font-family: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.page-shell,
+.site-footer,
+.legal-shell,
+.hero-shell {
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.site-header {
+  width: 100%;
+  margin: 0;
+  background: #ffffff;
+  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.25);
+  /* Lift above the hero band so the shadow is not painted over. */
+  position: relative;
+  z-index: 5;
+}
+
+/* Takes the same frame as .page-shell, .hero-shell and the footer grid, with
+   no horizontal padding of its own, so the brand and the last nav link sit on
+   the exact edges the page content does at every width. */
+.site-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  padding: 14px 0;
+  margin: 0 auto;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.brand-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  object-fit: cover;
+  overflow: hidden;
+  box-shadow: 0 8px 18px rgba(31, 27, 23, 0.14);
+}
+
+.brand-text {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #000000;
+}
+
+.top-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.top-nav a {
+  text-decoration: none;
+  color: #000000;
+  font-weight: 500;
+  transition: color 160ms ease;
+}
+
+.top-nav a:hover,
+.brand:hover .brand-text {
+  color: #f3a90a;
+}
+
+.brand-text {
+  transition: color 160ms ease;
+}
+
+/* The menu is a checkbox and two labels so it works without scripting: the
+   button toggles the box, the scrim below the open panel toggles it back. */
+.nav-toggle,
+.nav-button,
+.nav-scrim {
+  display: none;
+}
+
+.nav-bar {
+  display: block;
+  width: 22px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: #000000;
+}
+
+.footer-links a,
+.back-link {
+  text-decoration: none;
+  color: var(--muted);
+}
+
+
+.hero-band {
+  width: 100%;
+  background: #ffffff;
+  padding: 24px 0 34px;
+}
+
+.hero-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.hero-copy {
+  color: #4e1a21;
+  padding: 48px 0 12px;
+  max-width: 34rem;
+}
+
+.hero h1,
+.section-copy h2,
+.section-heading h2,
+.contact-panel h2,
+.legal-shell h1,
+.hero-copy h1,
+.contact-card-item h3,
+.legal-shell h2 {
+  margin: 0;
+  letter-spacing: -0.04em;
+  line-height: 0.96;
+}
+
+.hero-copy h1 {
+  max-width: none;
+  font-size: clamp(2.15rem, 5vw, 3.95rem);
+  font-weight: 800;
+}
+
+.hero-headline,
+.hero-emphasis {
+  color: var(--banner-red);
+}
+
+/* Underlines scale with the type they sit under, and keep clear of the
+   descenders in "better". */
+/* Line breaks each layout takes on its own: the narrow one uses
+   .phone-break, the wide one .wide-break. */
+.phone-break {
+  display: none;
+}
+
+.wide-break {
+  display: inline;
+}
+
+/* The word the hero's second line leans on. It was underlined, which put a
+   third underline in the column once the jump link arrived below it; the
+   weight carries the emphasis instead. */
+.hero-highlight {
+  color: #f3a90a;
+  font-weight: 800;
+}
+
+.hero-underline {
+  text-decoration: underline;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.14em;
+  text-decoration-skip-ink: none;
+}
+
+.hero-text,
+.section-copy p,
+.feature-card p,
+.contact-panel p,
+.contact-card-item p,
+.legal-shell p,
+.legal-shell li {
+  line-height: 1.65;
+  font-size: 1rem;
+}
+
+.hero-text {
+  max-width: 34rem;
+  color: #000000;
+  margin-top: 18px;
+  font-size: 1.08rem;
+}
+
+.eyebrow,
+.feature-index,
+.screen-name {
+  margin: 0 0 14px;
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hero-eyebrow {
+  color: rgba(255, 234, 229, 0.78);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.button-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.button-light {
+  background: #fff8f6;
+  border-color: transparent;
+  color: var(--hero-red-deep);
+}
+
+.button-ghost {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #fff3f1;
+}
+
+.store-badges-row {
+  align-items: center;
+}
+
+.store-badge-image {
+  display: block;
+  height: 44px;
+  width: auto;
+}
+
+.hero-actions .store-badge-image {
+  height: 48px;
+}
+
+/* The badges are the page's primary action; they answer the pointer rather
+   than sitting there as pictures. */
+.store-badge-image {
+  transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.store-badges-row a:hover .store-badge-image,
+.store-badge-image:hover {
+  transform: scale(1.05);
+}
+
+/* The nudge under the store badges down to the feature stories. It has to
+   read as tappable on its own — nothing else in the hero is a plain text
+   link — so it carries an underline and grows under the pointer. */
+.hero-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 34px;
+  padding: 4px 2px;
+  color: #766261;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  transform-origin: left center;
+  transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.hero-jump-text {
+  text-decoration: underline;
+  text-decoration-color: rgba(118, 98, 97, 0.45);
+  text-underline-offset: 5px;
+  text-decoration-thickness: 2px;
+}
+
+.hero-jump:hover,
+.hero-jump:focus-visible {
+  transform: scale(1.1);
+}
+
+.hero-jump:hover .hero-jump-text,
+.hero-jump:focus-visible .hero-jump-text {
+  text-decoration-color: #f3a90a;
+}
+
+/* The arrow is drawn on a canvas with a wide transparent margin, which is
+   what the negative margins take back — the same trick the features arrow
+   below uses. */
+.hero-jump-arrow {
+  width: 88px;
+  height: auto;
+  margin: -33px -23px -33px -20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-jump {
+    transition: none;
+  }
+}
+
+.benefits-section {
+  width: 100%;
+  padding: 0 0 40px;
+  background: #ffffff;
+}
+
+.benefits-row {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: min(1264px, calc(100% - 32px));
+}
+
+/* The tiles start on the nav bar's left edge and run in columns narrower
+   than the artwork, so the tiles overlap their neighbours' transparent
+   canvas margins and sit tight at full size. */
+@media (min-width: 901px) {
+  .benefits-row {
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+    /* The same 206px pitch the how-it-works steps run on, so the two rows of
+       icons stand in the same four columns. */
+    grid-template-columns: repeat(4, 206px);
+    gap: 0;
+  }
+
+
+  .benefits-row .benefit-tile {
+    width: var(--icon-size);
+    max-width: none;
+  }
+
+  /* Its artwork fills less of its canvas than the other three, so it needs a
+     wider box to read at the same size - and its canvas seats the drawing
+     higher, so at that width the icon floated 24px above its neighbours.
+     Nudged down without moving the label under it. */
+  .benefits-row .benefit-tile-offline {
+    width: calc(var(--icon-size) * 1.21);
+    position: relative;
+    top: 24px;
+  }
+}
+
+.benefits-row li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: #000000;
+  font-size: 1.18rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.benefit-tile {
+  width: min(420px, 100%);
+  height: auto;
+  display: block;
+}
+
+.benefit-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* The tile canvases carry padding; pull the label up toward the artwork. */
+  margin-top: -26px;
+}
+
+/* One fixed row for the tiles, deep enough for the widest of them, so all
+   four labels start on the same line however tall each canvas draws. Sits
+   after the flex rule above, which it replaces on desktop. */
+@media (min-width: 901px) {
+  .benefits-row li {
+    display: grid;
+    /* Pinned to the item's own width: left to itself the column would size to
+       the tile, which is drawn wider than the column it sits in, and the
+       label centred in that wider column drifted right of its icon. */
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: calc(var(--icon-size) * 1.21) auto;
+    justify-items: center;
+  }
+
+  /* Tiles hang from the bottom of their row, labels start at the top of
+     theirs, so a two-line label grows downward instead of pushing its own
+     first line above the single-line ones. */
+  .benefits-row li .benefit-tile {
+    align-self: end;
+  }
+
+  .benefits-row li .benefit-label {
+    align-self: start;
+  }
+}
+
+.benefit-check {
+  /* The visible check is only ~24% of its canvas; oversize the element and
+     swallow the transparent margin so the mark reads at ~22px. */
+  width: 92px;
+  height: 92px;
+  margin: -35px -30px -35px -38px;
+  display: block;
+}
+
+@media (max-width: 680px) {
+  .benefits-row {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 14px;
+  }
+
+  /* 1.3 of the cell. The canvases carry wide transparent margins, so the
+     tiles overlap each other's empty edges the way the desktop row does
+     rather than the drawings colliding. */
+  .benefits-row .benefit-tile {
+    width: 130%;
+    max-width: none;
+  }
+
+  /* Its artwork fills less of its canvas than the other three, the same
+     reason the desktop row gives it a wider box. */
+  .benefits-row .benefit-tile-offline {
+    width: 143%;
+  }
+
+  /* At that size the tile's empty lower band is deep, which left the label
+     floating well under the drawing. */
+  .benefits-row .benefit-label {
+    margin-top: -56px;
+  }
+}
+
+.hero-benefit-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 22px;
+}
+
+.hero-benefit-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: var(--banner-red);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Sits outside .hero-shell so its right edge can reach the viewport while its
+   left edge stays lined up with the content frame. Padding (rather than a
+   negative margin) keeps this safe when a scrollbar is present. */
+.hero-usp {
+  width: 100%;
+  /* The PNG carries 19.5% transparent padding on top, and its left side (which
+     sits under the hero copy) stays empty until 35.6% down, so it can be
+     pulled up without the artwork colliding with the text. Less lift than it
+     once took, now that the headline is two lines rather than three, and 54px
+     more again to absorb the "See how it works" link the copy grew by. */
+  margin: -279px 0 0;
+  padding-left: calc((100% - min(var(--content-frame-width), 100% - 48px)) / 2);
+}
+
+/* The artwork is pulled up over the hero copy, where it sat on top of the
+   store badges and ate their clicks. It is entirely decorative, so let
+   pointer events fall through to the links underneath. */
+.hero-usp {
+  position: relative;
+  pointer-events: none;
+}
+
+.hero-blob,
+.hero-blob img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* The phone and animals sit inside the blob; percentages track the blob
+   image so they scale with it. Their canvases carry large transparent
+   margins, hence the generous widths. */
+.hero-phone {
+  position: absolute;
+  top: -6%;
+  right: 7.2%;
+  width: 48.4%;
+  height: auto;
+}
+
+.hero-animal {
+  position: absolute;
+  height: auto;
+  pointer-events: none;
+}
+
+.hero-animal-rabbit {
+  /* The canvas carries wide transparent margins, so the box overhangs the
+     left edge to seat the rabbit itself near it. */
+  left: -4%;
+  bottom: -24%;
+  width: 42%;
+}
+
+/* z-index 0 makes this a stacking context so the side graphic's z-index: -1
+   stays inside it. Without it the graphic drops behind .hero-band, whose
+   white background then paints over its top. */
+.how-why-wrap {
+  position: relative;
+  z-index: 0;
+}
+
+.side-graphic-bg {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .side-graphic-bg {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 180px;
+    width: 38vw;
+    max-width: 760px;
+    height: auto;
+    z-index: -1;
+    pointer-events: none;
+  }
+}
+
+.section-intro.how-it-works {
+  padding-bottom: 46px;
+  width: min(1264px, calc(100% - 32px));
+  text-align: center;
+}
+
+/* Both intros run full width and start on the nav bar's left edge, so their
+   headings, flow and tiles all share one left margin with the header. */
+@media (min-width: 901px) {
+  /* The sections stay unpadded so --nav-inset resolves against the full page
+     width for their headings, and so centred rows inside them (the flow) are
+     centred on the page rather than on a padded box. */
+  .section-intro.how-it-works,
+  .section-intro.why-intro {
+    width: 100%;
+    max-width: none;
+    padding-left: 0;
+    padding-right: 0;
+    text-align: left;
+  }
+
+  /* Specific enough to beat the margin shorthands these elements pick up
+     from their base rules further down the file. */
+  .section-intro .how-intro-text,
+  .section-intro.why-intro h2,
+  .section-intro.why-intro p {
+    margin-left: var(--nav-inset);
+  }
+}
+
+.how-intro-text {
+  width: fit-content;
+  margin: 0 auto 0 0;
+  text-align: left;
+}
+
+.how-intro-text h2 {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* The same pill the FAQ list ends on, so the two reads-more sit in one
+   family; left-aligned here because the copy above it is. */
+.how-guide-link {
+  display: inline-block;
+  margin-top: 18px;
+  padding: 13px 26px;
+  border-radius: 999px;
+  border: 2px solid #c95656;
+  background: #c95656;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.how-guide-link:hover {
+  background: transparent;
+  color: #c95656;
+}
+
+.how-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-top: 6px;
+}
+
+@media (min-width: 901px) {
+  .how-flow {
+    justify-content: center;
+  }
+}
+
+.flow-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.how-flow .flow-step img {
+  width: clamp(150px, 20vw, var(--icon-size));
+  height: auto;
+  display: block;
+  margin: 0;
+}
+
+/* The icon canvases carry wide transparent margins, so the steps overlap to
+   sit tight without the artwork itself touching. */
+@media (min-width: 901px) {
+  .flow-step {
+    margin-inline: -40px;
+  }
+
+  /* Outer edges stay put so the row still ends on the nav bar's edge. */
+  .flow-step:first-child {
+    margin-left: 0;
+  }
+
+  .flow-step:last-child {
+    margin-right: 0;
+  }
+}
+
+.flow-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #000000;
+  font-size: 1.18rem;
+  font-weight: 600;
+  /* The icon canvases carry padding; pull the label up toward the artwork. */
+  margin-top: -30px;
+}
+
+.flow-num {
+  color: #f3a90a;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.how-flow {
+  margin-top: 18px;
+}
+
+/* Hand-drawn arrow art on a square canvas that is ~60% transparent margin,
+   hence the wide element and the negative insets that claw the gap back. */
+.flow-arrow {
+  display: block;
+  flex: 0 0 auto;
+  width: 92px;
+  height: auto;
+  margin: -26px -31px 0;
+}
+
+
+.why-intro {
+  position: relative;
+  margin-top: 56px;
+}
+
+/* Signposts the feature stories, sharing the left edge the other two
+   section intros take from the nav bar. */
+.features-intro {
+  margin-top: 56px;
+}
+
+.features-intro-line {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+}
+
+/* Same 2000px canvas as the flow arrows - almost all of it transparent, so
+   the margins pull the line back around the drawn arrow. */
+.features-arrow {
+  width: 93px;
+  height: auto;
+  margin: -35px -24px -35px -21px;
+}
+
+@media (min-width: 901px) {
+  .section-intro.features-intro {
+    width: 100%;
+    max-width: none;
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+    text-align: left;
+    /* The animals artwork below carries a deep transparent top margin, so the
+       heading sits lower and the stories are pulled up to close the gap the
+       canvas leaves behind. */
+    margin-top: 130px;
+    margin-bottom: -80px;
+  }
+
+  /* Specific enough to beat the margin shorthand on .section-intro h2. */
+  .section-intro.features-intro h2,
+  .section-intro.features-intro .features-intro-line {
+    margin-left: var(--nav-inset);
+  }
+}
+
+/* Mirrors the "How it works" intro: header block hugs the right edge with
+   the horse riding its right side. */
+@media (min-width: 901px) {
+  .section-intro.why-intro {
+    margin: 130px 0 0;
+  }
+
+  .why-intro h2 {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+}
+
+.why-horse {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  /* Out of the heading's flow and parked on the section's right edge, so the
+     left-justified heading keeps its own line. */
+  .why-horse {
+    display: block;
+    position: absolute;
+    right: 40px;
+    top: -200px;
+    width: 449px;
+    max-width: none;
+    height: auto;
+    margin: 0;
+    pointer-events: none;
+  }
+}
+
+.section-intro {
+  width: fit-content;
+  max-width: calc(100% - 48px);
+  margin: 0 auto;
+  padding: 8px 0 22px;
+  text-align: left;
+}
+
+.section-intro h2 {
+  margin: 0 0 10px;
+  color: #000000;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.section-intro p {
+  margin: 0;
+  color: #000000;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.reports-teaser {
+  position: relative;
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+  padding: 12px 0 40px;
+  text-align: center;
+}
+
+@media (min-width: 901px) {
+  /* Clear of the chicken + sheep accent hanging off the story above, which
+     otherwise reaches ~140px into this section's artwork. */
+  .reports-teaser {
+    margin-top: -120px;
+  }
+}
+
+/* .feature-story-list sits at z-index 2 and its pig accent hangs down over
+   this section, clipping the reports artwork; lift the whole teaser above it. */
+.reports-teaser {
+  z-index: 4;
+}
+
+.reports-story {
+  display: grid;
+  gap: 24px;
+  align-items: center;
+  text-align: left;
+}
+
+.reports-copy .coming-soon {
+  margin: 30px 0 0;
+}
+
+.reports-copy h3 {
+  margin: 0 0 10px;
+  color: #000000;
+  font-size: clamp(1.7rem, 2.8vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.04;
+}
+
+.reports-copy .coming-soon p {
+  margin: 0;
+  color: #000000;
+  font-size: 1.06rem;
+  line-height: 1.6;
+}
+
+.reports-accent {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .reports-story {
+    grid-template-columns: minmax(320px, 880px) minmax(300px, 1fr);
+  }
+
+  .reports-accent {
+    display: block;
+    width: 480px;
+    max-width: none;
+    height: auto;
+    /* The canvas is mostly transparent margin; pull the flow in around it. */
+    margin: -10px auto -75px;
+    pointer-events: none;
+  }
+}
+
+.section-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px;
+  border-radius: 999px;
+  margin: 0 0 12px;
+  color: #ffffff;
+  background: var(--banner-red);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reports-teaser h2 {
+  margin: 0 0 10px;
+  color: #000000;
+  font-size: clamp(1.7rem, 2.8vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.reports-teaser-text {
+  margin: 0;
+  color: #000000;
+  font-size: 1.06rem;
+  line-height: 1.6;
+}
+
+.feature-story-graphic .feature-story-copy {
+  position: relative;
+}
+
+.copy-accent {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .copy-accent {
+    display: block;
+    position: absolute;
+    top: calc(100% - 150px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 560px;
+    max-width: none;
+    height: auto;
+    pointer-events: none;
+  }
+}
+
+.reports-graphic {
+  margin: 0;
+  width: 100%;
+}
+
+@media (min-width: 901px) {
+  .reports-graphic {
+    /* Bleeds leftward like the story graphics, but sat far off the copy with
+       a wide gap between them; shifted 120px right to close it. The box now
+       overhangs the copy column, so it must not swallow clicks. */
+    width: calc(100% + 312px);
+    margin-left: -192px;
+    pointer-events: none;
+  }
+}
+
+.reports-graphic img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.faq-section {
+  width: min(640px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 8px 0 48px;
+}
+
+.faq-section h2 {
+  margin: 0 0 18px;
+  color: #000000;
+  text-align: center;
+  font-size: clamp(1.7rem, 2.8vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.faq-item {
+  border: 0;
+  border-radius: 28px;
+  margin-bottom: 14px;
+  background: #ffffff;
+  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.25);
+}
+
+.faq-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 18px;
+  cursor: pointer;
+  list-style: none;
+  color: #000000;
+  font-weight: 600;
+  font-size: 1.02rem;
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item summary::after {
+  content: "";
+  flex: 0 0 10px;
+  width: 10px;
+  height: 10px;
+  border-right: 2.4px solid var(--banner-red);
+  border-bottom: 2.4px solid var(--banner-red);
+  transform: rotate(45deg);
+  transition: transform 0.35s ease;
+  margin-top: -4px;
+}
+
+.faq-item[open] summary::after {
+  transform: rotate(-135deg);
+  margin-top: 4px;
+}
+
+.faq-item p {
+  margin: 0;
+  padding: 0 18px 16px;
+  color: #000000;
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+
+/* Answers unfold rather than snapping open. The height transition needs
+   ::details-content and keyword interpolation, which only newer engines
+   have; the fade runs everywhere, so older browsers still get a reveal
+   instead of nothing. */
+@media (prefers-reduced-motion: no-preference) {
+  .faq-item::details-content {
+    block-size: 0;
+    overflow: hidden;
+    transition: block-size 0.4s ease, content-visibility 0.4s allow-discrete;
+    interpolate-size: allow-keywords;
+  }
+
+  .faq-item[open]::details-content {
+    block-size: auto;
+  }
+
+  .faq-item[open] > p {
+    animation: faq-answer-reveal 0.4s ease both;
+  }
+}
+
+@keyframes faq-answer-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* The band that answers "why not one of the others" — it follows the benefit
+   tiles, which say what the app is, and turns that into what it is instead of.
+   Cards rather than a comparison table: the point is three separate ideas, and
+   a table would invite a column for apps that are not ours to describe. */
+.different-section {
+  width: 100%;
+  /* The benefit tiles above end tight; this reads as its own claim rather
+     than a footnote to them, so it gets clear air first. */
+  padding: 120px 0 0;
+}
+
+.different-shell {
+  position: relative;
+  /* The drawing is pulled up under this and is flat white where it has no
+     ink, so the copy has to sit above it rather than behind. */
+  z-index: 1;
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+}
+
+/* Matches .section-intro h2 — the same size, weight and tracking the rest of
+   the page's section headings use. */
+.different-shell h2 {
+  margin: 0 0 10px;
+  color: #000000;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  text-align: left;
+}
+
+.different-lead {
+  margin: 0 0 8px;
+  max-width: 42rem;
+  color: #000000;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  text-align: left;
+}
+
+/* One drawing holds all three shapes and the pale blob behind them, so the
+   copy is laid over it at the shapes' own centres — measured from the file:
+   27%, 50% and 75% across, all on the middle line.
+   It runs the full width of the window rather than the content frame: the
+   blob is drawn running off the right of its canvas, and that only reads as
+   intended when the canvas edge is the screen edge. */
+.different-visual {
+  position: relative;
+  width: 100%;
+  /* The drawing is far taller than the row of cards inside it: the blob runs
+     on well above and below them, which reads as dead space around the
+     section rather than as part of it. Pulling it in at both ends closes
+     that up — the copy above and the section below both paint over the
+     drawing's own margins. */
+  margin-top: -14%;
+  margin-bottom: -10%;
+}
+
+.different-visual-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* A nudge that the cards do something, alongside the heading rather than out
+   over the drawing, with the drawn arrow angled down towards the row. */
+.hover-hint {
+  position: absolute;
+  /* Off the top right corner of the row, below the copy: the arrow runs down
+     into the cards and the word sits above its tail. */
+  top: 178px;
+  left: 88%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin: 0;
+  pointer-events: none;
+}
+
+.hover-hint-word {
+  align-self: flex-start;
+  /* Up and in from the arrow's tail rather than sitting square on it. */
+  margin: -34px 0 0 66px;
+  color: #f3a90a;
+  font-size: clamp(1rem, 1.6vw, 1.6rem);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  transform: rotate(9deg);
+  transform-origin: left bottom;
+}
+
+/* Drawn on a canvas that is mostly transparent margin, hence the width and
+   the negative insets that take the empty space back. */
+/* Under the word and set in from its left edge, so the tail starts beneath
+   the writing and the head runs down into the row. */
+.hover-hint-arrow {
+  width: 6vw;
+  max-width: 88px;
+  height: auto;
+  margin: 0.4vw 0 0 1.2vw;
+}
+
+/* The app screens come up into place as they are scrolled to. Progress is
+   driven by script, one custom property per screen, so the fade follows the
+   scroll itself rather than running off on its own clock once triggered. The
+   starting state is set by script too, so nothing is left invisible if the
+   script never runs. */
+.reveal {
+  --reveal: 0;
+  opacity: var(--reveal);
+  transform: translateY(calc(38px * (1 - var(--reveal))));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    --reveal: 1;
+    transform: none;
+  }
+}
+
+/* The three shapes are problem/solution cards: the problem face is the pale
+   one, and turning the card over gives the LivestockBook answer in coral.
+   Each sits over its own place on the backdrop, at the centres measured from
+   the original drawing — 27%, 50% and 75% across, on the middle line. */
+.flip-card {
+  --turn: 620ms;
+  position: absolute;
+  /* No waiting on a double-tap gesture before the tap counts. */
+  touch-action: manipulation;
+  top: 50%;
+  left: var(--shape-x);
+  transform: translate(-50%, -50%);
+  width: var(--shape-w);
+  aspect-ratio: var(--shape-ratio);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  perspective: 1000px;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The hop lives on its own element rather than in the same transform as the
+   turn: the card rises and comes back down within the flip, and a transition
+   between two states can only travel one way. */
+.flip-card-lift {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.flip-card.is-hopping .flip-card-lift {
+  animation: flip-hop 620ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@keyframes flip-hop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  45% {
+    transform: translateY(-7%);
+  }
+}
+
+.flip-card-inner {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transition: transform var(--turn) cubic-bezier(0.2, 0.7, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+/* The card demonstrating itself on scroll turns a little faster than one
+   turned by hand, and its hop is over in the same time. */
+.flip-card.is-demo {
+  --turn: 460ms;
+}
+
+.flip-card.is-demo.is-hopping .flip-card-lift {
+  animation-duration: 460ms;
+}
+
+.flip-card:focus-visible .flip-card-inner,
+.flip-card.is-flipped .flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+/* Turning on hover belongs to pointers that hover. A touch screen applies
+   :hover to whatever was tapped last and holds it there, so on a phone the
+   tap and the hover fought each other and the card took two taps to turn. */
+@media (hover: hover) and (pointer: fine) {
+  .flip-card:hover .flip-card-inner {
+    transform: rotateY(180deg);
+  }
+
+  .flip-card:hover .flip-face-solution {
+    opacity: 1;
+  }
+
+  .flip-card:hover .flip-face-problem {
+    opacity: 0;
+  }
+}
+
+.flip-card:focus-visible {
+  outline: none;
+}
+
+.flip-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  /* The shape is irregular, so the copy stays well inside its widest part. */
+  padding: 0 16%;
+  text-align: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Safari does not reliably hide the back face of an element painted through
+     a mask, which shows as one shape behind the other. Swapping the faces
+     outright at the half-turn does not depend on that support; the delay is
+     what keeps the swap out of sight, behind the edge of the turn. */
+  transition: opacity 0s linear calc(var(--turn) / 2);
+}
+
+.flip-face-solution {
+  opacity: 0;
+}
+
+.flip-card:focus-visible .flip-face-solution,
+.flip-card.is-flipped .flip-face-solution {
+  opacity: 1;
+}
+
+.flip-card:focus-visible .flip-face-problem,
+.flip-card.is-flipped .flip-face-problem {
+  opacity: 0;
+}
+
+/* The drawn shape is the card's own outline. It is painted through a mask so
+   each face can take its own colour from one file. */
+.flip-face::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  -webkit-mask: var(--shape) center / contain no-repeat;
+  mask: var(--shape) center / contain no-repeat;
+}
+
+.flip-face-problem::before {
+  background-color: #766261;
+}
+
+.flip-face-solution::before {
+  background-color: var(--banner-red);
+}
+
+.flip-face-solution {
+  transform: rotateY(180deg);
+}
+
+.flip-mark {
+  width: 18px;
+  height: 18px;
+  margin-bottom: 2px;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* Both marks are drawn artwork rather than glyphs, so they come in as masks
+   and take their colour from the face they sit on. */
+.flip-mark-problem {
+  background-color: #f3a90a;
+  -webkit-mask-image: url('./images/icons/x.png');
+  mask-image: url('./images/icons/x.png');
+}
+
+.flip-mark-solution {
+  width: 22px;
+  background-color: #f3a90a;
+  -webkit-mask-image: url('./images/icons/tick.png');
+  mask-image: url('./images/icons/tick.png');
+}
+
+/* The app's own mark, closing the answer: the card names the problem, turns,
+   and signs the solution. */
+.flip-mark-app {
+  width: clamp(22px, 2.2vw, 32px);
+  height: auto;
+  margin-top: 10px;
+  padding: 2px;
+  border-radius: 8px;
+  /* The mark is the same coral as the card it sits on, so it needs its own
+     ground to read as a tile rather than a smudge. */
+  background: #ffffff;
+  box-shadow: 0 3px 10px rgba(31, 27, 23, 0.22);
+}
+
+.flip-title {
+  font-size: clamp(0.78rem, 1.4vw, 1.35rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.flip-text {
+  font-size: clamp(0.66rem, 1.05vw, 1rem);
+  font-weight: 500;
+  font-style: italic;
+  line-height: 1.3;
+}
+
+/* The problem face is dark now, so its copy is white like the answer's;
+   near-black on #766261 could not be read. */
+.flip-face-problem .flip-title {
+  color: #ffffff;
+}
+
+.flip-face-problem .flip-text {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.flip-face-solution .flip-title,
+.flip-face-solution .flip-text {
+  color: #ffffff;
+}
+
+/* Turning the card over is the whole point, so without motion it swaps the
+   faces instead of animating between them. */
+@media (prefers-reduced-motion: reduce) {
+  .flip-card-inner {
+    transition: none;
+  }
+
+  .flip-card.is-hopping .flip-card-lift {
+    animation: none;
+  }
+}
+
+/* Below this the shapes are too small to hold two lines of type, so the
+   composition breaks up: the backdrop goes and the cards stack, keeping the
+   flip. */
+@media (max-width: 900px) {
+  .different-shell {
+    width: calc(100% - 40px);
+  }
+
+  .different-visual {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    /* No drawing here to pull in — the cards stack on their own. */
+    margin-top: 18px;
+    margin-bottom: 8px;
+  }
+
+  .different-visual-image,
+  .hover-hint {
+    display: none;
+  }
+
+  .flip-card {
+    position: static;
+    transform: none;
+    width: min(300px, 82%);
+  }
+
+  .flip-title {
+    font-size: 1.2rem;
+  }
+
+  .flip-text {
+    font-size: 0.92rem;
+  }
+}
+
+.community-banner {
+  width: 100%;
+  margin: 48px 0 88px;
+  padding: 44px 24px 48px;
+  border-radius: 28px;
+  background: #c95656;
+  text-align: center;
+}
+
+.community-banner h2 {
+  margin: 0 0 12px;
+  color: #ffffff;
+  font-size: clamp(1.7rem, 2.8vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.community-banner p {
+  margin: 0 auto 22px;
+  max-width: 40rem;
+  color: #ffffff;
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.community-banner-link {
+  display: inline-block;
+  padding: 13px 26px;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  background: #ffffff;
+  color: #c95656;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+/* Hollow on hover: the fill drops away and the outline and label carry it. */
+.community-banner-link:hover {
+  background: transparent;
+  color: #ffffff;
+}
+
+.faq-view-all {
+  display: block;
+  width: fit-content;
+  margin: 22px auto 0;
+  padding: 13px 26px;
+  border-radius: 999px;
+  border: 2px solid #c95656;
+  background: #c95656;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.faq-view-all:hover {
+  background: transparent;
+  color: #c95656;
+}
+
+.page-shell {
+  padding: 0 0 56px;
+}
+
+.feature-story-list,
+.screens-section,
+.facebook-section,
+.legal-shell {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+}
+
+.placeholder-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.feature-shot {
+  width: min(300px, 100%);
+  position: relative;
+  margin: 0;
+  overflow: visible;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.feature-screen-image {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  border-radius: 0;
+  display: block;
+  box-shadow: none;
+  border: 0;
+}
+
+.feature-story-list,
+.download-section,
+.facebook-section,
+.contact-panel {
+  padding: 28px;
+  margin-bottom: 18px;
+}
+
+.feature-story-list {
+  display: grid;
+  gap: 42px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.feature-story {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(320px, 1fr);
+  gap: 76px;
+  align-items: center;
+  justify-content: space-between;
+  width: min(var(--hero-frame-width), calc(100vw - 32px));
+  margin: 0 auto;
+}
+
+.feature-story.reverse {
+  grid-template-columns: minmax(320px, 1fr) minmax(240px, 340px);
+}
+
+/* Graphic stories carry wide artwork (phones on a blob), not a lone phone
+   mockup, so the media column gets more room and the image fills it. The
+   column widths live behind min-width so their specificity cannot beat the
+   phone-layout rules in the max-width blocks below. */
+@media (min-width: 901px) {
+  .feature-story-graphic {
+    /* Wider than the 992px page shell it sits in, so auto margins cannot
+       centre it - the negative inline margins do instead. */
+    width: min(1264px, calc(100vw - 32px));
+    margin-inline: calc((100% - min(1264px, 100vw - 32px)) / 2);
+    grid-template-columns: minmax(320px, 960px) minmax(260px, 1fr);
+    gap: 24px;
+  }
+
+  .feature-story.reverse.feature-story-graphic {
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 960px);
+  }
+
+  /* Keep the copy beside its artwork instead of drifting to the frame edge:
+     the copy column is 1fr, so a stretched copy box leaves its text far from
+     the image on reverse rows. */
+  .feature-story.reverse.feature-story-graphic .feature-story-copy {
+    width: auto;
+    max-width: 26rem;
+    justify-self: end;
+  }
+}
+
+.feature-story-graphic .feature-story-screen {
+  width: 100%;
+}
+
+/* Playful arrows hopping between the story graphics. Desktop only. */
+.story-arrow {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .story-arrow {
+    display: block;
+    position: absolute;
+    width: 225px;
+    max-width: none;
+    height: auto;
+    pointer-events: none;
+    z-index: 3;
+    /* Drawn smaller about their own centres: scaling rather than narrowing
+       keeps each arrow where it was placed, which shrinking the box would
+       not — that pulls the drawing toward whichever edge is anchored. */
+    transform: scale(0.78);
+    transform-origin: center center;
+  }
+
+  .feature-story {
+    position: relative;
+  }
+
+  /* Animals (left) down to records (right). */
+  .story-arrow-1 {
+    left: 39%;
+    top: -70px;
+  }
+
+  /* Records (right) down to export (left): its own dipping curve, so no
+     mirroring of arrow 1 is needed. */
+  .story-arrow-2 {
+    left: 45%;
+    top: 115px;
+  }
+
+  /* Export (left) down to Ready to Share (right), sitting just under the
+     export mockup rather than down on the sharing artwork. */
+  .story-arrow-3 {
+    left: 39%;
+    top: -50px;
+  }
+}
+
+/* Small silhouette accents tucked under the story graphics. Absolutely
+   positioned so they add no layout height - the gaps between stories stay
+   unchanged. Their canvases carry large transparent margins, hence the
+   negative offset. Desktop only. */
+.story-accent {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .story-accent {
+    display: block;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 640px;
+    height: auto;
+    pointer-events: none;
+  }
+
+  /* The goat sits roughly halfway down the whitespace between the animals
+     and records graphics; the cow stays tucked right under its graphic.
+     Offsets compensate for the transparent margins baked into each canvas. */
+  /* Each accent now sits ABOVE its story's own graphic, on that side of
+     the screen: cow over records, goat over export, pig over sharing. */
+  .feature-story-list > .feature-story-graphic:nth-child(2) .story-accent {
+    top: -520px;
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(3) .story-accent {
+    top: -310px;
+    left: 58%;
+  }
+
+  /* Standing in the gap between the export copy and the sharing graphic
+     rather than over the graphic itself. The canvas draws the pig between
+     47% and 74% of its height, which is what these offsets are built on. */
+  .feature-story-list > .feature-story-graphic:nth-child(4) .story-accent {
+    top: -430px;
+    left: 58%;
+  }
+}
+
+/* Bleed each graphic outward, keeping its text-side edge in place: animals
+   leans off the left edge, records off the right, export hard left. The
+   media columns are narrower than the figures, which pulls each copy block
+   in toward the visible artwork. Desktop only - the compact phone layout
+   stays centred. */
+@media (min-width: 901px) {
+  .feature-story-list > .feature-story-graphic:nth-child(1) {
+    grid-template-columns: minmax(320px, 680px) minmax(260px, 1fr);
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(1) .feature-story-screen {
+    /* Image footprint matches the old 820px-column layout while the copy
+       keeps the narrower column's position; the right overhang tucks the
+       artwork toward the text. */
+    width: calc(100% + 315px);
+    margin-left: -175px;
+    margin-right: -140px;
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(2) {
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 800px);
+    /* Close up the canvas padding between this story and the one above. */
+    margin-top: -150px;
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(2) .feature-story-screen {
+    width: calc(100% + 172px);
+    margin-right: -172px;
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(2) .feature-story-copy {
+    text-align: right;
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(3) {
+    grid-template-columns: minmax(320px, 650px) minmax(260px, 1fr);
+    margin-top: -280px;
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(3) .feature-story-screen {
+    width: calc(100% + 331px);
+    margin-left: -331px;
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(4) {
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 740px);
+    /* Closes the run of empty canvas between this story and the export one
+       above it; the pig keeps its place in what is left of the gap. */
+    margin-top: -160px;
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(4) .feature-story-screen {
+    width: calc(100% + 235px);
+    margin-right: -235px;
+    position: relative;
+    top: -90px;
+    left: -120px;
+  }
+
+  .feature-story-list > .feature-story-graphic:nth-child(4) .feature-story-copy {
+    text-align: right;
+  }
+}
+
+.feature-story-screen {
+  width: min(300px, 100%);
+  margin: 0;
+  transform: none;
+  box-shadow: none;
+}
+
+.feature-story:first-child {
+  margin-top: 0;
+}
+
+.feature-story-copy {
+  min-height: 0;
+  width: 100%;
+  padding: 8px 0;
+}
+
+.feature-story:not(.reverse) .feature-story-copy {
+  justify-self: start;
+}
+
+.feature-story.reverse .feature-story-copy {
+  justify-self: end;
+}
+
+.feature-story-copy .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+  color: #ffffff;
+  background: var(--banner-red);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+}
+
+.feature-story-copy h2,
+.feature-story-copy p {
+  color: #000000;
+}
+
+/* The story headings and copy read at the same size as the section
+   headings and body text around them. */
+.feature-story-copy h2 {
+  margin: 0 0 14px;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.04;
+}
+
+.feature-story-copy p {
+  font-size: 1.05rem;
+  line-height: 1.8;
+}
+
+.section-copy h2,
+.section-heading h2,
+.contact-panel h2,
+.legal-shell h1 {
+  font-size: clamp(1.8rem, 4vw, 3rem);
+}
+
+.section-copy p,
+.contact-panel p,
+.contact-card-item p,
+.legal-shell p,
+.legal-shell li {
+  color: var(--muted);
+}
+
+.download-section {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  flex-wrap: wrap;
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 26px auto 56px;
+  padding: 30px 34px;
+  background: #ffffff;
+  border: 0;
+  border-radius: 28px;
+  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.25);
+}
+
+.download-section h2 {
+  flex: 1;
+  min-width: 260px;
+  margin: 0;
+  color: #000000;
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.download-section-inner,
+.section-heading,
+.download-actions {
+  width: min(100%, 860px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.download-section-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+.download-section .eyebrow,
+.download-text {
+  color: #ffffff;
+}
+
+.download-section .eyebrow {
+  opacity: 0.8;
+}
+
+.download-text {
+  max-width: 42rem;
+  margin: 14px auto 0;
+  line-height: 1.65;
+}
+
+.download-copy {
+  text-align: center;
+}
+
+.download-brand-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+}
+
+.download-app-logo {
+  width: auto;
+  max-width: 88px;
+  height: auto;
+  border-radius: 22px;
+  display: block;
+  box-shadow: 0 8px 18px rgba(31, 27, 23, 0.14);
+}
+
+.download-actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  margin-top: 0;
+}
+
+.bottom-info-section {
+  padding: 18px 0 0;
+  background: var(--surface);
+}
+
+.bottom-info-shell {
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
+}
+
+.facebook-section,
+.contact-panel {
+  display: grid;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  grid-template-columns: minmax(0, 1.18fr) minmax(260px, 0.82fr);
+  gap: 38px;
+  align-items: start;
+  padding: 32px 28px;
+  border-radius: 28px;
+}
+
+.facebook-section {
+  background: transparent;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  text-align: center;
+  gap: 22px;
+  margin-top: 0;
+  margin-bottom: 0;
+  box-shadow: none;
+  border: 0;
+}
+
+.facebook-section-main {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+}
+
+.facebook-section-copy {
+  text-align: center;
+}
+
+.facebook-section-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.contact-panel {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.facebook-section-copy h2,
+.contact-panel-copy h2 {
+  margin-bottom: 24px;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+}
+
+.facebook-section-copy h2 {
+  white-space: nowrap;
+}
+
+.facebook-section-copy h2,
+.facebook-section-copy p {
+  color: var(--warm-charcoal);
+}
+
+.facebook-section-copy p,
+.contact-panel-copy p {
+  max-width: 42rem;
+  margin: 0 0 18px;
+}
+
+.contact-card-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.contact-actions-grid {
+  align-content: center;
+  justify-items: end;
+  align-self: center;
+  gap: 18px;
+}
+
+.button-contact-primary {
+  background: var(--banner-red);
+  border-color: var(--banner-red);
+  color: #ffffff;
+}
+
+.button-contact-primary:hover {
+  color: #ffffff;
+}
+
+.facebook-group-button {
+  gap: 10px;
+}
+
+.email-button {
+  gap: 14px;
+}
+
+.facebook-group-button svg,
+.email-button svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  color: #ffffff;
+}
+
+.button-contact-secondary {
+  background: #ffffff;
+  border-color: rgba(33, 29, 24, 0.08);
+  color: var(--warm-charcoal);
+}
+
+.contact-card-item {
+  padding: 22px;
+  border-radius: 22px;
+  background: #ffffff;
+  border: 1px solid rgba(33, 29, 24, 0.08);
+}
+
+.contact-card-item-soft {
+  background: rgba(255, 248, 246, 0.92);
+}
+
+.contact-card-item h3 {
+  font-size: 1.2rem;
+  color: var(--warm-charcoal);
+}
+
+.contact-card-item p {
+  margin: 12px 0 18px;
+}
+
+.site-footer {
+  width: 100%;
+  margin: 28px 0 0;
+  padding: 42px 0 0;
+  background: var(--bg);
+  border-top: 1px solid rgba(33, 29, 24, 0.12);
+}
+
+.site-footer-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(140px, 1fr));
+  gap: 32px;
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.footer-brand-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.footer-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.footer-badges .store-badge-image {
+  width: 140px;
+  height: auto;
+}
+
+.footer-col h3 {
+  margin: 0 0 14px;
+  color: #c95656;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.footer-col a {
+  display: block;
+  margin-bottom: 10px;
+  color: #444444;
+  font-size: 0.96rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.footer-col a:hover {
+  color: #f3a90a;
+}
+
+/* The artwork carries white sky above and a white strip below the ground;
+   the wrapper clips both so the landscape sits tight under the links. */
+.footer-illustration {
+  overflow: hidden;
+  margin-top: 18px;
+}
+
+.footer-illustration img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: -11%;
+  margin-bottom: -6.8%;
+}
+
+.footer-copyright {
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 30px auto 0;
+  color: #777777;
+  font-size: 0.88rem;
+}
+
+@media (max-width: 720px) {
+  .site-footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* The card carried no padding of its own, so its copy ran to the very edge
+   of the panel and sat flush against the top of the viewport. */
+.legal-shell {
+  margin-top: 48px;
+  margin-bottom: 56px;
+  padding: 40px 44px;
+}
+
+/* Section headings on the About/legal pages read as coloured signposts
+   between blocks of body copy. */
+.legal-shell h2 {
+  margin: 34px 0 12px;
+  color: var(--banner-red);
+  font-size: clamp(1.35rem, 2.4vw, 1.7rem);
+  font-weight: 700;
+}
+
+.legal-shell ul {
+  margin: 0 0 18px;
+  padding-left: 22px;
+}
+
+.legal-shell li {
+  margin-bottom: 8px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 18px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--warm-charcoal);
+  border: 1px solid rgba(33, 29, 24, 0.1);
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.back-link:hover {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+@media (max-width: 900px) {
+  .hero-shell,
+  .facebook-section,
+  .contact-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .download-copy,
+  .download-brand-block {
+    text-align: center;
+    justify-content: center;
+  }
+
+  .hero-copy {
+    padding-top: 28px;
+  }
+
+  .feature-story {
+    width: min(100%, calc(100vw - 32px));
+    max-width: 420px;
+    gap: 28px;
+    grid-template-columns: minmax(148px, 212px) minmax(156px, 188px);
+    grid-template-areas: "media copy";
+    justify-content: center;
+    justify-items: stretch;
+    align-items: center;
+    padding-bottom: 14px;
+  }
+
+  .feature-story.reverse {
+    width: min(100%, calc(100vw - 32px));
+    max-width: 420px;
+    gap: 28px;
+    grid-template-columns: minmax(156px, 188px) minmax(148px, 212px);
+    grid-template-areas: "copy media";
+    justify-content: center;
+    justify-items: stretch;
+    align-items: center;
+    padding-bottom: 14px;
+  }
+
+  .feature-story-copy {
+    grid-area: copy;
+    min-height: 0;
+    width: 100%;
+    max-width: 188px;
+    margin: 0;
+    text-align: left;
+    justify-self: start;
+    align-self: center;
+    border-radius: 22px;
+    position: static;
+    z-index: auto;
+  }
+
+  .feature-story.reverse .feature-story-copy {
+    justify-self: end;
+  }
+
+  .feature-story-screen {
+    grid-area: media;
+    width: min(212px, 60vw, 100%);
+    justify-self: center;
+    align-self: center;
+    margin: 0;
+    position: static;
+    z-index: auto;
+  }
+
+  .feature-story:first-child {
+    margin-top: 0;
+  }
+
+  .offset-card {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .site-footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  /* Phones get the brand on one side and a three-bar button on the other,
+     with the links in a panel that drops out of the header. */
+  .site-header-inner {
+    position: relative;
+  }
+
+  .nav-toggle {
+    /* Hidden but still focusable, so the button can be reached by keyboard. */
+    display: block;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .nav-button {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 42px;
+    height: 42px;
+    margin-left: auto;
+    border-radius: 12px;
+    cursor: pointer;
+  }
+
+  .nav-toggle:focus-visible ~ .nav-button {
+    outline: 2px solid var(--banner-red);
+    outline-offset: 2px;
+  }
+
+  .top-nav {
+    display: none;
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    left: 0;
+    z-index: 1;
+    flex-direction: column;
+    gap: 0;
+    padding: 6px 0;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+  }
+
+  .nav-toggle:checked ~ .top-nav {
+    display: flex;
+  }
+
+  .top-nav a {
+    padding: 13px 20px;
+  }
+
+  /* Sits behind the header's own background but over the page, so a press
+     anywhere below the open panel closes it. */
+  .nav-toggle:checked ~ .nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+  }
+
+  .hero-band {
+    padding: 16px 0 26px;
+  }
+
+  .feature-story-list,
+  .screens-section,
+  .facebook-section,
+  .legal-shell {
+    padding: 22px;
+  }
+
+  .contact-panel,
+  .facebook-section {
+    width: 100%;
+    gap: 24px;
+    padding: 28px 24px;
+  }
+
+  /* The nowrap heading is wider than a phone viewport, and as a grid item the
+     section cannot shrink below it, which pushed the whole page sideways. */
+  .facebook-section-copy h2 {
+    white-space: normal;
+  }
+
+  .bottom-info-shell {
+    width: min(var(--content-frame-width), calc(100% - 32px));
+  }
+
+  .download-section {
+    width: min(var(--content-frame-width), calc(100% - 32px));
+    margin: 132px auto 56px;
+    padding: 48px 24px;
+  }
+
+  .download-app-logo {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+  }
+
+  .facebook-section-main {
+    gap: 0;
+  }
+
+  .facebook-section-actions {
+    justify-content: center;
+    align-self: start;
+    height: auto;
+  }
+
+  .contact-panel {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .footer-meta {
+    align-items: flex-start;
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(2.1rem, 12vw, 3.4rem);
+  }
+
+  /* The mockups lead the figure on phones, and their canvas carries barely
+     any margin above the handsets, so the artwork ran straight into the
+     store badges. A little room instead of the desktop lift. */
+  .hero-usp {
+    margin-top: -18px;
+    padding-left: 0;
+  }
+
+  .hero-jump {
+    margin-top: 16px;
+    font-size: 1.05rem;
+  }
+
+  .hero-jump-arrow {
+    width: 62px;
+    margin: -23px -16px -23px -14px;
+  }
+
+  .feature-story {
+    gap: 22px;
+    max-width: 344px;
+    grid-template-columns: minmax(118px, 164px) minmax(134px, 156px);
+  }
+
+  .feature-story.reverse {
+    gap: 22px;
+    max-width: 344px;
+    grid-template-columns: minmax(134px, 156px) minmax(118px, 164px);
+  }
+
+  .feature-story:first-child {
+    margin-top: 0;
+  }
+
+  .feature-card {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    padding: 17px 14px;
+  }
+
+  .feature-story-copy {
+    width: 100%;
+    max-width: 156px;
+  }
+
+  .feature-story-copy h2 {
+    line-height: 1.12;
+  }
+
+  .feature-story-copy p {
+    line-height: 1.5;
+  }
+
+  .feature-story-screen {
+    width: min(164px, 46vw, 100%);
+    margin-top: 0;
+  }
+  .placeholder-row {
+    flex-direction: column;
+  }
+}
+
+
+/* Mobile: stacked graphic-over-text stories, enlarged artwork, and the
+   compact footer illustration. */
+@media (max-width: 900px) {
+  /* Phones get their own drawing of the scene - one that already carries
+     the goat, the rabbit with its shade, and a cockerel - so it runs at the
+     figure's own width rather than bleeding sideways. */
+  .hero-blob img {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+  }
+
+  /* Mockups first, the blob and its animals under them. */
+  .hero-usp {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hero-blob {
+    order: 2;
+  }
+
+  /* The phone artwork already carries its animals, so the separate hero
+     silhouettes stay out of the stacked layout. */
+  .hero-animal {
+    display: none;
+  }
+
+  /* Extra silhouettes for the stacked layout, standing in the flow between
+     sections where the desktop accents cannot follow. */
+  .mobile-animal {
+    display: block;
+    width: min(300px, 84%);
+    height: auto;
+    margin: -38px auto -46px;
+    pointer-events: none;
+  }
+
+  /* The phone-drawn scenes run the full width of the screen, the way the
+     hero artwork does; their canvases carry deep transparent bands top and
+     bottom, which the margins take back. */
+  .mobile-scene {
+    width: 100vw;
+    max-width: none;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    margin-top: -56px;
+    margin-bottom: -24px;
+  }
+
+  /* Out of the blob and into the flow beneath it, at a size a phone screen
+     can actually read. */
+  .hero-phone {
+    position: static;
+    order: 1;
+    width: 94%;
+    /* Phone-sized on a phone; the cap keeps it sane on tablet widths, which
+       this breakpoint also covers. */
+    max-width: 430px;
+    /* The negative bottom draws the blob up under the mockups. */
+    margin: -4% auto -6%;
+  }
+
+  /* The list picks up 22px of side padding from the panel rule it shares
+     with the legal shell, which inset the stories from the page's own
+     edges; drop it so their copy lines up with every other section. */
+  .feature-story-list {
+    grid-template-columns: minmax(0, 1fr);
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .feature-story-list > .feature-story-graphic,
+  .feature-story-list > .feature-story-graphic.reverse {
+    /* minmax(0,...) so the oversized graphic cannot inflate the column and
+       drag the copy out with it. */
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "media" "copy";
+    max-width: none;
+    width: 100%;
+    gap: 0;
+  }
+
+  /* Wider than the viewport and centred on it, so the mockups read at a
+     usable size instead of sitting small and off to one side. */
+  .feature-story-list > .feature-story-graphic .feature-story-screen {
+    grid-area: media;
+    /* The column is centred on the page, and the figure is centred in the
+       column, so the overhang falls evenly on both sides. */
+    width: 122vw;
+    max-width: none;
+    margin-left: 0;
+  }
+
+  /* The copy keeps the page shell's left edge rather than its own inset. */
+  .feature-story-list > .feature-story-graphic .feature-story-copy {
+    grid-area: copy;
+    max-width: none;
+    width: 100%;
+    margin-top: -6vw;
+    padding: 0;
+    text-align: left;
+  }
+
+  /* The llama follows the reporting copy in the flow rather than sitting
+     beside it, so it cannot cover the text. */
+  .reports-accent {
+    display: block;
+    width: min(260px, 72%);
+    margin: -44px 0 -56px;
+  }
+
+  /* Farm reporting gets the same treatment as the stories. */
+  .reports-teaser {
+    width: 100%;
+    text-align: left;
+  }
+
+  .reports-graphic {
+    width: 122vw;
+    max-width: none;
+    margin-left: calc(50% - 61vw);
+  }
+
+  /* The banner's own copy reads as a paragraph, not a centred slogan. */
+  .community-banner {
+    text-align: left;
+  }
+
+  .community-banner p {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  /* The export copy breaks where the narrow column wants to, not where the
+     wide one does. */
+  .phone-break {
+    display: inline;
+  }
+
+  .wide-break {
+    display: none;
+  }
+
+  /* The check keeps the same clearance from its label as on desktop; the
+     narrower canvas inset here only pulls the mark in from the tile edge. */
+  .benefit-check {
+    margin: -35px -30px -35px -42px;
+  }
+
+  .footer-illustration img {
+    margin-top: -22%;
+    margin-bottom: -16.5%;
+  }
+
+  .footer-brand-row .brand-logo {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+  }
+
+  /* Flow steps fold to a 2x2 grid; the connecting arrows come out. */
+  .how-flow {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .flow-step {
+    flex: 0 0 50%;
+    /* The enlarged icon is wider than the column; without this the step
+       refuses to shrink to half the row and the grid unfolds to one wide
+       column. The canvas margin is what overhangs, not the drawing. */
+    min-width: 0;
+  }
+
+  /* The folded rows leave room for bigger icons than the four-across
+     desktop line does; 1.3 of the responsive size the row starts from. */
+  .how-flow .flow-step img {
+    width: calc(clamp(150px, 20vw, var(--icon-size)) * 1.43);
+    max-width: none;
+  }
+
+  .flow-arrow {
+    display: none;
+  }
+
+  /* The question boxes used to run wider than the page; they now take the
+     page shell's own left and right edges, like every other section. */
+  .faq-section {
+    width: 100%;
+    margin-inline: 0;
+  }
+}
+
+/* Contact page: one panel on the plain page background, like the rest of
+   the site's sections. */
+/* z-index 0 makes each band a stacking context so the decorative blobs'
+   z-index: -1 stays inside it, rather than dropping behind the page and
+   being painted over by the header's white background. */
+.contact-band,
+.about-band {
+  position: relative;
+  z-index: 0;
+  /* Keeps the blobs' bleed inside the band instead of running under the
+     header or footer. */
+  overflow: hidden;
+  width: 100%;
+  padding: 56px 0 72px;
+  background: var(--bg);
+}
+
+/* Soft background shapes and animal accents. Desktop only - these pages are
+   a single narrow column on a phone, with no free margin to put them in. */
+.page-blob,
+.page-animal {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .page-blob,
+  .page-animal {
+    display: block;
+    position: absolute;
+    max-width: none;
+    height: auto;
+    pointer-events: none;
+  }
+
+  .page-blob {
+    z-index: -1;
+  }
+
+  /* Each blob is drawn hard against one edge of its own canvas - 2 and 4 on
+     the right, 3 and the original on the left - so the offsets below are set
+     from that edge, not from the canvas as a whole. */
+  .page-blob-right-top {
+    right: -40px;
+    top: -120px;
+    width: 700px;
+  }
+
+  .page-blob-left-mid {
+    left: -40px;
+    top: 300px;
+    width: 900px;
+  }
+
+  /* Privacy's pair: one in the top-left corner, one anchored to the bottom
+     right. Their canvases draw the shape hard against opposite edges - the
+     first across its left half, the second from 41% rightward - so each box
+     hangs far enough out for the copy column to stay clear. */
+  .page-blob-left-corner {
+    left: -260px;
+    top: -60px;
+    width: 760px;
+  }
+
+  .page-blob-right-bottom {
+    right: -170px;
+    bottom: 60px;
+    width: 760px;
+  }
+
+  /* Second graphic down the left margin of the long terms page. Its canvas
+     draws the shape across the left half only, so the box has to sit far
+     enough out for that half to stop short of the copy column. */
+  .page-blob-left-low {
+    left: -300px;
+    top: 1500px;
+    width: 820px;
+  }
+
+  .page-blob-left-top {
+    left: -150px;
+    top: -40px;
+    width: 620px;
+  }
+
+  .page-blob-right-low {
+    right: -140px;
+    top: 120px;
+    width: 700px;
+  }
+
+  .page-blob-right-corner {
+    right: -60px;
+    top: -300px;
+    width: 620px;
+  }
+
+  /* The canvas is ~26% transparent margin each side, so the bird itself
+     lands well clear of the 46rem copy column. */
+  .about-ostrich {
+    right: -10px;
+    top: 470px;
+    width: 400px;
+  }
+
+  /* Same free right margin as the About and FAQ birds, level with the middle
+     of the policy. */
+  .privacy-donkey {
+    right: -30px;
+    top: 430px;
+    width: 430px;
+  }
+
+  /* The FAQ column stops at 46rem, leaving the right margin free the whole
+     way down; the bird sits in it, level with the later questions. */
+  .faq-turkey {
+    right: 30px;
+    top: 760px;
+    width: 430px;
+  }
+
+  /* The guide's copy keeps the same 46rem measure, so its animal uses the
+     free right margin too, level with the middle steps. */
+  .guide-goat {
+    right: 10px;
+    top: 760px;
+    width: 480px;
+  }
+
+}
+
+/* The stacked layout's own animals; the desktop layout has its accents. */
+@media (min-width: 901px) {
+  .mobile-animal {
+    display: none;
+  }
+}
+
+/* An animal scene closing out a page's copy. It sits in the flow, so it can
+   never land on top of anything; the canvas carries roughly 28% transparent
+   margin above and below the scene, which the negative margins take back. */
+.page-animal-flow {
+  display: block;
+  width: min(360px, 100%);
+  height: auto;
+  margin: -66px auto -78px;
+  pointer-events: none;
+}
+
+/* The single-animal canvases sit smaller inside their square than the pair
+   scenes do, so they take a wider box to draw at the same size. */
+.page-animal-flow-wide {
+  width: min(500px, 100%);
+  margin: -100px auto -116px;
+}
+
+@media (min-width: 901px) {
+  .page-animal-mobile-only {
+    display: none;
+  }
+}
+
+/* On a phone the box is narrower, so the transparent band it has to take
+   back is smaller too - the desktop pull would push the art out through
+   the bottom of the card it sits in. */
+@media (max-width: 900px) {
+  .page-animal-desktop-only {
+    display: none;
+  }
+
+  .page-animal-flow {
+    margin: -46px auto -54px;
+  }
+
+  .page-animal-flow-wide {
+    margin: -64px auto -74px;
+  }
+}
+
+/* Same page furniture and type as the contact page, but the copy sits
+   directly on the page rather than inside a panel. */
+.about-shell {
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.about-shell h1 {
+  margin: 0 0 26px;
+  /* Same red as the home page's hero headline. */
+  color: var(--banner-red);
+  font-size: clamp(2.1rem, 4.4vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.about-shell h2 {
+  margin: 40px 0 22px;
+  color: #c95656;
+  font-size: clamp(1.35rem, 2.4vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.about-shell p {
+  margin: 0 0 22px;
+  max-width: 46rem;
+  color: #000000;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+/* Links inside the long-copy pages. The green they took was from a palette
+   nothing else on these pages uses; the yellow is the one the arrows and the
+   marks already carry. */
+.about-shell a {
+  color: #f3a90a;
+  font-weight: 700;
+}
+
+/* Only the privacy policy uses lists in this shell; match the paragraphs so
+   the two read as one block of copy. */
+.about-shell ul {
+  margin: 0 0 22px;
+  padding-left: 22px;
+  max-width: 46rem;
+}
+
+.about-shell li {
+  margin-bottom: 8px;
+  color: #000000;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+/* The guide's sections are marked by the app's own tab and menu icons rather
+   than step numbers, so the page reads like the thing it describes. The icons
+   are the app's SVGs, drawn as a mask so they take the heading's colour
+   instead of the flat black a plain <img> would render currentColor as. */
+.guide-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* The two-goat and single-animal drawings from the app's add button. They are
+   white artwork on transparency, so they only show here as a mask taking the
+   list's own accent colour. */
+/* The herd drawing is a wide silhouette rather than a square glyph, so it
+   needs a wider box than the square tab icons to read at the same weight. */
+.guide-heading-icon-wide {
+  width: 1.9em;
+  height: 1.3em;
+}
+
+.guide-icon-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.guide-icon-list li {
+  position: relative;
+  padding-left: 42px;
+  min-height: 30px;
+}
+
+.guide-icon-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.1em;
+  width: var(--guide-icon-size, 26px);
+  height: var(--guide-icon-size, 26px);
+  background-color: #c95656;
+  -webkit-mask: var(--guide-icon) center / contain no-repeat;
+  mask: var(--guide-icon) center / contain no-repeat;
+}
+
+/* The tag glyph is drawn corner to corner, so it reads a size larger than the
+   icons beside it at the same box. */
+.guide-icon-tag::before {
+  --guide-icon-size: 22px;
+}
+
+.guide-heading-icon {
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+  background-color: currentColor;
+  -webkit-mask: var(--guide-icon) center / contain no-repeat;
+  mask: var(--guide-icon) center / contain no-repeat;
+}
+
+/* The band already carries the gap the footer's top margin would add; the
+   footer's own rule stays as the divider. */
+.contact-band + .site-footer,
+.about-band + .site-footer {
+  margin-top: 0;
+}
+
+/* The accordions keep the same reading measure as the About page's copy
+   rather than stretching the full content frame. */
+.faq-shell .faq-item {
+  max-width: 46rem;
+}
+
+.faq-shell .faq-footnote {
+  margin-top: 30px;
+}
+
+/* The default 12% hairline all but disappears on white; this page ends on
+   plain copy, so it needs a rule that actually reads as a divider. */
+.about-band + .site-footer {
+  border-top-color: rgba(33, 29, 24, 0.3);
+}
+
+.contact-shell {
+  width: min(var(--content-frame-width), calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.contact-shell h1 {
+  margin: 0 0 26px;
+  color: var(--banner-red);
+  font-size: clamp(2.1rem, 4.4vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.contact-shell p {
+  margin: 0 0 22px;
+  color: #000000;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+/* The page's one accent colour is the site red, so the address matches the
+   heading and the pills rather than the green used elsewhere. */
+/* Same yellow the long-copy pages give their links. */
+.contact-email {
+  color: #f3a90a;
+  font-weight: 700;
+}
+
+.contact-shell h2 {
+  /* Carries the gap the divider used to hold open, matching About. */
+  margin: 40px 0 22px;
+  color: #c95656;
+  font-size: clamp(1.35rem, 2.4vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.contact-help-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+/* The same pill the home page uses for "View all FAQ" and the community
+   banner's link. */
+.contact-help-button {
+  display: inline-block;
+  padding: 13px 26px;
+  border-radius: 999px;
+  border: 2px solid #c95656;
+  background: #c95656;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.contact-help-button:hover {
+  background: transparent;
+  color: #c95656;
+}
+
+@media (max-width: 680px) {
+  .contact-band,
+  .about-band {
+    padding: 32px 0 44px;
+  }
+
+  .contact-shell {
+    width: min(var(--content-frame-width), calc(100% - 32px));
+  }
+
+  .about-shell {
+    width: min(var(--content-frame-width), calc(100% - 32px));
+  }
+
+  .contact-help-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

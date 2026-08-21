@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "LivestockBook",
+    "owner": "diogenistom",
+    "slug": "livestock-app",
+    "scheme": "app.livestockbook",
+    "version": "2.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "buildNumber": "11",
+      "bundleIdentifier": "app.livestockbook",
+      "appStoreUrl": "https://apps.apple.com/gb/app/livestockbook-animal-records/id6790605803",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 3,
+      "package": "app.livestockbook"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#DD6560",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain"
+        }
+      ],
+      "expo-router",
+      "expo-sqlite",
+      "expo-sharing",
+      "@react-native-community/datetimepicker",
+      "expo-asset",
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow LivestockBook to access your photos to attach images to animals and records.",
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6bbccbce-ae8e-4828-bae9-ab21587d368c"
+      }
+    }
+  }
+}

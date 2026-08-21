@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LivestockBook | Simple livestock records</title>
+  <meta
+    name="description"
+    content="LivestockBook is a simple mobile app for livestock records, farm setup, and exports."
+  />
+  <link rel="icon" href="./favicon.ico?v=20260724" sizes="any" />
+  <link rel="icon" type="image/png" sizes="48x48" href="./favicon-48x48.png?v=20260724" />
+  <link rel="icon" type="image/png" sizes="96x96" href="./favicon-96x96.png?v=20260724" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./favicon-192x192.png?v=20260724" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=20260724" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="./styles.css?v=20260825x" />
+  <script src="./nav.js?v=20260825c" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="#top" aria-label="LivestockBook home">
+        <img class="brand-logo" src="./images/app_logo.png" alt="LivestockBook logo" />
+        <span class="brand-text">LivestockBook</span>
+      </a>
+      <input class="nav-toggle" type="checkbox" id="nav-toggle" />
+      <label class="nav-button" for="nav-toggle" aria-label="Menu">
+        <span class="nav-bar"></span>
+        <span class="nav-bar"></span>
+        <span class="nav-bar"></span>
+      </label>
+      <nav class="top-nav" aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="./guide.html">Guide</a>
+        <a href="./about.html">About</a>
+        <a href="./contact.html">Contact</a>
+      </nav>
+      <label class="nav-scrim" for="nav-toggle" aria-hidden="true"></label>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero-band">
+      <div class="hero-shell">
+        <div class="hero-copy">
+          <h1><span class="hero-headline">Keep better livestock records.</span></h1>
+          <p class="hero-text">
+            Be <span class="hero-highlight">ready</span> when they’re needed.
+          </p>
+          <div class="hero-actions store-badges-row">
+            <a href="https://apps.apple.com/gb/app/livestockbook-animal-records/id6790605803" target="_blank" rel="noreferrer"><img class="store-badge-image" src="./images/app_store.svg" alt="Download LivestockBook on the App Store" /></a>
+            <img class="store-badge-image" src="./images/play_store.svg" alt="Google Play badge" />
+          </div>
+          <a class="hero-jump" href="#features">
+            <span class="hero-jump-text">See it in action</span>
+            <img class="hero-jump-arrow" src="./images/down-arrow.png" alt="" aria-hidden="true" />
+          </a>
+        </div>
+      </div>
+
+      <figure class="hero-usp">
+        <picture class="hero-blob">
+          <source media="(max-width: 900px)" srcset="./images/landing-page-mobile.png" />
+          <img src="./images/landing-page.png?v=7" alt="" aria-hidden="true" loading="eager" />
+        </picture>
+        <img class="hero-phone" src="./images/landing-phone.png?v=4" alt="Animals screen in LivestockBook" loading="eager" />
+        <img class="hero-animal hero-animal-rabbit" src="./images/rabbit.png" alt="" aria-hidden="true" loading="lazy" />
+      </figure>
+    </section>
+
+
+
+    <div class="how-why-wrap">
+      <img class="side-graphic-bg" src="./images/side-graphic.png" alt="" aria-hidden="true" loading="lazy" />
+      <section class="section-intro how-it-works">
+      <div class="how-intro-text">
+        <h2>How does it work?</h2>
+        <p>A simple workflow from record entry to ready-to-share exports.</p>
+        <a class="how-guide-link" href="./guide.html">Read the guide</a>
+      </div>
+      <div class="how-flow" aria-label="1 Add animals, 2 Log records, 3 Filter records, 4 Export files">
+        <div class="flow-step">
+          <img src="./images/how-add-animals.png?v=3" alt="" aria-hidden="true" />
+          <span class="flow-label"><span class="flow-num">1.</span>Add animals</span>
+        </div>
+        <img class="flow-arrow" src="./images/right-arrow.png" alt="" aria-hidden="true" loading="lazy" />
+        <div class="flow-step">
+          <img src="./images/how-add-records.png?v=3" alt="" aria-hidden="true" />
+          <span class="flow-label"><span class="flow-num">2.</span>Log records</span>
+        </div>
+        <img class="flow-arrow" src="./images/right-arrow.png" alt="" aria-hidden="true" loading="lazy" />
+        <div class="flow-step">
+          <img src="./images/how-filter-records.png?v=3" alt="" aria-hidden="true" />
+          <span class="flow-label"><span class="flow-num">3.</span>Filter records</span>
+        </div>
+        <img class="flow-arrow" src="./images/right-arrow.png" alt="" aria-hidden="true" loading="lazy" />
+        <div class="flow-step">
+          <img src="./images/how-export-records.png?v=3" alt="" aria-hidden="true" />
+          <span class="flow-label"><span class="flow-num">4.</span>Export files</span>
+        </div>
+      </div>
+      </section>
+
+      <img class="mobile-animal mobile-scene mobile-scene-cow" src="./images/cow-graphic-mobile.png" alt="" aria-hidden="true" loading="lazy" />
+
+      <section class="section-intro why-intro">
+        <h2>Why LivestockBook?<img class="why-horse" src="./images/horse.png" alt="" aria-hidden="true" loading="lazy" /></h2>
+        <p>Spend less time managing paperwork and more time running your farm.</p>
+      </section>
+    </div>
+
+    <section class="benefits-section">
+      <ul class="benefits-row" aria-label="Why LivestockBook">
+        <li>
+          <img class="benefit-tile benefit-tile-offline" src="./images/works-offline.png?v=2" alt="" aria-hidden="true" />
+          <span class="benefit-label"><img class="benefit-check" src="./images/checkmark.png" alt="" aria-hidden="true" />Works offline</span>
+        </li>
+        <li>
+          <img class="benefit-tile" src="./images/simple.png?v=2" alt="" aria-hidden="true" />
+          <span class="benefit-label"><img class="benefit-check" src="./images/checkmark.png" alt="" aria-hidden="true" />Simple by<br />design</span>
+        </li>
+        <li>
+          <img class="benefit-tile" src="./images/no-ads.png?v=3" alt="" aria-hidden="true" />
+          <span class="benefit-label"><img class="benefit-check" src="./images/checkmark.png" alt="" aria-hidden="true" />No ads</span>
+        </li>
+        <li>
+          <img class="benefit-tile" src="./images/backup-restore.png?v=2" alt="" aria-hidden="true" />
+          <span class="benefit-label"><img class="benefit-check" src="./images/checkmark.png" alt="" aria-hidden="true" />Backup<br />&amp; restore</span>
+        </li>
+      </ul>
+    </section>
+
+    <section class="different-section">
+      <div class="different-shell">
+        <h2>What makes LivestockBook different?</h2>
+        <p class="different-lead">
+          Many livestock apps are either built for one species or grow into full farm-management systems. LivestockBook takes a simpler approach.
+        </p>
+        <p class="hover-hint" aria-hidden="true">
+          <span class="hover-hint-word">Hover</span>
+          <img class="hover-hint-arrow" src="./images/down-left-arrow.png" alt="" loading="lazy" />
+        </p>
+      </div>
+      <div class="different-visual">
+        <img class="different-visual-image" src="./images/us-vs-them-backdrop.png" alt="" aria-hidden="true" loading="lazy" />
+        <button
+          class="flip-card"
+          type="button"
+          aria-label="Too many apps — see what LivestockBook does"
+          style="--shape-x: 26.9%; --shape-w: 20.9%; --shape-ratio: 256 / 246; --shape: url('./images/square1.png')"
+        >
+          <span class="flip-card-lift">
+            <span class="flip-card-inner">
+              <span class="flip-face flip-face-problem">
+                <span class="flip-mark flip-mark-problem" aria-hidden="true"></span>
+                <span class="flip-title">Too many apps</span>
+                <span class="flip-text">Different species,<br />different systems.</span>
+              </span>
+              <span class="flip-face flip-face-solution">
+                <span class="flip-mark flip-mark-solution" aria-hidden="true"></span>
+                <span class="flip-title">One app for<br />every species</span>
+                <span class="flip-text">Keep all your<br />livestock together.</span>
+                <img class="flip-mark-app" src="./images/app_logo.png" alt="" aria-hidden="true" loading="lazy" />
+              </span>
+            </span>
+          </span>
+        </button>
+        <button
+          class="flip-card"
+          type="button"
+          aria-label="Too much software — see what LivestockBook does"
+          style="--shape-x: 50.1%; --shape-w: 22.4%; --shape-ratio: 256 / 241; --shape: url('./images/circle1.png')"
+        >
+          <span class="flip-card-lift">
+            <span class="flip-card-inner">
+              <span class="flip-face flip-face-problem">
+                <span class="flip-mark flip-mark-problem" aria-hidden="true"></span>
+                <span class="flip-title">Too much software</span>
+                <span class="flip-text">Features, modules and<br />setup you don't need.</span>
+              </span>
+              <span class="flip-face flip-face-solution">
+                <span class="flip-mark flip-mark-solution" aria-hidden="true"></span>
+                <span class="flip-title">Only what you need</span>
+                <span class="flip-text">Simple, focused<br />record keeping.</span>
+                <img class="flip-mark-app" src="./images/app_logo.png" alt="" aria-hidden="true" loading="lazy" />
+              </span>
+            </span>
+          </span>
+        </button>
+        <button
+          class="flip-card"
+          type="button"
+          aria-label="Records everywhere — see what LivestockBook does"
+          style="--shape-x: 74.6%; --shape-w: 22.7%; --shape-ratio: 256 / 224; --shape: url('./images/square2.png')"
+        >
+          <span class="flip-card-lift">
+            <span class="flip-card-inner">
+              <span class="flip-face flip-face-problem">
+                <span class="flip-mark flip-mark-problem" aria-hidden="true"></span>
+                <span class="flip-title">Records everywhere</span>
+                <span class="flip-text">Separate records,<br />files and exports.</span>
+              </span>
+              <span class="flip-face flip-face-solution">
+                <span class="flip-mark flip-mark-solution" aria-hidden="true"></span>
+                <span class="flip-title">Everything in one place</span>
+                <span class="flip-text">Keep it together.<br />Export it together.</span>
+                <img class="flip-mark-app" src="./images/app_logo.png" alt="" aria-hidden="true" loading="lazy" />
+              </span>
+            </span>
+          </span>
+        </button>
+      </div>
+    </section>
+
+    <img class="mobile-animal mobile-scene mobile-scene-duck" src="./images/duck-graphic-mobile.png" alt="" aria-hidden="true" loading="lazy" />
+
+    <section class="section-intro features-intro">
+      <h2>See LivestockBook in Action</h2>
+      <p class="features-intro-line">Explore the app’s features<img class="features-arrow" src="./images/down-arrow.png" alt="" aria-hidden="true" loading="lazy" /></p>
+    </section>
+
+    <div class="page-shell">
+      <section class="feature-story-list" id="features">
+        <article class="feature-story feature-story-graphic">
+          <figure class="feature-shot feature-story-screen">
+            <img class="feature-screen-image" src="./images/graphic-animals.png?v=2" alt="Animals list and View Animal screens in LivestockBook" loading="lazy" />
+          </figure>
+          <div class="feature-story-copy">
+            <p class="eyebrow">Add Animals</p>
+            <h2>See each animal’s<br />full history.</h2>
+            <p>Store key details and view a complete<br />timeline of records, movements and updates.</p>
+          </div>
+        </article>
+
+        <article class="feature-story reverse feature-story-graphic">
+          <img class="story-arrow story-arrow-1" src="./images/down-right-arrow.png" alt="" aria-hidden="true" loading="lazy" />
+          <div class="feature-story-copy">
+            <p class="eyebrow">Log Records</p>
+            <h2>Keep track of<br />livestock activity.</h2>
+            <p>Log movements, weights, treatments,<br />health checks and other records.</p>
+          </div>
+          <figure class="feature-shot feature-story-screen">
+            <img class="feature-screen-image" src="./images/graphic-records.png?v=3" alt="Add Record and Records screens in LivestockBook" loading="lazy" />
+            <img class="story-accent" src="./images/cow.png" alt="" aria-hidden="true" loading="lazy" />
+          </figure>
+        </article>
+
+        <article class="feature-story feature-story-graphic">
+          <img class="story-arrow story-arrow-2" src="./images/down-left-arrow.png" alt="" aria-hidden="true" loading="lazy" />
+          <figure class="feature-shot feature-story-screen">
+            <img class="feature-screen-image" src="./images/graphic-export.png?v=2" alt="Export screens in LivestockBook" loading="lazy" />
+            <img class="story-accent" src="./images/duck.png" alt="" aria-hidden="true" loading="lazy" />
+          </figure>
+          <div class="feature-story-copy">
+            <p class="eyebrow">Export Files</p>
+            <h2>Filter what you need. <br />Export in seconds.</h2>
+            <p>Choose the animals, records and date range<br class="phone-break" /> you want, <br class="wide-break" />then export exactly what you need.</p>
+          </div>
+        </article>
+
+        <article class="feature-story reverse feature-story-graphic">
+          <img class="story-arrow story-arrow-3" src="./images/down-right-arrow.png" alt="" aria-hidden="true" loading="lazy" />
+          <div class="feature-story-copy">
+            <p class="eyebrow">Ready to Share</p>
+            <h2>Clean, branded<br />and audit-ready.</h2>
+            <p>Create polished PDF and CSV files with your farm details, ready to print, share or provide when needed.</p>
+            <img class="copy-accent" src="./images/chicken-sheep.png" alt="" aria-hidden="true" loading="lazy" />
+          </div>
+          <figure class="feature-shot feature-story-screen">
+            <img class="feature-screen-image" src="./images/graphic-pdf.png" alt="Exported Animal Register and Records Export PDFs from LivestockBook" loading="lazy" />
+            <img class="story-accent" src="./images/pig.png?v=2" alt="" aria-hidden="true" loading="lazy" />
+          </figure>
+        </article>
+      </section>
+
+
+      <section class="reports-teaser">
+        <div class="reports-story">
+          <figure class="reports-graphic">
+            <img src="./images/graphic-reports.png" alt="Reports screens in LivestockBook showing livestock overview and activity" loading="lazy" />
+          </figure>
+          <div class="reports-copy">
+            <p class="section-chip">Farm reporting</p>
+            <h2>Understand your livestock data.</h2>
+            <p class="reports-teaser-text">View livestock breakdowns and activity across different time periods.</p>
+            <img class="reports-accent" src="./images/llama.png" alt="" aria-hidden="true" loading="lazy" />
+          </div>
+        </div>
+      </section>
+
+      <section class="community-banner">
+        <h2>Built independently. Shaped by farmers.</h2>
+        <p>Feedback from farmers in the Facebook group directly influences what gets improved and built next.</p>
+        <a class="community-banner-link" href="https://www.facebook.com/groups/1353099223626390" target="_blank" rel="noreferrer">Join the Facebook Group</a>
+      </section>
+
+      <img class="mobile-animal mobile-scene mobile-scene-pig" src="./images/pig-graphic-mobile.png" alt="" aria-hidden="true" loading="lazy" />
+
+      <section class="faq-section" id="faq">
+        <h2>Frequently asked questions</h2>
+        <details class="faq-item" name="faq">
+          <summary>Does LivestockBook work offline?</summary>
+          <p>Yes. LivestockBook is designed to work offline, and most features can be used without an internet connection. A connection is only needed for things like subscriptions and support links.</p>
+        </details>
+        <details class="faq-item" name="faq">
+          <summary>Which livestock species are supported?</summary>
+          <p>LivestockBook supports cattle, sheep, pigs, goats, chickens, ducks, turkeys, geese, donkeys, horses, buffalo, rabbits, alpacas, llamas, camels and ostriches.</p>
+        </details>
+        <details class="faq-item" name="faq">
+          <summary>What can I export?</summary>
+          <p>You can export your animal register and records as PDF or spreadsheet files, filtered by the animals, record types and date range you choose.</p>
+        </details>
+        <details class="faq-item" name="faq">
+          <summary>Can I use LivestockBook for multiple farms/paddocks?</summary>
+          <p>Yes. You can set up multiple farms, paddocks and groups, and organise your animals and records across them.</p>
+        </details>
+        <details class="faq-item" name="faq">
+          <summary>What's included in the free plan?</summary>
+          <p>All features are included in the free plan, with a limit of 100 records and 20 animals.</p>
+        </details>
+        <details class="faq-item" name="faq">
+          <summary>Is LivestockBook available on iPhone and Android?</summary>
+          <p>Yes. LivestockBook is available for iPhone on the App Store and for Android on Google Play.</p>
+        </details>
+        <a class="faq-view-all" href="./faq.html">View all FAQ</a>
+      </section>
+
+
+    </div>
+
+  </main>
+  
+  <footer class="site-footer">
+    <div class="site-footer-grid">
+      <div class="footer-brand">
+        <div class="footer-brand-row">
+          <img class="brand-logo" src="./images/app_logo.png" alt="LivestockBook logo" />
+          <span class="brand-text">LivestockBook</span>
+        </div>
+        <div class="footer-badges store-badges-row">
+          <a href="https://apps.apple.com/gb/app/livestockbook-animal-records/id6790605803" target="_blank" rel="noreferrer"><img class="store-badge-image" src="./images/app_store.svg" alt="Download LivestockBook on the App Store" /></a>
+          <img class="store-badge-image" src="./images/play_store.svg" alt="Google Play badge" />
+        </div>
+      </div>
+      <div class="footer-col">
+        <h3>Application</h3>
+        <a href="#features">Features</a>
+        <a href="./guide.html">Guide</a>
+        <a href="./faq.html">FAQ</a>
+        <a href="./about.html">About</a>
+      </div>
+      <div class="footer-col">
+        <h3>Community</h3>
+        <a href="https://www.facebook.com/groups/1353099223626390" target="_blank" rel="noreferrer">Facebook Group</a>
+        <a href="./contact.html">Contact us</a>
+      </div>
+      <div class="footer-col">
+        <h3>Legal</h3>
+        <a href="./privacy.html">Privacy Policy</a>
+        <a href="./terms.html">Terms of Service</a>
+      </div>
+    </div>
+    <p class="footer-copyright">© 2026 Thomas Koukouris</p>
+    <div class="footer-illustration">
+      <picture>
+        <source media="(max-width: 680px)" srcset="./images/footer-image-small.png" />
+        <img src="./images/footer-image.png" alt="" aria-hidden="true" loading="lazy" />
+      </picture>
+    </div>
+  </footer>
+
+</body>
+</html>
