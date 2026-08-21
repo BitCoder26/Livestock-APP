@@ -1885,6 +1885,15 @@ h2,
   color: #4a4442;
 }
 
+/* The way through to the guide's own account of importing, in the yellow the
+   long-copy pages give their links. */
+.feature-story-aside a {
+  color: #f3a90a;
+  font-weight: 700;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
 .section-copy h2,
 .section-heading h2,
 .contact-panel h2,
