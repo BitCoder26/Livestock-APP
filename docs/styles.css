@@ -1665,6 +1665,11 @@ h2,
     height: auto;
     pointer-events: none;
     z-index: 3;
+    /* Drawn smaller about their own centres: scaling rather than narrowing
+       keeps each arrow where it was placed, which shrinking the box would
+       not — that pulls the drawing toward whichever edge is anchored. */
+    transform: scale(0.78);
+    transform-origin: center center;
   }
 
   .feature-story {
