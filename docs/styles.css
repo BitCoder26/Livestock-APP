@@ -127,6 +127,16 @@ h2,
   text-decoration: none;
   color: #000000;
   font-weight: 500;
+  transition: color 160ms ease;
+}
+
+.top-nav a:hover,
+.brand:hover .brand-text {
+  color: #f3a90a;
+}
+
+.brand-text {
+  transition: color 160ms ease;
 }
 
 /* The menu is a checkbox and two labels so it works without scripting: the
@@ -187,6 +197,12 @@ h2,
 .hero-copy h1 {
   max-width: none;
   font-size: clamp(2.15rem, 5vw, 3.95rem);
+  /* One step down from the family's heaviest, so the word the line leans on
+     has somewhere heavier to go. */
+  font-weight: 700;
+}
+
+.hero-word-bold {
   font-weight: 800;
 }
 
@@ -304,6 +320,17 @@ h2,
 
 .hero-actions .store-badge-image {
   height: 48px;
+}
+
+/* The badges are the page's primary action; they answer the pointer rather
+   than sitting there as pictures. */
+.store-badge-image {
+  transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.store-badges-row a:hover .store-badge-image,
+.store-badge-image:hover {
+  transform: scale(1.05);
 }
 
 /* The nudge under the store badges down to the feature stories. It has to
@@ -694,9 +721,9 @@ h2,
 .flow-arrow {
   display: block;
   flex: 0 0 auto;
-  width: 118px;
+  width: 104px;
   height: auto;
-  margin: -34px -40px 0;
+  margin: -30px -35px 0;
 }
 
 
@@ -1110,9 +1137,10 @@ h2,
   /* Off the top right corner of the row, below the copy: the arrow runs down
      into the cards and the word sits above its tail. */
   top: 132px;
-  left: 78%;
+  left: 84%;
   display: flex;
   align-items: flex-start;
+  gap: 6px;
   margin: 0;
   pointer-events: none;
 }
@@ -1131,10 +1159,10 @@ h2,
    the negative insets that take the empty space back. */
 .hover-hint-arrow {
   order: -1;
-  width: 8vw;
-  max-width: 116px;
+  width: 6vw;
+  max-width: 88px;
   height: auto;
-  margin: 0 -2.2vw 0 0;
+  margin: 0 -1.6vw 0 0;
 }
 
 /* The three shapes are problem/solution cards: the problem face is the pale
@@ -1384,11 +1412,19 @@ h2,
   display: inline-block;
   padding: 13px 26px;
   border-radius: 999px;
-  background: #ffffff;
-  color: #c95656;
-  font-weight: 500;
+  border: 2px solid #f3a90a;
+  background: #f3a90a;
+  color: #4e1a21;
+  font-weight: 700;
   font-size: 0.95rem;
   text-decoration: none;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+/* Hollow on hover: the fill drops away and the outline and label carry it. */
+.community-banner-link:hover {
+  background: transparent;
+  color: #f3a90a;
 }
 
 .faq-view-all {
@@ -1397,11 +1433,18 @@ h2,
   margin: 22px auto 0;
   padding: 13px 26px;
   border-radius: 999px;
+  border: 2px solid #c95656;
   background: #c95656;
   color: #ffffff;
   font-weight: 500;
   font-size: 0.95rem;
   text-decoration: none;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.faq-view-all:hover {
+  background: transparent;
+  color: #c95656;
 }
 
 .page-shell {
@@ -2884,8 +2927,9 @@ h2,
 
 /* The page's one accent colour is the site red, so the address matches the
    heading and the pills rather than the green used elsewhere. */
+/* Same yellow the long-copy pages give their links. */
 .contact-email {
-  color: var(--banner-red);
+  color: #f3a90a;
   font-weight: 700;
 }
 
@@ -2910,11 +2954,18 @@ h2,
   display: inline-block;
   padding: 13px 26px;
   border-radius: 999px;
+  border: 2px solid #c95656;
   background: #c95656;
   color: #ffffff;
   font-weight: 500;
   font-size: 0.95rem;
   text-decoration: none;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.contact-help-button:hover {
+  background: transparent;
+  color: #c95656;
 }
 
 @media (max-width: 680px) {

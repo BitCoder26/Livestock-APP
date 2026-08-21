@@ -160,6 +160,8 @@ if (canHover) {
         return;
       }
 
+      // Straight back as it lands: the point is that the card turns, not
+      // that the answer sits there — that is what hovering it is for.
       later(function () {
         turn(false);
 
@@ -167,7 +169,7 @@ if (canHover) {
         later(function () {
           demo.classList.remove('is-demo');
         }, 500);
-      }, 1000);
+      }, 500);
     }, 300);
   }
 
