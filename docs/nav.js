@@ -228,13 +228,12 @@ if (canHover) {
     Array.prototype.forEach.call(screens, function (screen) {
       var box = screen.getBoundingClientRect();
 
-      // Starts as the top edge clears the bottom of the window and is not all
-      // the way in until that edge has nearly reached the top of it: the
-      // screen arrives across most of its own pass up the window, so it is
-      // still settling while the copy beside it is being read. Any longer and
-      // it would still be arriving as it left.
-      var travelled = height - box.top;
-      var distance = height * 0.75 + box.height / 3;
+      // Nothing happens until the screen has already risen a fifth of the way
+      // up the window — it is on its way in before it starts arriving — and
+      // it is not all the way in until its top edge has nearly reached the
+      // top. Any later a screen would still be arriving as it left.
+      var travelled = height - box.top - height * 0.2;
+      var distance = height * 0.7 + box.height / 3;
       // A window with no height is a window drawing nothing; leave the screen
       // showing rather than dividing by it.
       var progress = distance > 0 ? travelled / distance : 1;

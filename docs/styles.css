@@ -1855,6 +1855,16 @@ h2,
   line-height: 1.8;
 }
 
+/* A second thought under the story's own line — the other way into the same
+   screen, rather than a claim of its own. */
+.feature-story-aside {
+  margin-top: 14px;
+  max-width: 30rem;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: #4a4442;
+}
+
 .section-copy h2,
 .section-heading h2,
 .contact-panel h2,
