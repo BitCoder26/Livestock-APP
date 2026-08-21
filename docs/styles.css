@@ -2565,7 +2565,7 @@ h2,
   }
 
   .hero-phone {
-    display: none;
+    display: none !important;
   }
 
   /* The phone artwork already carries its animals, so the separate hero
