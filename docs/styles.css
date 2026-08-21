@@ -556,7 +556,17 @@ h2,
   position: absolute;
   top: -6%;
   right: 7.2%;
+  z-index: 2;
   width: 48.4%;
+}
+
+.hero-phone {
+  position: absolute;
+  top: -6%;
+  right: 7.2%;
+  z-index: 1;
+  width: 48.4%;
+  height: auto;
 }
 
 .hero-blob img {
@@ -2568,6 +2578,16 @@ h2,
 
   .hero-usp {
     aspect-ratio: auto;
+  }
+
+  .hero-phone {
+    position: absolute;
+    top: -4%;
+    left: 3%;
+    z-index: 1;
+    width: 94%;
+    max-width: 430px;
+    height: auto;
   }
 
   /* The phone artwork already carries its animals, so the separate hero
