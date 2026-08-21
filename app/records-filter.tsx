@@ -18,27 +18,47 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon } from '../src/components/AppIcon';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
-import { RECORD_TYPES, SPECIES_OPTIONS } from '../src/constants/records';
+import { SPECIES_OPTIONS } from '../src/constants/records';
+import { deriveRecordTypeOptions } from '../src/utils/recordTypeOptions';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
-import { DEFAULT_RECORD_FILTERS, type RecordFilters, useRecords } from '../src/context/RecordsContext';
+import {
+  DEFAULT_RECORD_FILTERS,
+  type RecordFilters,
+  type RecordKindFilter,
+  useRecords,
+} from '../src/context/RecordsContext';
 import { useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
-import { motionDuration } from '../src/utils/motion';
+import { SHEET_ENTRANCE_DURATION } from '../src/utils/motion';
 
-type MultiSelectKey = 'species' | 'recordTypes' | 'farms' | 'paddocks';
+type MultiSelectKey = 'species' | 'recordTypes' | 'farms' | 'locations';
 type DateFieldKey = 'startDate' | 'endDate';
 
 const FILTER_FIELD_SURFACE = '#F5F3F7';
+
+const KIND_OPTIONS: Array<{ value: RecordKindFilter; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'individual', label: 'Individuals' },
+  { value: 'collective', label: 'Herds & flocks' },
+];
 
 export default function RecordsFilterScreen() {
   const router = useRouter();
   const { profile } = useAccount();
   const { records, filters, setFilters } = useRecords();
   const { animals } = useAnimals();
-  const { farms, paddocks } = useSetup();
-  const [draftFilters, setDraftFilters] = useState<RecordFilters>(filters);
+  const { farms, locations } = useSetup();
+  // Spread over the defaults rather than taken as-is: a filter object built
+  // before a newer key existed would otherwise leave that control with no
+  // selection at all.
+  const [draftFilters, setDraftFilters] = useState<RecordFilters>({
+    ...DEFAULT_RECORD_FILTERS,
+    ...filters,
+  });
+  // One value for the three inputs — only one can hold focus at a time.
+  const [focusedField, setFocusedField] = useState<'animalId' | 'animalName' | null>(null);
   const [activeMultiSelect, setActiveMultiSelect] = useState<MultiSelectKey | null>(null);
   const [activeDateField, setActiveDateField] = useState<DateFieldKey | null>(null);
   const entrance = useRef(new Animated.Value(0)).current;
@@ -46,7 +66,7 @@ export default function RecordsFilterScreen() {
   useEffect(() => {
     Animated.timing(entrance, {
       toValue: 1,
-      duration: motionDuration(380),
+      duration: SHEET_ENTRANCE_DURATION,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
@@ -70,6 +90,11 @@ export default function RecordsFilterScreen() {
     return Array.from(knownSpecies.values());
   }, [animals, records]);
 
+  const recordTypeOptions = useMemo(
+    () => deriveRecordTypeOptions(records, draftFilters.recordTypes),
+    [draftFilters.recordTypes, records],
+  );
+
   const farmOptions = useMemo(() => {
     const knownFarms = new Map<string, string>();
 
@@ -88,23 +113,23 @@ export default function RecordsFilterScreen() {
     return Array.from(knownFarms.values());
   }, [animals, farms]);
 
-  const paddockOptions = useMemo(() => {
-    const knownPaddocks = new Map<string, string>();
+  const locationOptions = useMemo(() => {
+    const knownLocations = new Map<string, string>();
 
-    for (const paddock of paddocks) {
-      if (paddock.trim()) {
-        knownPaddocks.set(paddock.trim().toLowerCase(), paddock.trim());
+    for (const location of locations) {
+      if (location.trim()) {
+        knownLocations.set(location.trim().toLowerCase(), location.trim());
       }
     }
 
     for (const animal of animals) {
-      if (animal.paddock.trim()) {
-        knownPaddocks.set(animal.paddock.trim().toLowerCase(), animal.paddock.trim());
+      if (animal.location.trim()) {
+        knownLocations.set(animal.location.trim().toLowerCase(), animal.location.trim());
       }
     }
 
-    return Array.from(knownPaddocks.values());
-  }, [animals, paddocks]);
+    return Array.from(knownLocations.values());
+  }, [animals, locations]);
 
   const activeDateValue = activeDateField ? parseStoredDate(draftFilters[activeDateField]) ?? new Date() : new Date();
 
@@ -149,7 +174,6 @@ export default function RecordsFilterScreen() {
   function applyFilters() {
     setFilters({
       ...draftFilters,
-      searchQuery: draftFilters.searchQuery.trim(),
       animalIdQuery: draftFilters.animalIdQuery.trim(),
       animalNameQuery: draftFilters.animalNameQuery.trim(),
     });
@@ -204,16 +228,30 @@ export default function RecordsFilterScreen() {
 
           <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
             <View style={styles.block}>
-              <Text style={styles.label}>Search</Text>
-              <View style={styles.searchField}>
-                <AppIcon name="search" size={18} color="#6f6f6f" />
-                <TextInput
-                  placeholder="Search records"
-                  placeholderTextColor="#7a7a7a"
-                  style={styles.searchInput}
-                  value={draftFilters.searchQuery}
-                  onChangeText={(value) => updateFilter('searchQuery', value)}
-                />
+              <Text style={styles.label}>By Kind</Text>
+              <View style={styles.segmentRow}>
+                {KIND_OPTIONS.map((option) => {
+                  const isSelected = draftFilters.kind === option.value;
+
+                  return (
+                    <Pressable
+                      key={option.value}
+                      accessibilityLabel={option.label}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: isSelected }}
+                      onPress={() => updateFilter('kind', option.value)}
+                      style={({ pressed }) => [
+                        styles.segment,
+                        isSelected && styles.segmentActive,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text style={[styles.segmentText, isSelected && styles.segmentTextActive]}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
 
@@ -278,7 +316,9 @@ export default function RecordsFilterScreen() {
             <View style={styles.block}>
               <Text style={styles.label}>By Animal</Text>
               <View style={styles.dualRow}>
-                <View style={styles.searchFieldHalf}>
+                <View
+                  style={[styles.searchFieldHalf, focusedField === 'animalId' && styles.searchFieldFocused]}
+                >
                   <AppIcon name="search" size={18} color="#6f6f6f" />
                   <TextInput
                     placeholder="Search ID"
@@ -286,9 +326,13 @@ export default function RecordsFilterScreen() {
                     style={styles.searchInput}
                     value={draftFilters.animalIdQuery}
                     onChangeText={(value) => updateFilter('animalIdQuery', value)}
+                    onFocus={() => setFocusedField('animalId')}
+                    onBlur={() => setFocusedField(null)}
                   />
                 </View>
-                <View style={styles.searchFieldHalf}>
+                <View
+                  style={[styles.searchFieldHalf, focusedField === 'animalName' && styles.searchFieldFocused]}
+                >
                   <AppIcon name="search" size={18} color="#6f6f6f" />
                   <TextInput
                     placeholder="Search name"
@@ -296,6 +340,8 @@ export default function RecordsFilterScreen() {
                     style={styles.searchInput}
                     value={draftFilters.animalNameQuery}
                     onChangeText={(value) => updateFilter('animalNameQuery', value)}
+                    onFocus={() => setFocusedField('animalName')}
+                    onBlur={() => setFocusedField(null)}
                   />
                 </View>
               </View>
@@ -317,15 +363,15 @@ export default function RecordsFilterScreen() {
             </View>
 
             <View style={styles.block}>
-              <Text style={styles.label}>By Paddock</Text>
+              <Text style={styles.label}>By Location</Text>
               <Pressable
-                accessibilityLabel="Select paddocks"
+                accessibilityLabel="Select locations"
                 accessibilityRole="button"
-                onPress={() => setActiveMultiSelect('paddocks')}
+                onPress={() => setActiveMultiSelect('locations')}
                 style={styles.pickerField}
               >
-                <Text style={[styles.fieldValue, draftFilters.paddocks.length === 0 && styles.placeholderValue]}>
-                  {formatSelectionSummary(draftFilters.paddocks, 'Select paddocks')}
+                <Text style={[styles.fieldValue, draftFilters.locations.length === 0 && styles.placeholderValue]}>
+                  {formatSelectionSummary(draftFilters.locations, 'Select locations')}
                 </Text>
                 <AppIcon name="chevron-down" size={18} color="#7a7a7a" />
               </Pressable>
@@ -367,7 +413,7 @@ export default function RecordsFilterScreen() {
       ) : null}
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={activeDateField !== null && Platform.OS === 'ios'}
         onRequestClose={() => setActiveDateField(null)}
@@ -406,7 +452,7 @@ export default function RecordsFilterScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={activeMultiSelect !== null}
         onRequestClose={() => setActiveMultiSelect(null)}
@@ -421,7 +467,7 @@ export default function RecordsFilterScreen() {
                     ? 'Select record types'
                     : activeMultiSelect === 'farms'
                       ? 'Select farms'
-                      : 'Select paddocks'}
+                      : 'Select locations'}
               </Text>
               <Pressable
                 accessibilityLabel="Done"
@@ -436,10 +482,10 @@ export default function RecordsFilterScreen() {
                 activeMultiSelect === 'species'
                   ? speciesOptions
                   : activeMultiSelect === 'recordTypes'
-                    ? [...RECORD_TYPES]
+                    ? recordTypeOptions
                     : activeMultiSelect === 'farms'
                       ? farmOptions
-                      : paddockOptions
+                      : locationOptions
               ).map((option) => {
                 const isSelected = draftFilters[activeMultiSelect ?? 'species'].some((entry) => equalsIgnoreCase(entry, option));
 
@@ -456,7 +502,7 @@ export default function RecordsFilterScreen() {
                     ]}
                   >
                     <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{option}</Text>
-                    {isSelected ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                    {isSelected ? <AppIcon name="check" size={16} color="#fff" /> : null}
                   </Pressable>
                 );
               })}
@@ -469,6 +515,19 @@ export default function RecordsFilterScreen() {
 }
 
 const styles = StyleSheet.create({
+  segmentRow: { flexDirection: 'row', gap: 8 },
+  segment: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 22,
+    backgroundColor: FILTER_FIELD_SURFACE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  segmentActive: { backgroundColor: tokens.colors.accent },
+  segmentText: { color: '#544F49', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  segmentTextActive: { color: '#fff' },
   safeArea: { flex: 1, backgroundColor: 'transparent' },
   entranceBackdrop: {
     position: 'absolute',
@@ -549,24 +608,21 @@ const styles = StyleSheet.create({
   placeholderValue: {
     color: '#7a7a7a',
   },
-  searchField: {
-    minHeight: 48,
-    borderRadius: 24,
-    backgroundColor: FILTER_FIELD_SURFACE,
-    paddingHorizontal: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
   searchFieldHalf: {
     minHeight: 48,
     borderRadius: 24,
     backgroundColor: FILTER_FIELD_SURFACE,
+    borderWidth: 2,
+    borderColor: 'transparent',
     paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     flex: 1,
+  },
+  // Same focus ring DesignField gives every field on the add screens.
+  searchFieldFocused: {
+    borderColor: tokens.colors.accent,
   },
   searchInput: {
     color: '#2b2b2b',
@@ -678,7 +734,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   selectionRowActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   selectionText: {
     color: tokens.colors.text,
@@ -686,7 +742,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   selectionTextActive: {
-    color: '#74423F',
+    color: '#fff',
   },
   pressed: {
     opacity: 0.92,

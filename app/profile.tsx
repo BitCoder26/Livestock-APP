@@ -46,13 +46,16 @@ export default function ProfileScreen() {
   const logoUri = filterAccessibleImageUris([profile.businessLogoUri])[0];
 
   const handleAddLogo = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-      Alert.alert('Permission required', 'Permission to access the photo library is required.');
-      return;
-    }
-
+    // No permission request before launching. launchImageLibraryAsync presents
+    // the system photo picker, which runs out of process and hands back only
+    // the chosen image — the app never gets library access, so none is needed
+    // (Expo SDK 57: "No permissions request is necessary for launching the
+    // image library"). Asking anyway cost an async round-trip before the picker
+    // could even start opening, and put a permission dialog in front of the
+    // very first photo. Worse, a user who had denied library access was refused
+    // outright here despite the picker working perfectly well without it.
+    //
+    // The documented exception is videos on iOS; these pickers are images only.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
@@ -246,7 +249,7 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      <Modal transparent animationType="fade" visible={showCountryModal} onRequestClose={() => setShowCountryModal(false)}>
+      <Modal transparent animationType="none" visible={showCountryModal} onRequestClose={() => setShowCountryModal(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowCountryModal(false)}>
           <AnimatedPopupCard visible={showCountryModal} style={styles.selectionSheet} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>Select country</Text>
@@ -309,7 +312,7 @@ export default function ProfileScreen() {
         </Pressable>
       </Modal>
 
-      <Modal transparent animationType="fade" visible={showIndustryModal} onRequestClose={() => setShowIndustryModal(false)}>
+      <Modal transparent animationType="none" visible={showIndustryModal} onRequestClose={() => setShowIndustryModal(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowIndustryModal(false)}>
           <AnimatedPopupCard visible={showIndustryModal} style={styles.selectionSheet} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>Select industry</Text>
@@ -596,7 +599,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   selectionRowActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   selectionText: {
     color: tokens.colors.text,
@@ -604,7 +607,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   selectionTextActive: {
-    color: '#74423F',
+    color: '#fff',
   },
   pressed: {
     opacity: 0.92,

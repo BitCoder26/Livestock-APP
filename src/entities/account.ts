@@ -462,6 +462,13 @@ export type AccountProfile = {
   /** ISO timestamp until which the backup reminder should stay hidden,
    * set when the user dismisses it with "Remind me later". */
   backupNudgeSnoozedUntil?: string;
+  /** Lifetime count of completed Export tab exports (PDF or spreadsheet),
+   * checked against FREE_EXPORT_LIMIT on Basic. Only ever incremented, and
+   * only after an export actually completes — a cancelled or failed one costs
+   * the user nothing. Deliberately outside BackupProfileData: an entitlement
+   * counter is not portable configuration, and carrying it into a backup would
+   * let a restore reset or inflate it. */
+  exportsUsed?: number;
   /** Business/farm identity shown on exported PDFs — separate from the
    * operational Farm entities used for animal locations. Falls back to
    * "LivestockBook" branding on exports when unset. */

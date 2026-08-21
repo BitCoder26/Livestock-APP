@@ -5,26 +5,28 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Svg, { Circle, Polyline } from 'react-native-svg';
 
-import { AppIcon } from '../src/components/AppIcon';
+import { AppIcon, type AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { getSpeciesThemeByTone } from '../src/constants/speciesTheme';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useRecords } from '../src/context/RecordsContext';
-import { type FarmEntity, type PaddockEntity, useSetup } from '../src/context/SetupContext';
+import { type FarmEntity, type LocationEntity, useSetup } from '../src/context/SetupContext';
 import { type AnimalStatus, type AnimalTone } from '../src/entities/animal';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import type { RecordEntry } from '../src/entities/record';
 import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, parseStoredDate } from '../src/utils/dateFormat';
+import { recordTypeHeadline } from '../src/utils/recordCollectives';
 import { resolveRecordAnimalUids } from '../src/utils/recordAnimals';
+import { abbreviateAgeLabel, getAnimalSexIcon } from '../src/utils/animalDisplay';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 import {
   resolveAnimalFarmName,
-  resolveAnimalGroupName,
-  resolveAnimalPaddockName,
+  resolveAnimalLabelNames,
+  resolveAnimalLocationName,
   resolveMovementSummary,
 } from '../src/utils/recordLocations';
 import { buildWeightHistory, type WeightHistoryPoint } from '../src/utils/reports';
@@ -33,9 +35,9 @@ export default function AnimalTimelineScreen() {
   const router = useRouter();
   const { animalUid, animalId } = useLocalSearchParams<{ animalUid?: string; animalId?: string }>();
   const { profile } = useAccount();
-  const { animals, setAnimalStatusManually } = useAnimals();
+  const { animals, setAnimalStatusManually, removeAnimalStatusChange } = useAnimals();
   const { records } = useRecords();
-  const { farmEntities, paddockEntities, groupEntities } = useSetup();
+  const { farmEntities, locationEntities, labelEntities } = useSetup();
 
   const animal = useMemo(
     () =>
@@ -46,13 +48,15 @@ export default function AnimalTimelineScreen() {
           : null,
     [animalId, animalUid, animals],
   );
-  // Resolved live via uid rather than trusting animal.farm/paddock directly,
-  // so a farm/paddock rename in Setup shows up here immediately.
+  // Resolved live via uid rather than trusting animal.farm/location directly,
+  // so a farm/location rename in Setup shows up here immediately.
   const animalFarmName = animal ? resolveAnimalFarmName(animal, farmEntities) : '';
-  const animalPaddockName = animal ? resolveAnimalPaddockName(animal, paddockEntities) : '';
-  const animalGroupName = animal ? resolveAnimalGroupName(animal, groupEntities) : '';
+  const animalLocationName = animal ? resolveAnimalLocationName(animal, locationEntities) : '';
+  const animalLabelNames = animal ? resolveAnimalLabelNames(animal, labelEntities) : [];
 
   const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   // The dropdown is drawn in a Modal so it can escape the ScrollView's clipping,
   // which puts it in the window's coordinate space — so the pill is measured and
   // the menu placed at those coordinates rather than anchored by layout.
@@ -63,6 +67,15 @@ export default function AnimalTimelineScreen() {
     height: number;
   } | null>(null);
   const pillRef = useRef<View | null>(null);
+  // Same window-coordinate anchoring as the status dropdown, measured off the
+  // top bar's three-dot button instead of the status pill.
+  const [actionsAnchor, setActionsAnchor] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const moreRef = useRef<View | null>(null);
 
   const timelineRecords = useMemo(() => {
     if (!animal) {
@@ -84,16 +97,48 @@ export default function AnimalTimelineScreen() {
       record,
     }));
 
-    const fromStatus = (animal?.statusHistory ?? []).map((change) => ({
+    // statusHistory is appended, so it runs oldest-first, and every change is
+    // dated to the day — two on the same day tie, and a stable sort would keep
+    // the older one ahead. Reversed here so the newest reads first among them,
+    // and the pin below targets the latest by identity rather than by position,
+    // which a date tie cannot get wrong.
+    const statusHistory = animal?.statusHistory ?? [];
+    const latestStatusId = statusHistory[statusHistory.length - 1]?.id;
+    const fromStatus = [...statusHistory].reverse().map((change) => ({
       kind: 'status' as const,
       id: change.id,
       date: change.date,
       status: change.status,
     }));
 
-    return [...fromRecords, ...fromStatus].sort(
-      (left, right) => getRecordTimestamp(right.date) - getRecordTimestamp(left.date),
-    );
+    // Newest first, and on a date tie the status change wins the top slot —
+    // a status set today should read above the day's records, not under them.
+    const sorted = [...fromRecords, ...fromStatus].sort((left, right) => {
+      const byDate = getRecordTimestamp(right.date) - getRecordTimestamp(left.date);
+
+      if (byDate !== 0) {
+        return byDate;
+      }
+
+      if (left.kind === right.kind) {
+        return 0;
+      }
+
+      return left.kind === 'status' ? -1 : 1;
+    });
+
+    // The change that set the current state leads the timeline, so the status
+    // just picked from the dropdown is always the first thing read.
+    const latestStatus = latestStatusId
+      ? sorted.findIndex((entry) => entry.kind === 'status' && entry.id === latestStatusId)
+      : -1;
+
+    if (latestStatus > 0) {
+      const [entry] = sorted.splice(latestStatus, 1);
+      sorted.unshift(entry);
+    }
+
+    return sorted;
   }, [animal?.statusHistory, timelineRecords]);
 
   const weightHistory = useMemo(
@@ -125,6 +170,48 @@ export default function AnimalTimelineScreen() {
     }
   };
 
+  // Removes the dated line only. The animal keeps whatever status it has —
+  // that is the dropdown's to change, not this button's.
+  const handleRemoveStatusChange = async (changeId: string) => {
+    if (!animal) {
+      return;
+    }
+
+    const result = await removeAnimalStatusChange(animal.uid, changeId);
+
+    if (!result.ok) {
+      Alert.alert('Could not remove', 'That status change could not be removed. Please try again.');
+    }
+  };
+
+  const openActionsMenu = () => {
+    moreRef.current?.measureInWindow((x, y, width, height) => {
+      setActionsAnchor({ x, y, width, height });
+    });
+    setShowActionsMenu(true);
+  };
+
+  const handleEditAnimal = () => {
+    if (!animal) {
+      return;
+    }
+
+    setShowActionsMenu(false);
+    router.push({ pathname: '/add-animal', params: { animalUid: animal.uid } });
+  };
+
+  const confirmDeleteAnimal = () => {
+    if (!animal) {
+      return;
+    }
+
+    setShowDeleteConfirm(false);
+    router.replace({
+      pathname: '/(tabs)/animals',
+      params: { deletingAnimalUid: animal.uid },
+    });
+  };
+
   const handleShareAnimal = async () => {
     if (!animal) {
       Alert.alert('Animal not found', 'There is no animal to share right now.');
@@ -139,8 +226,8 @@ export default function AnimalTimelineScreen() {
       animal.ageLabel.trim() ? `Age: ${animal.ageLabel.trim()}` : '',
       animal.weight.trim() ? `Weight: ${formatAnimalWeight(animal.weight, animal.weightUnit)}` : '',
       animalFarmName ? `Farm: ${animalFarmName}` : '',
-      animalPaddockName ? `Paddock: ${animalPaddockName}` : '',
-      animalGroupName ? `Group: ${animalGroupName}` : '',
+      animalLocationName ? `Location: ${animalLocationName}` : '',
+      animalLabelNames.length > 0 ? `Labels: ${animalLabelNames.join(', ')}` : '',
       animal.source.trim() ? `Source: ${animal.source.trim()}` : '',
       animal.farmEntryDate.trim() ? `Farm entry date: ${formatDateForDisplay(animal.farmEntryDate, profile.dateFormat)}` : '',
       `Status: ${animal.status}`,
@@ -171,20 +258,11 @@ export default function AnimalTimelineScreen() {
           animal
             ? [
                 {
-                  icon: 'share-outline',
-                  accessibilityLabel: 'Share',
-                  onPress: handleShareAnimal,
-                  size: 22,
-                },
-                {
-                  icon: 'edit',
-                  accessibilityLabel: 'Edit animal',
-                  onPress: () =>
-                    router.push({
-                      pathname: '/add-animal',
-                      params: { animalUid: animal.uid },
-                    }),
+                  icon: 'more-vertical',
+                  accessibilityLabel: 'Animal options',
+                  onPress: openActionsMenu,
                   size: 24,
+                  anchorRef: moreRef,
                 },
               ]
             : []
@@ -221,7 +299,6 @@ export default function AnimalTimelineScreen() {
                 <View style={styles.summaryIdentity}>
                   <Text style={styles.summaryId}>{animal.id}</Text>
                   <Text style={styles.summaryName}>{animal.name.trim() || 'Unnamed animal'}</Text>
-                  <Text style={styles.summaryMeta}>{capitalize(animal.sex) || 'Sex not set'}</Text>
                 </View>
               </View>
               <Pressable
@@ -252,15 +329,28 @@ export default function AnimalTimelineScreen() {
               </Pressable>
             </View>
 
+            {/* Sex, age and weight are the three the eye goes to first, so they
+                sit as cards above the grid and stay out of it — the same value
+                twice on one screen reads as a bug. Breed stays in the grid: it
+                is free text and would wrap or truncate in a box. */}
+            <View style={styles.statCards}>
+              <StatCard
+                label="Sex"
+                value={capitalize(animal.sex)}
+                icon={animal.sex ? getAnimalSexIcon(animal.sex) : undefined}
+              />
+              <StatCard label="Age" value={abbreviateAgeLabel(animal.ageLabel)} />
+              <StatCard label="Weight" value={formatAnimalWeight(animal.weight, animal.weightUnit)} />
+            </View>
+
             <View style={styles.summaryDetails}>
-              <SummaryDetail label="Species" value={animal.species} />
+              <SummaryDetail label="EID" value={animal.eid} />
+              <SummaryDetail always label="Species" value={animal.species} />
               <SummaryDetail label="Breed" value={animal.breed} />
-              <SummaryDetail label="Weight" value={formatAnimalWeight(animal.weight, animal.weightUnit)} />
-              <SummaryDetail label="Age" value={animal.ageLabel} />
               <SummaryDetail label="Date of birth" value={formatDateForDisplay(animal.dateOfBirth, profile.dateFormat)} />
               <SummaryDetail label="Farm" value={animalFarmName} />
-              <SummaryDetail label="Paddock" value={animalPaddockName} />
-              <SummaryDetail label="Group" value={animalGroupName} />
+              <SummaryDetail label="Location" value={animalLocationName} />
+              <SummaryDetail label="Labels" value={animalLabelNames.join(", ")} />
               <SummaryDetail label="Source" value={animal.source} />
               <SummaryDetail
                 label="Farm entry date"
@@ -327,6 +417,15 @@ export default function AnimalTimelineScreen() {
                     </View>
                     <View style={[styles.recordCard, styles.statusCard]}>
                       <Text style={styles.statusCardText}>{`Marked ${entry.status}`}</Text>
+                      <Pressable
+                        accessibilityLabel={`Remove status change: marked ${entry.status}`}
+                        accessibilityRole="button"
+                        hitSlop={10}
+                        onPress={() => void handleRemoveStatusChange(entry.id)}
+                        style={({ pressed }) => [styles.statusCardRemove, pressed && styles.cardPressed]}
+                      >
+                        <AppIcon name="close" size={11} color={tokens.colors.text} />
+                      </Pressable>
                     </View>
                   </View>
                 );
@@ -334,7 +433,7 @@ export default function AnimalTimelineScreen() {
 
               const record = entry.record;
 
-              const details = getTimelineDetails(record, farmEntities, paddockEntities);
+              const details = getTimelineDetails(record, farmEntities, locationEntities);
 
               return (
                 <View key={entry.id} style={styles.timelineRow}>
@@ -352,12 +451,12 @@ export default function AnimalTimelineScreen() {
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${record.type} on ${formatDateForDisplay(record.date, profile.dateFormat)}`}
+                    accessibilityLabel={`${recordTypeHeadline(record)} on ${formatDateForDisplay(record.date, profile.dateFormat)}`}
                     onPress={() => router.push({ pathname: '/view-record', params: { recordId: record.id } })}
                     style={({ pressed }) => [styles.recordCard, pressed && styles.cardPressed]}
                   >
                     <View style={styles.recordCopy}>
-                      <Text style={styles.recordTitle}>{record.type}</Text>
+                      <Text style={styles.recordTitle}>{recordTypeHeadline(record)}</Text>
                       <Text style={styles.recordDetails}>{details}</Text>
                     </View>
                     <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
@@ -368,6 +467,107 @@ export default function AnimalTimelineScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Modal
+        animationType="none"
+        transparent
+        visible={showActionsMenu}
+        onRequestClose={() => setShowActionsMenu(false)}
+      >
+        <Pressable style={styles.menuBackdrop} onPress={() => setShowActionsMenu(false)}>
+          <View
+            style={[
+              styles.menuCard,
+              actionsAnchor
+                ? {
+                    top: actionsAnchor.y + actionsAnchor.height + 6,
+                    right: Math.max(12, SCREEN_WIDTH - (actionsAnchor.x + actionsAnchor.width)),
+                  }
+                : styles.menuFallback,
+            ]}
+          >
+            <BouncyPressable
+              accessibilityLabel="Share animal"
+              accessibilityRole="button"
+              onPress={() => {
+                setShowActionsMenu(false);
+                void handleShareAnimal();
+              }}
+              style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
+            >
+              <View style={styles.menuIcon}>
+                <AppIcon name="share-outline" size={24} color={tokens.colors.text} />
+              </View>
+              <Text style={styles.menuText}>Share</Text>
+            </BouncyPressable>
+            <BouncyPressable
+              accessibilityLabel="Edit animal"
+              accessibilityRole="button"
+              onPress={handleEditAnimal}
+              style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
+            >
+              <View style={styles.menuIcon}>
+                <AppIcon name="edit" size={24} color={tokens.colors.text} />
+              </View>
+              <Text style={styles.menuText}>Edit</Text>
+            </BouncyPressable>
+            <BouncyPressable
+              accessibilityLabel="Delete animal"
+              accessibilityRole="button"
+              onPress={() => {
+                setShowActionsMenu(false);
+                setShowDeleteConfirm(true);
+              }}
+              style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
+            >
+              <View style={styles.menuIcon}>
+                <AppIcon name="trash" size={24} color={tokens.colors.danger} />
+              </View>
+              <Text style={[styles.menuText, styles.menuTextDanger]}>Delete</Text>
+            </BouncyPressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* No animation: confirming routes straight back to the list, and RN's
+          Modal fade is a fixed ~300ms that plays over the top of that
+          transition. Dismissing instantly hands the screen back immediately. */}
+      <Modal
+        animationType="none"
+        transparent
+        visible={showDeleteConfirm}
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <Pressable style={styles.centeredModalBackdrop} onPress={() => setShowDeleteConfirm(false)}>
+          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
+            <Text style={styles.deleteConfirmTitle}>Delete animal?</Text>
+            <Text style={styles.deleteConfirmText}>This animal will be deleted. Are you sure?</Text>
+            <Text style={styles.deleteConfirmText}>
+              Its records are kept and stay in your Records list. This action cannot be undone.
+            </Text>
+            <View style={styles.deleteConfirmActions}>
+              <BouncyPressable
+                accessibilityLabel="Cancel delete"
+                accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
+                onPress={() => setShowDeleteConfirm(false)}
+                style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.cardPressed]}
+              >
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </BouncyPressable>
+              <BouncyPressable
+                accessibilityLabel="Confirm delete animal"
+                accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
+                onPress={confirmDeleteAnimal}
+                style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.cardPressed]}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+              </BouncyPressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         animationType="none"
@@ -418,11 +618,59 @@ export default function AnimalTimelineScreen() {
   );
 }
 
-function SummaryDetail({ label, value }: { label: string; value: string }) {
+function StatCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  /** Drawn in place of the value — the sex card reads as a glyph, not a word. */
+  icon?: AppIconName;
+}) {
+  return (
+    <View style={styles.statCard}>
+      <Text numberOfLines={1} style={styles.summaryLabel}>
+        {label}
+      </Text>
+      {icon ? (
+        <View accessibilityLabel={value}>
+          <AppIcon name={icon} size={20} color={tokens.colors.text} />
+        </View>
+      ) : (
+        <Text
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+          numberOfLines={1}
+          style={styles.statCardValue}
+        >
+          {value.trim() || '—'}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function SummaryDetail({
+  label,
+  value,
+  always = false,
+}: {
+  label: string;
+  value: string;
+  always?: boolean;
+}) {
+  // A view screen reports what is known; the edit form is where every possible
+  // field lives, filled or not. An empty row here is a placeholder rather than
+  // information, and enough of them push the timeline off the screen.
+  if (!value.trim() && !always) {
+    return null;
+  }
+
   return (
     <View style={styles.summaryDetail}>
       <Text style={styles.summaryLabel}>{label}</Text>
-      <Text style={styles.summaryValue}>{value.trim() || 'Not set'}</Text>
+      <Text style={styles.summaryValue}>{value.trim() || '\u2014'}</Text>
     </View>
   );
 }
@@ -431,12 +679,12 @@ function getRecordTimestamp(value: string) {
   return parseStoredDate(value)?.getTime() ?? 0;
 }
 
-function getTimelineDetails(record: RecordEntry, farms: FarmEntity[], paddocks: PaddockEntity[]) {
+function getTimelineDetails(record: RecordEntry, farms: FarmEntity[], locations: LocationEntity[]) {
   // Movement's location summary is resolved fresh from the current
-  // farm/paddock names rather than the frozen title text, so a rename
+  // farm/location names rather than the frozen title text, so a rename
   // shows up here too.
   const titleDetails =
-    record.type === 'Movement' ? resolveMovementSummary(record, farms, paddocks) : stripRecordType(record.title, record.type);
+    record.type === 'Movement' ? resolveMovementSummary(record, farms, locations) : stripRecordType(record.title, record.type);
   const detailSections = [titleDetails, record.details.trim()].filter(Boolean);
 
   if (detailSections.length > 0) {
@@ -639,16 +887,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 16,
   },
+  // Beside the picture but bottom-aligned, so the id and name sit off its
+  // south-east corner rather than level with its top.
   summaryHeaderMain: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
     gap: 14,
   },
   summaryIdentity: {
     flex: 1,
     gap: 3,
-    paddingTop: 4,
   },
   summaryProfileImage: {
     width: 116,
@@ -673,7 +922,7 @@ const styles = StyleSheet.create({
   },
   summaryId: {
     color: tokens.colors.text,
-    fontSize: 23,
+    fontSize: 19,
     fontWeight: '700',
   },
   summaryName: {
@@ -707,12 +956,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#D49A3A',
   },
   statusDeceased: {
-    backgroundColor: '#8A8A8A',
+    backgroundColor: '#C4433B',
   },
   statusText: {
     color: tokens.colors.text,
     fontSize: 12,
     fontWeight: '600',
+  },
+  // Left-justified rather than stretched: three fixed squares sitting at the
+  // start of the row, so the block reads as a set of badges instead of a bar
+  // divided into thirds.
+  statCards: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    gap: 10,
+  },
+  statCard: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    backgroundColor: tokens.colors.surfaceMuted,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  statCardValue: {
+    color: tokens.colors.text,
+    fontSize: 13,
+    fontWeight: '700',
   },
   summaryDetails: {
     flexDirection: 'row',
@@ -847,6 +1119,25 @@ const styles = StyleSheet.create({
     elevation: 0,
     minHeight: 56,
   },
+  // Sits just inside the bubble's top-right corner, the same placement the
+  // photo remove button uses. White on the muted card so it reads as a control
+  // laid on top rather than part of the line.
+  statusCardRemove: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
   statusCardText: {
     color: tokens.colors.textSoft,
     fontSize: 14,
@@ -895,6 +1186,80 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
     fontSize: 15,
     fontWeight: '600',
+  },
+  menuIcon: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuTextDanger: {
+    color: tokens.colors.danger,
+  },
+  centeredModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  deleteConfirmCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  deleteConfirmTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  deleteConfirmText: {
+    marginTop: 8,
+    color: tokens.colors.textSoft,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  deleteCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E0E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelButtonText: {
+    color: '#544F49',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
   recordCopy: {
     flex: 1,

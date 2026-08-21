@@ -1,31 +1,49 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Dimensions, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppIcon } from '../src/components/AppIcon';
+import { AppIcon, type AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
-import { getSpeciesThemeByTone } from '../src/constants/speciesTheme';
+import { BouncyPressable } from '../src/components/BouncyPressable';
+import { SPECIES_OPTIONS } from '../src/constants/records';
+import { getSpeciesThemeByLabel, getSpeciesThemeByTone } from '../src/constants/speciesTheme';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
-import { useRecords } from '../src/context/RecordsContext';
-import { type FarmEntity, type PaddockEntity, useSetup } from '../src/context/SetupContext';
+import { useCollectives } from '../src/context/CollectivesContext';
+import { type RecordImpactChange, useRecords } from '../src/context/RecordsContext';
+import { type FarmEntity, type LocationEntity, useSetup } from '../src/context/SetupContext';
 import { formatCurrencyAmount } from '../src/entities/account';
 import type { Animal, AnimalTone } from '../src/entities/animal';
+import { getCollectiveCount, type Collective } from '../src/entities/collective';
 import type { RecordEntry } from '../src/entities/record';
 import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay } from '../src/utils/dateFormat';
+import { useThumbnailUri } from '../src/utils/useThumbnailUri';
 import { findRecordAnimals } from '../src/utils/recordAnimals';
-import { getRecordDisplayTitle, resolveFarmName, resolvePaddockName } from '../src/utils/recordLocations';
+import {
+  changesHeadCount,
+  collectiveLabel,
+  findRecordCollective,
+  isCollectiveRecord,
+} from '../src/utils/recordCollectives';
+import { getRecordDisplayTitle, resolveFarmName, resolveLocationName } from '../src/utils/recordLocations';
 import { getStructuredDetailLabels, stripStructuredDetailLines } from '../src/utils/recordNotes';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
+const SPECIES_ICONS = new Map<string, AppIconName>(
+  SPECIES_OPTIONS.map((item) => [item.label, item.icon]),
+);
 
 export default function ViewRecordScreen() {
   const router = useRouter();
   const { recordId } = useLocalSearchParams<{ recordId?: string }>();
   const { profile } = useAccount();
-  const { records } = useRecords();
+  const { records, deleteRecord, previewDeleteRecordImpact } = useRecords();
   const { animals } = useAnimals();
-  const { farmEntities, paddockEntities } = useSetup();
+  const { collectives, syncRecordCountEvent } = useCollectives();
+  const { farmEntities, locationEntities } = useSetup();
 
   const record = useMemo(
     () => (recordId ? records.find((entry) => entry.id === recordId) ?? null : null),
@@ -33,16 +51,105 @@ export default function ViewRecordScreen() {
   );
 
   const relatedAnimals = useMemo(() => {
-    if (!record) {
+    if (!record || isCollectiveRecord(record)) {
       return [];
     }
 
     return findRecordAnimals(record, animals);
   }, [animals, record]);
 
+  const relatedCollective = useMemo(
+    () => (record ? findRecordCollective(record, collectives) : null),
+    [collectives, record],
+  );
+
   const primaryImageUri = record?.imageUris?.[0] ?? null;
   const singleRelatedAnimal = relatedAnimals.length === 1 ? relatedAnimals[0] : null;
+  // Deleting an animal keeps its records, which carry frozen `animal` and
+  // `animalTag` text. So a record can name an animal that no longer resolves —
+  // it still gets a card, the same way a record for a deleted herd does.
+  const namedMissingAnimal = Boolean(
+    record &&
+      !isCollectiveRecord(record) &&
+      relatedAnimals.length === 0 &&
+      (record.animal?.trim() || record.animalTag?.trim()),
+  );
   const visibleDetails = record ? getVisibleRecordDetails(record) : '';
+
+  // The dropdown is drawn in a Modal so it can escape the ScrollView's
+  // clipping, which puts it in the window's coordinate space — so the top bar
+  // button is measured and the menu placed at those coordinates.
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [actionsAnchor, setActionsAnchor] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const moreRef = useRef<View | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteImpact, setDeleteImpact] = useState<RecordImpactChange[]>([]);
+
+  const birthAnimal = useMemo(
+    () => (record?.type === 'Birth' ? findRecordAnimals(record, animals)[0] ?? null : null),
+    [animals, record],
+  );
+
+  const openActionsMenu = () => {
+    moreRef.current?.measureInWindow((x, y, width, height) => {
+      setActionsAnchor({ x, y, width, height });
+    });
+    setShowActionsMenu(true);
+  };
+
+  const handleEditRecord = () => {
+    if (!record) {
+      return;
+    }
+
+    setShowActionsMenu(false);
+    router.push(
+      isCollectiveRecord(record)
+        ? { pathname: '/add-collective-record', params: { recordId: record.id } }
+        : { pathname: '/edit-record', params: { recordId: record.id } },
+    );
+  };
+
+  const handleDeleteRecord = () => {
+    if (!record) {
+      return;
+    }
+
+    setShowActionsMenu(false);
+    setDeleteImpact(isCollectiveRecord(record) ? [] : previewDeleteRecordImpact(record.id));
+    setShowDeleteConfirm(true);
+  };
+
+  // Mirrors the edit screens: a herd/flock record has to undo its own head
+  // count event first, while a single-animal record is deleted by the Records
+  // tab so the row can play its exit animation on the way out.
+  const confirmDeleteRecord = async () => {
+    if (!record) {
+      return;
+    }
+
+    setShowDeleteConfirm(false);
+
+    if (isCollectiveRecord(record)) {
+      await syncRecordCountEvent(record.id, null);
+      const result = await deleteRecord(record.id);
+
+      if (!result.ok) {
+        Alert.alert('Could not delete', 'This record could not be deleted. Please try again.');
+        return;
+      }
+    }
+
+    router.replace({
+      pathname: '/(tabs)/records',
+      params: { deletingRecordId: record.id },
+    });
+  };
 
   const handleShareRecord = async () => {
     if (!record) {
@@ -52,14 +159,14 @@ export default function ViewRecordScreen() {
 
     const shareSections = [
       record.type,
-      getDisplayTitle(record, farmEntities, paddockEntities),
+      getDisplayTitle(record, farmEntities, locationEntities),
       ...buildSummaryDetails(
         record,
-        relatedAnimals.length === 0,
+        !isCollectiveRecord(record) && relatedAnimals.length === 0 && !namedMissingAnimal,
         profile.dateFormat,
         profile.currency,
         farmEntities,
-        paddockEntities,
+        locationEntities,
       ).map((item) => `${item.label}: ${item.value}`),
       visibleDetails ? `Details: ${visibleDetails}` : '',
     ].filter(Boolean);
@@ -87,20 +194,11 @@ export default function ViewRecordScreen() {
           record
             ? [
                 {
-                  icon: 'share-outline',
-                  accessibilityLabel: 'Share',
-                  onPress: () => void handleShareRecord(),
-                  size: 22,
-                },
-                {
-                  icon: 'edit',
-                  accessibilityLabel: 'Edit record',
-                  onPress: () =>
-                    router.push({
-                      pathname: '/edit-record',
-                      params: { recordId: record.id },
-                    }),
+                  icon: 'more-vertical',
+                  accessibilityLabel: 'Record options',
+                  onPress: openActionsMenu,
                   size: 24,
+                  anchorRef: moreRef,
                 },
               ]
             : []
@@ -114,30 +212,31 @@ export default function ViewRecordScreen() {
                 {primaryImageUri ? <Image source={{ uri: primaryImageUri }} style={styles.summaryProfileImage} /> : null}
                 <View style={styles.summaryIdentity}>
                   <Text style={styles.summaryId}>{record.type}</Text>
-                  <Text style={styles.summaryName}>{getDisplayTitle(record, farmEntities, paddockEntities)}</Text>
+                  <Text style={styles.summaryName}>{getDisplayTitle(record, farmEntities, locationEntities)}</Text>
                   <Text style={styles.summaryMeta}>{getSummaryMeta(record, profile.dateFormat)}</Text>
                 </View>
-              </View>
-              <View style={styles.statusPill}>
-                <View style={[styles.statusDot, getToneDotStyle(record.speciesTone)]} />
-                <Text style={styles.statusText}>{record.species}</Text>
               </View>
             </View>
 
             <View style={styles.summaryDetails}>
               {buildSummaryDetails(
                 record,
-                relatedAnimals.length === 0,
+                !isCollectiveRecord(record) && relatedAnimals.length === 0 && !namedMissingAnimal,
                 profile.dateFormat,
                 profile.currency,
                 farmEntities,
-                paddockEntities,
+                locationEntities,
               ).map((item) => (
                 <SummaryDetail key={item.label} label={item.label} value={item.value} />
               ))}
             </View>
 
-            {singleRelatedAnimal ? (
+            {isCollectiveRecord(record) ? (
+              <View style={styles.singleAnimalSection}>
+                <Text style={styles.animalsTitle}>Herd or flock</Text>
+                <CollectiveNavigationRow record={record} collective={relatedCollective} />
+              </View>
+            ) : singleRelatedAnimal ? (
               <View style={styles.singleAnimalSection}>
                 <Text style={styles.animalsTitle}>Animal</Text>
                 <AnimalNavigationRow animal={singleRelatedAnimal} />
@@ -150,6 +249,11 @@ export default function ViewRecordScreen() {
                     <AnimalNavigationRow key={animal.uid} animal={animal} />
                   ))}
                 </View>
+              </View>
+            ) : namedMissingAnimal ? (
+              <View style={styles.singleAnimalSection}>
+                <Text style={styles.animalsTitle}>Animal</Text>
+                <MissingAnimalRow record={record} />
               </View>
             ) : null}
 
@@ -168,8 +272,130 @@ export default function ViewRecordScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Modal
+        animationType="none"
+        transparent
+        visible={showActionsMenu}
+        onRequestClose={() => setShowActionsMenu(false)}
+      >
+        <Pressable style={styles.menuBackdrop} onPress={() => setShowActionsMenu(false)}>
+          <View
+            style={[
+              styles.menuCard,
+              actionsAnchor
+                ? {
+                    top: actionsAnchor.y + actionsAnchor.height + 6,
+                    right: Math.max(12, SCREEN_WIDTH - (actionsAnchor.x + actionsAnchor.width)),
+                  }
+                : styles.menuFallback,
+            ]}
+          >
+            <BouncyPressable
+              accessibilityLabel="Share record"
+              accessibilityRole="button"
+              onPress={() => {
+                setShowActionsMenu(false);
+                void handleShareRecord();
+              }}
+              style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
+            >
+              <View style={styles.menuIcon}>
+                <AppIcon name="share-outline" size={24} color={tokens.colors.text} />
+              </View>
+              <Text style={styles.menuText}>Share</Text>
+            </BouncyPressable>
+            <BouncyPressable
+              accessibilityLabel="Edit record"
+              accessibilityRole="button"
+              onPress={handleEditRecord}
+              style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
+            >
+              <View style={styles.menuIcon}>
+                <AppIcon name="edit" size={24} color={tokens.colors.text} />
+              </View>
+              <Text style={styles.menuText}>Edit</Text>
+            </BouncyPressable>
+            <BouncyPressable
+              accessibilityLabel="Delete record"
+              accessibilityRole="button"
+              onPress={handleDeleteRecord}
+              style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
+            >
+              <View style={styles.menuIcon}>
+                <AppIcon name="trash" size={24} color={tokens.colors.danger} />
+              </View>
+              <Text style={[styles.menuText, styles.menuTextDanger]}>Delete</Text>
+            </BouncyPressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* No animation: confirming routes straight back to the list, and RN's
+          Modal fade is a fixed ~300ms that plays over the top of that
+          transition. Dismissing instantly hands the screen back immediately. */}
+      <Modal
+        animationType="none"
+        transparent
+        visible={showDeleteConfirm}
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <Pressable style={styles.centeredModalBackdrop} onPress={() => setShowDeleteConfirm(false)}>
+          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
+            <Text style={styles.deleteConfirmTitle}>Delete record?</Text>
+            <Text style={styles.deleteConfirmText}>
+              {record && isCollectiveRecord(record) && changesHeadCount(record.type)
+                ? 'The head count change this record made is undone with it. This action cannot be undone.'
+                : 'This action cannot be undone.'}
+            </Text>
+            {record?.type === 'Birth' ? (
+              <Text style={styles.deleteConfirmText}>
+                {birthAnimal
+                  ? `${birthAnimal.name.trim() || birthAnimal.id} (${birthAnimal.id}) will stay in your Animals list, but will no longer be linked to a birth or mother record.`
+                  : 'The animal this record created (if it still exists) will stay in your Animals list, but will no longer be linked to a birth or mother record.'}
+              </Text>
+            ) : null}
+            {deleteImpact.length > 0 ? (
+              <View style={styles.impactList}>
+                {deleteImpact.map((change, index) => (
+                  <Text key={`${change.animalUid}-${change.dimension}-${index}`} style={styles.impactLine}>
+                    {formatImpactLine(change)}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+            <View style={styles.deleteConfirmActions}>
+              <BouncyPressable
+                accessibilityLabel="Cancel delete"
+                accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
+                onPress={() => setShowDeleteConfirm(false)}
+                style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.cardPressed]}
+              >
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </BouncyPressable>
+              <BouncyPressable
+                accessibilityLabel="Confirm delete record"
+                accessibilityRole="button"
+                containerStyle={{ flex: 1 }}
+                onPress={() => void confirmDeleteRecord()}
+                style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.cardPressed]}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+              </BouncyPressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
+}
+
+function formatImpactLine(change: RecordImpactChange) {
+  const dimensionLabel =
+    change.dimension === 'weight' ? 'weight' : change.dimension === 'location' ? 'location' : 'status';
+
+  return `${change.animalLabel}'s ${dimensionLabel} will change from ${change.before} to ${change.after}.`;
 }
 
 function SummaryDetail({ label, value }: { label: string; value: string }) {
@@ -206,8 +432,86 @@ function AnimalNavigationRow({ animal }: { animal: Animal }) {
   );
 }
 
+function CollectiveNavigationRow({
+  record,
+  collective,
+}: {
+  record: RecordEntry;
+  collective: Collective | null;
+}) {
+  const router = useRouter();
+  const label = collective
+    ? collectiveLabel(collective)
+    : record.collectiveName?.trim() || record.collectiveId?.trim() || 'Herd or flock';
+  const species = collective?.species ?? record.species;
+  const theme = getSpeciesThemeByLabel(species);
+  const icon = SPECIES_ICONS.get(species) ?? 'animals3';
+
+  // A deleted collective leaves the record readable but with nowhere to go.
+  if (!collective) {
+    return (
+      <View style={styles.animalRow}>
+        <View style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}>
+          <AppIcon name={icon} size={22} color={theme.icon} />
+        </View>
+        <View style={styles.animalCopy}>
+          <Text style={styles.animalName}>{label}</Text>
+          <Text style={styles.animalMeta}>No longer on this farm</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`View herd or flock ${label}`}
+      onPress={() =>
+        router.push({ pathname: '/view-collective', params: { collectiveUid: collective.uid } })
+      }
+      style={({ pressed }) => [styles.animalRow, pressed && styles.cardPressed]}
+    >
+      <View style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}>
+        <AppIcon name={icon} size={22} color={theme.icon} />
+      </View>
+      <View style={styles.animalCopy}>
+        <Text style={styles.animalName}>{label}</Text>
+        <Text style={styles.animalMeta}>
+          {`${collective.species} • ${getCollectiveCount(collective)} animals`}
+        </Text>
+      </View>
+      <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
+    </Pressable>
+  );
+}
+
+// A deleted animal leaves the record readable but with nowhere to go — the
+// same shape CollectiveNavigationRow uses for a deleted herd or flock.
+function MissingAnimalRow({ record }: { record: RecordEntry }) {
+  const theme = getSpeciesThemeByLabel(record.species);
+  const name = record.animal?.trim();
+  const tag = record.animalTag?.trim();
+  const label = name || tag || 'Animal';
+  // The tag only earns a place in the meta when the name is carrying the title
+  // line — otherwise it is already the label and would read twice.
+  const meta = name && tag ? `${tag} • No longer on this farm` : 'No longer on this farm';
+
+  return (
+    <View style={styles.animalRow}>
+      <View style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}>
+        <AppIcon name={SPECIES_ICONS.get(record.species) ?? 'animals3'} size={22} color={theme.icon} />
+      </View>
+      <View style={styles.animalCopy}>
+        <Text style={styles.animalName}>{label}</Text>
+        <Text style={styles.animalMeta}>{meta}</Text>
+      </View>
+    </View>
+  );
+}
+
 function AnimalAvatar({ animal }: { animal: Animal }) {
-  const imageUri = animal.showImageOnCard ? animal.imageUris?.[0] ?? null : null;
+  // A row in the record's animal list, so it draws the thumbnail.
+  const imageUri = useThumbnailUri(animal.showImageOnCard ? animal.imageUris?.[0] : null);
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
@@ -227,8 +531,8 @@ function AnimalAvatar({ animal }: { animal: Animal }) {
   );
 }
 
-function getDisplayTitle(record: RecordEntry, farms: FarmEntity[], paddocks: PaddockEntity[]) {
-  const cleanedTitle = stripRecordType(getRecordDisplayTitle(record, farms, paddocks), record.type);
+function getDisplayTitle(record: RecordEntry, farms: FarmEntity[], locations: LocationEntity[]) {
+  const cleanedTitle = stripRecordType(getRecordDisplayTitle(record, farms, locations), record.type);
   return cleanedTitle || record.recordTitle?.trim() || 'Untitled record';
 }
 
@@ -242,7 +546,7 @@ function buildSummaryDetails(
   dateFormat: Parameters<typeof formatDateForDisplay>[1],
   fallbackCurrencyCode: string,
   farms: FarmEntity[],
-  paddocks: PaddockEntity[],
+  locations: LocationEntity[],
 ) {
   return [
     { label: 'Date', value: formatDateForDisplay(record.date, dateFormat) },
@@ -253,7 +557,12 @@ function buildSummaryDetails(
         ]
       : []),
     { label: 'Species', value: record.species },
-    ...getTypeSpecificDetails(record, fallbackCurrencyCode, farms, paddocks),
+    // Headcount stores a signed delta here rather than a quantity, and shows
+    // it as "Change" among its own details instead.
+    ...(record.affectedCount?.trim() && record.type !== 'Headcount'
+      ? [{ label: 'Animals Affected', value: record.affectedCount.trim() }]
+      : []),
+    ...getTypeSpecificDetails(record, fallbackCurrencyCode, farms, locations),
   ].filter((item) => item.value.trim().length > 0);
 }
 
@@ -265,7 +574,7 @@ function getTypeSpecificDetails(
   record: RecordEntry,
   fallbackCurrencyCode: string,
   farms: FarmEntity[],
-  paddocks: PaddockEntity[],
+  locations: LocationEntity[],
 ) {
   const currencyCode = getRecordCurrencyCode(record, fallbackCurrencyCode);
 
@@ -273,9 +582,9 @@ function getTypeSpecificDetails(
     case 'Movement':
       return [
         { label: 'From Farm', value: resolveFarmName(record.fromFarmUid, record.fromFarm, farms) },
-        { label: 'From Paddock', value: resolvePaddockName(record.fromPaddockUid, record.fromPaddock, paddocks) },
+        { label: 'From Location', value: resolveLocationName(record.fromLocationUid, record.fromLocation, locations) },
         { label: 'To Farm', value: resolveFarmName(record.toFarmUid, record.toFarm, farms) },
-        { label: 'To Paddock', value: resolvePaddockName(record.toPaddockUid, record.toPaddock, paddocks) },
+        { label: 'To Location', value: resolveLocationName(record.toLocationUid, record.toLocation, locations) },
       ];
     case 'Vaccination':
     case 'Medication':
@@ -283,12 +592,36 @@ function getTypeSpecificDetails(
         { label: 'Medicine / Vaccine', value: record.medicine ?? '' },
         { label: 'Dose', value: formatDose(record) },
         { label: 'Route', value: record.route ?? '' },
-        { label: 'Withdrawal', value: record.withdrawal ?? '' },
+        { label: 'Meat Withdrawal', value: record.withdrawal ?? '' },
+        { label: 'Milk Withdrawal', value: record.milkWithdrawal ?? '' },
         { label: 'Batch / Lot No.', value: record.batchNumber ?? '' },
         { label: 'Expiry Date', value: record.expiryDate ?? '' },
       ];
     case 'Weight':
-      return [{ label: 'Weight', value: formatWeight(record) }];
+      return [
+        // A collective weighs a sample, so its Weight record is an average and
+        // says so; an individual's is just its weight.
+        { label: record.collectiveUid ? 'Average Weight' : 'Weight', value: formatWeight(record) },
+        { label: 'Sample Size', value: record.sampleSize ?? '' },
+      ];
+    case 'Feed':
+      return [
+        { label: 'Feed Type', value: record.feedType ?? '' },
+        { label: 'Quantity', value: formatFeedQuantity(record) },
+        { label: 'Cost', value: record.cost ? formatCurrencyAmount(record.cost, currencyCode) : '' },
+      ];
+    case 'Egg Production':
+      return [
+        { label: 'Eggs Collected', value: record.eggsCollected ?? '' },
+        { label: 'Damaged / Cracked', value: record.eggsDamaged ?? '' },
+      ];
+    case 'Headcount':
+      return [
+        { label: 'New Headcount', value: record.newCount ?? '' },
+        { label: 'Change', value: formatCountChange(record.affectedCount) },
+      ];
+    case 'Other':
+      return [{ label: 'Cost', value: record.cost ? formatCurrencyAmount(record.cost, currencyCode) : '' }];
     case 'Health Check':
       return [
         { label: 'Health Status', value: record.healthStatus ?? '' },
@@ -296,6 +629,7 @@ function getTypeSpecificDetails(
         { label: 'Vet Seen', value: record.vetSeen ?? '' },
       ];
     case 'Death':
+    case 'Deaths':
       return [
         { label: 'Cause of Death', value: record.causeOfDeath ?? '' },
         { label: 'Disposal Method', value: record.disposalMethod ?? '' },
@@ -344,6 +678,29 @@ function formatDose(record: RecordEntry) {
   return parts.join(' ');
 }
 
+/**
+ * A Headcount's stored delta, shown with its sign so the direction is plain.
+ * A zero delta is a real result, not a missing one — the keeper counted and
+ * the app was already right — so it says so rather than rendering blank.
+ */
+function formatCountChange(affectedCount: string | undefined) {
+  const delta = Number.parseInt(affectedCount?.trim() ?? '', 10);
+
+  if (!Number.isFinite(delta)) {
+    return '';
+  }
+
+  if (delta === 0) {
+    return 'No change';
+  }
+
+  return delta > 0 ? `+${delta}` : String(delta);
+}
+
+function formatFeedQuantity(record: RecordEntry) {
+  return [record.feedQuantity?.trim() ?? '', record.feedUnit?.trim() ?? ''].filter(Boolean).join(' ');
+}
+
 function formatWeight(record: RecordEntry) {
   const parts = [record.weight?.trim() ?? '', record.weightUnit?.trim() ?? ''].filter(Boolean);
   return parts.join(' ');
@@ -362,19 +719,6 @@ function stripRecordType(title: string, type: string) {
   const trimmedTitle = title.trim();
   const prefix = `${type.trim()}:`;
   return trimmedTitle.startsWith(prefix) ? trimmedTitle.slice(prefix.length).trim() : trimmedTitle;
-}
-
-function getToneDotStyle(tone: RecordEntry['speciesTone']) {
-  switch (tone) {
-    case 'sheep':
-      return styles.statusSheep;
-    case 'pig':
-      return styles.statusPig;
-    case 'goat':
-      return styles.statusGoat;
-    default:
-      return styles.statusCow;
-  }
 }
 
 function getSpeciesIconName(species: string, tone: AnimalTone) {
@@ -478,37 +822,6 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
     fontSize: 13,
     fontWeight: '500',
-  },
-  statusPill: {
-    minHeight: 32,
-    borderRadius: 16,
-    backgroundColor: tokens.colors.surfaceMuted,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusCow: {
-    backgroundColor: '#86A43D',
-  },
-  statusSheep: {
-    backgroundColor: '#7290C3',
-  },
-  statusPig: {
-    backgroundColor: '#C06F7E',
-  },
-  statusGoat: {
-    backgroundColor: '#B78E4D',
-  },
-  statusText: {
-    color: tokens.colors.text,
-    fontSize: 12,
-    fontWeight: '600',
   },
   summaryDetails: {
     flexDirection: 'row',
@@ -620,5 +933,129 @@ const styles = StyleSheet.create({
   },
   cardPressed: {
     opacity: 0.92,
+  },
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.12)',
+  },
+  menuCard: {
+    position: 'absolute',
+    minWidth: 176,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    gap: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+  },
+  menuFallback: {
+    top: 120,
+    right: 16,
+  },
+  menuRow: {
+    minHeight: 44,
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  menuRowPressed: {
+    backgroundColor: tokens.colors.surfaceMuted,
+  },
+  menuText: {
+    flex: 1,
+    color: tokens.colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  menuIcon: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuTextDanger: {
+    color: tokens.colors.danger,
+  },
+  centeredModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  deleteConfirmCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  deleteConfirmTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  deleteConfirmText: {
+    marginTop: 8,
+    color: tokens.colors.textSoft,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  impactList: {
+    marginTop: 12,
+    gap: 6,
+  },
+  impactLine: {
+    color: tokens.colors.text,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  deleteCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E0E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelButtonText: {
+    color: '#544F49',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 24,
+    backgroundColor: tokens.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

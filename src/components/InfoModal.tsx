@@ -14,7 +14,7 @@ type InfoModalProps = {
 
 export function InfoModal({ visible, onClose, title, description }: InfoModalProps) {
   return (
-    <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <AnimatedPopupCard visible={visible} style={styles.card} onPress={() => undefined}>
           <BouncyPressable

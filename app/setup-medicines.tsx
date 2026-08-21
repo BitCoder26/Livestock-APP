@@ -1,5 +1,5 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,9 +26,14 @@ const TREATMENT_TYPES: Array<{ label: string; value: TreatmentKind }> = [
 
 export default function SetupMedicinesScreen() {
   const router = useRouter();
+  // Opened from a Vaccination record's "+ Add Vaccine", the form should
+  // already be on the vaccine half of the cabinet rather than making the
+  // keeper set the type they just told us by picking that record type.
+  const { treatmentType: requestedTreatmentType } = useLocalSearchParams<{ treatmentType?: string }>();
+  const defaultTreatmentType: TreatmentKind = requestedTreatmentType === 'vaccine' ? 'vaccine' : 'medicine';
   const { profile } = useAccount();
   const { medicineEntities, addMedicine, updateMedicine, removeMedicine } = useSetup();
-  const [treatmentType, setTreatmentType] = useState<TreatmentKind>('medicine');
+  const [treatmentType, setTreatmentType] = useState<TreatmentKind>(defaultTreatmentType);
   const [name, setName] = useState('');
   const [activeIngredient, setActiveIngredient] = useState('');
   const [defaultDose, setDefaultDose] = useState('');
@@ -57,7 +62,7 @@ export default function SetupMedicinesScreen() {
 
   const resetMedicineForm = () => {
     setEditingMedicineUid(null);
-    setTreatmentType('medicine');
+    setTreatmentType(defaultTreatmentType);
     setName('');
     setActiveIngredient('');
     setDefaultDose('');
@@ -212,34 +217,56 @@ export default function SetupMedicinesScreen() {
             <View style={styles.inlineGrow}>
               <DesignField value={defaultDose} label="Default dose" onChangeText={setDefaultDose} keyboardType="decimal-pad" />
             </View>
-            <View style={styles.inlineUnit}>
+            <View style={styles.inlineGrow}>
               <SelectionField label="Dose unit" value={doseUnit} emptyLabel="Select unit" onPress={() => setActivePicker('doseUnit')} />
             </View>
           </View>
           <SelectionField label="Default route" value={defaultRoute} emptyLabel="Select route" onPress={() => setActivePicker('route')} />
-          <DesignField value={meatWithdrawalPeriod} label="Meat withdrawal period" onChangeText={setMeatWithdrawalPeriod} />
-          <DesignField value={milkWithdrawalPeriod} label="Milk withdrawal period" onChangeText={setMilkWithdrawalPeriod} />
+          <View style={styles.inlineRow}>
+            <View style={styles.inlineGrow}>
+              <DesignField
+                value={meatWithdrawalPeriod}
+                label="Meat withdrawal (days)"
+                keyboardType="number-pad"
+                onChangeText={setMeatWithdrawalPeriod}
+              />
+            </View>
+            <View style={styles.inlineGrow}>
+              <DesignField
+                value={milkWithdrawalPeriod}
+                label="Milk withdrawal (days)"
+                keyboardType="number-pad"
+                onChangeText={setMilkWithdrawalPeriod}
+              />
+            </View>
+          </View>
           <DesignField value={manufacturer} label="Manufacturer" onChangeText={setManufacturer} />
           <DesignField value={batchNumber} label="Batch / Lot number" onChangeText={setBatchNumber} />
           <DesignField value={supplier} label="Supplier" onChangeText={setSupplier} />
-          <SelectionField
-            label="Expiry date"
-            value={formatDateForDisplay(expiryDate, profile.dateFormat)}
-            emptyLabel="Select expiry date"
-            onPress={() => {
-              setDatePickerTarget('expiry');
-              setShowDatePicker(true);
-            }}
-          />
-          <SelectionField
-            label="Purchase date"
-            value={formatDateForDisplay(purchaseDate, profile.dateFormat)}
-            emptyLabel="Select purchase date"
-            onPress={() => {
-              setDatePickerTarget('purchase');
-              setShowDatePicker(true);
-            }}
-          />
+          <View style={styles.inlineRow}>
+            <View style={styles.inlineGrow}>
+              <SelectionField
+                label="Expiry date"
+                value={formatDateForDisplay(expiryDate, profile.dateFormat)}
+                emptyLabel="Select date"
+                onPress={() => {
+                  setDatePickerTarget('expiry');
+                  setShowDatePicker(true);
+                }}
+              />
+            </View>
+            <View style={styles.inlineGrow}>
+              <SelectionField
+                label="Purchase date"
+                value={formatDateForDisplay(purchaseDate, profile.dateFormat)}
+                emptyLabel="Select date"
+                onPress={() => {
+                  setDatePickerTarget('purchase');
+                  setShowDatePicker(true);
+                }}
+              />
+            </View>
+          </View>
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
           <View style={styles.editorActionsRow}>
@@ -337,7 +364,7 @@ export default function SetupMedicinesScreen() {
         </Pressable>
       </Modal>
 
-      <Modal transparent animationType="fade" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
+      <Modal transparent animationType="none" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
           <AnimatedPopupCard visible={activePicker !== null} style={styles.selectionCard} onPress={() => {}}>
             <Text style={styles.selectionTitle}>{activePicker === 'doseUnit' ? 'Select quantity' : 'Select route'}</Text>
@@ -356,7 +383,7 @@ export default function SetupMedicinesScreen() {
                       style={({ pressed }) => [styles.selectionRow, isSelected && styles.selectionRowActive, pressed && styles.pressed]}
                     >
                       <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{option}</Text>
-                      {isSelected ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                      {isSelected ? <AppIcon name="check" size={16} color="#fff" /> : null}
                     </Pressable>
                   );
                 })}
@@ -375,7 +402,7 @@ export default function SetupMedicinesScreen() {
         />
       ) : null}
 
-      <Modal transparent animationType="fade" visible={showDatePicker && Platform.OS === 'ios'} onRequestClose={() => setShowDatePicker(false)}>
+      <Modal transparent animationType="none" visible={showDatePicker && Platform.OS === 'ios'} onRequestClose={() => setShowDatePicker(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setShowDatePicker(false)}>
           <AnimatedPopupCard visible={showDatePicker && Platform.OS === 'ios'} style={styles.modalCard} onPress={() => undefined}>
             <View style={styles.modalHeader}>
@@ -445,9 +472,9 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120, gap: 16 },
   typeRow: { flexDirection: 'row', gap: 10 },
   typeChip: { borderRadius: 999, paddingHorizontal: 18, paddingVertical: 10, backgroundColor: '#FFFFFF' },
-  typeChipActive: { backgroundColor: '#FCE5E4' },
+  typeChipActive: { backgroundColor: tokens.colors.accent },
   typeChipText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
-  typeChipTextActive: { color: '#74423F' },
+  typeChipTextActive: { color: '#fff' },
   emptyContent: { flexGrow: 1, justifyContent: 'center' },
   editorCard: { borderRadius: 24, backgroundColor: '#F5F3F7', padding: 16, gap: 14 },
   block: { gap: 8 },
@@ -465,7 +492,6 @@ const styles = StyleSheet.create({
   placeholderValue: { color: '#7a7a7a' },
   inlineRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-end' },
   inlineGrow: { flex: 1 },
-  inlineUnit: { width: 140 },
   addButton: {
     marginTop: 4,
     minHeight: 50,
@@ -532,7 +558,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F6F9',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    color: '#74423F',
+    color: '#fff',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -636,8 +662,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  selectionRowActive: { backgroundColor: '#FCE5E4' },
+  selectionRowActive: { backgroundColor: tokens.colors.accent },
   selectionText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
-  selectionTextActive: { color: '#74423F' },
+  selectionTextActive: { color: '#fff' },
   pressed: { opacity: 0.92 },
 });

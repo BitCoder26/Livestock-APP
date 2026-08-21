@@ -3,16 +3,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppIcon } from '../src/components/AppIcon';
-import { BouncyPressable } from '../src/components/BouncyPressable';
+import { AppIcon, type AppIconName } from '../src/components/AppIcon';
+import { SPECIES_OPTIONS } from '../src/constants/records';
+import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useRecords } from '../src/context/RecordsContext';
 import { useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
-import { resolveAnimalFarmName, resolveAnimalPaddockName } from '../src/utils/recordLocations';
-import { motionDuration } from '../src/utils/motion';
+import { resolveAnimalFarmName, resolveAnimalLocationName } from '../src/utils/recordLocations';
+import { SHEET_ENTRANCE_DURATION } from '../src/utils/motion';
 
-type SelectionMode = 'animals' | 'groups';
+type SelectionMode = 'animals' | 'labels';
+
+// Same lookup the herd and flock picker uses, so an animal and the label it
+// carries are drawn with the same badge in both pickers.
+const SPECIES_ICONS = new Map<string, AppIconName>(SPECIES_OPTIONS.map((item) => [item.label, item.icon]));
 
 export default function SelectRecordAnimalScreen() {
   const router = useRouter();
@@ -23,7 +28,7 @@ export default function SelectRecordAnimalScreen() {
     source,
     recordType,
     fromFarm,
-    fromPaddock,
+    fromLocation,
     recordDate,
   } = useLocalSearchParams<{
     selectedAnimalIds?: string;
@@ -32,7 +37,7 @@ export default function SelectRecordAnimalScreen() {
     source?: string;
     recordType?: string;
     fromFarm?: string;
-    fromPaddock?: string;
+    fromLocation?: string;
     recordDate?: string;
   }>();
   const { animals } = useAnimals();
@@ -41,32 +46,32 @@ export default function SelectRecordAnimalScreen() {
   // so selecting more than one animal would silently give them all the same
   // weight. Restrict it to a single animal.
   const isSingleAnimalRecord = recordType === 'Weight';
-  const { groups, farmEntities, paddockEntities } = useSetup();
+  const { labels, farmEntities, locationEntities } = useSetup();
   const initialIds = useMemo(
     () => (selectedAnimalIds ? selectedAnimalIds.split(',').filter(Boolean) : []),
     [selectedAnimalIds],
   );
   const [draftIds, setDraftIds] = useState<string[]>(initialIds);
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('animals');
-  const [focusedGroup, setFocusedGroup] = useState<string | null>(null);
+  const [focusedLabel, setFocusedLabel] = useState<string | null>(null);
   const entrance = useRef(new Animated.Value(0)).current;
   const isClosing = useRef(false);
-  const availableGroups = useMemo(
+  const availableLabels = useMemo(
     () =>
       Array.from(
         new Set(
-          [...groups, ...animals.map((animal) => animal.group)]
-            .map((group) => group.trim())
+          [...labels, ...animals.flatMap((animal) => animal.labels)]
+            .map((label) => label.trim())
             .filter(Boolean),
         ),
       ),
-    [animals, groups],
+    [animals, labels],
   );
 
   useEffect(() => {
     Animated.timing(entrance, {
       toValue: 1,
-      duration: motionDuration(380),
+      duration: SHEET_ENTRANCE_DURATION,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
@@ -75,22 +80,6 @@ export default function SelectRecordAnimalScreen() {
   useEffect(() => {
     setDraftIds(initialIds);
   }, [initialIds]);
-
-  const handleAddAnimal = () => {
-    router.push({
-      pathname: '/add-animal',
-      params: {
-        returnToRecordSelector: '1',
-        recordSelectorSelectedAnimalIds: draftIds.join(','),
-        ...(recordId ? { recordSelectorRecordId: recordId } : {}),
-        ...(draftRecord ? { recordSelectorDraftRecord: draftRecord } : {}),
-        ...(source ? { recordSelectorSource: source } : {}),
-        ...(recordType ? { recordSelectorRecordType: recordType } : {}),
-        ...(fromFarm ? { recordSelectorFromFarm: fromFarm } : {}),
-        ...(fromPaddock ? { recordSelectorFromPaddock: fromPaddock } : {}),
-      },
-    });
-  };
 
   const toggleAnimal = (animalUid: string) => {
     if (isSingleAnimalRecord) {
@@ -105,16 +94,18 @@ export default function SelectRecordAnimalScreen() {
     );
   };
 
-  const getAnimalsInGroup = (group: string) =>
-    animals.filter((animal) => animal.group.trim().toLowerCase() === group.toLowerCase());
+  const getAnimalsWithLabel = (label: string) =>
+    animals.filter((animal) =>
+      animal.labels.some((entry) => entry.trim().toLowerCase() === label.toLowerCase()),
+    );
 
-  const visibleAnimals = focusedGroup ? getAnimalsInGroup(focusedGroup) : animals;
+  const visibleAnimals = focusedLabel ? getAnimalsWithLabel(focusedLabel) : animals;
 
-  const getGroupLocations = (group: string) =>
+  const getLabelLocations = (label: string) =>
     Array.from(
       new Set(
-        getAnimalsInGroup(group).map(
-          (animal) => `${animal.farm.trim().toLowerCase()}|${animal.paddock.trim().toLowerCase()}`,
+        getAnimalsWithLabel(label).map(
+          (animal) => `${animal.farm.trim().toLowerCase()}|${animal.location.trim().toLowerCase()}`,
         ),
       ),
     );
@@ -138,7 +129,7 @@ export default function SelectRecordAnimalScreen() {
 
     return (
       equalsIgnoreCase(locationAsOf.farm, fromFarm ?? '') &&
-      (!fromPaddock?.trim() || !locationAsOf.paddock.trim() || equalsIgnoreCase(locationAsOf.paddock, fromPaddock))
+      (!fromLocation?.trim() || !locationAsOf.location.trim() || equalsIgnoreCase(locationAsOf.location, fromLocation))
     );
   };
   const isAnimalEligibleForRecord = (animal: (typeof animals)[number]) => {
@@ -161,40 +152,40 @@ export default function SelectRecordAnimalScreen() {
     return true;
   };
 
-  const toggleGroup = (group: string) => {
-    const groupAnimalIds = getAnimalsInGroup(group).map((animal) => animal.uid);
+  const toggleLabel = (label: string) => {
+    const labelAnimalIds = getAnimalsWithLabel(label).map((animal) => animal.uid);
 
-    if (groupAnimalIds.length === 0) {
+    if (labelAnimalIds.length === 0) {
       return;
     }
 
-    const hasAnimalsOutsideFromLocation = groupAnimalIds.some((id) => {
+    const hasAnimalsOutsideFromLocation = labelAnimalIds.some((id) => {
       const animal = animals.find((entry) => entry.uid === id);
       return animal ? !isAnimalAtFromLocation(animal) : false;
     });
-    const hasIneligibleAnimals = groupAnimalIds.some((id) => {
+    const hasIneligibleAnimals = labelAnimalIds.some((id) => {
       const animal = animals.find((entry) => entry.uid === id);
       return animal ? !isAnimalEligibleForRecord(animal) : false;
     });
 
     if (
       hasIneligibleAnimals ||
-      (recordType === 'Movement' && (getGroupLocations(group).length > 1 || hasAnimalsOutsideFromLocation))
+      (recordType === 'Movement' && (getLabelLocations(label).length > 1 || hasAnimalsOutsideFromLocation))
     ) {
-      setFocusedGroup(group);
+      setFocusedLabel(label);
       setSelectionMode('animals');
       return;
     }
 
     setDraftIds((current) => {
-      const allSelected = groupAnimalIds.every((id) => current.includes(id));
+      const allSelected = labelAnimalIds.every((id) => current.includes(id));
 
       if (allSelected) {
-        const groupIds = new Set(groupAnimalIds);
-        return current.filter((id) => !groupIds.has(id));
+        const labelIds = new Set(labelAnimalIds);
+        return current.filter((id) => !labelIds.has(id));
       }
 
-      return Array.from(new Set([...current, ...groupAnimalIds]));
+      return Array.from(new Set([...current, ...labelAnimalIds]));
     });
   };
 
@@ -268,7 +259,7 @@ export default function SelectRecordAnimalScreen() {
 
             {isSingleAnimalRecord ? null : (
               <View style={styles.modeToggle}>
-                {(['animals', 'groups'] as const).map((mode) => {
+                {(['animals', 'labels'] as const).map((mode) => {
                   const active = selectionMode === mode;
 
                   return (
@@ -278,10 +269,10 @@ export default function SelectRecordAnimalScreen() {
                       accessibilityState={{ selected: active }}
                       onPress={() => {
                         // Manually switching tabs is a deliberate "start
-                        // fresh" action — don't leave a stale group focus
-                        // (set automatically when a problematic group was
+                        // fresh" action — don't leave a stale label focus
+                        // (set automatically when a problematic label was
                         // tapped) silently filtering the Animals tab.
-                        setFocusedGroup(null);
+                        setFocusedLabel(null);
                         setSelectionMode(mode);
                       }}
                       style={({ pressed }) => [
@@ -291,7 +282,7 @@ export default function SelectRecordAnimalScreen() {
                       ]}
                     >
                       <Text style={[styles.modeButtonText, active && styles.modeButtonTextActive]}>
-                        {mode === 'animals' ? 'Animals' : 'Groups'}
+                        {mode === 'animals' ? 'Animals' : 'Labels'}
                       </Text>
                     </Pressable>
                   );
@@ -299,22 +290,10 @@ export default function SelectRecordAnimalScreen() {
               </View>
             )}
 
-            {recordType === 'Purchase' && selectionMode === 'animals' ? (
-              <BouncyPressable
-                accessibilityLabel="Add new purchased animal"
-                accessibilityRole="button"
-                onPress={handleAddAnimal}
-                style={({ pressed }) => [styles.addAnimalAction, pressed && styles.pressed]}
-              >
-                <AppIcon name="plus" size={17} color="#7E4542" />
-                <Text style={styles.addAnimalActionText}>Add new animal</Text>
-              </BouncyPressable>
-            ) : null}
-
-            {focusedGroup && selectionMode === 'animals' ? (
-              <View style={styles.focusedGroupRow}>
-                <Text style={styles.focusedGroupText}>{`Animals in ${focusedGroup}`}</Text>
-                <Pressable accessibilityRole="button" onPress={() => setFocusedGroup(null)}>
+            {focusedLabel && selectionMode === 'animals' ? (
+              <View style={styles.focusedLabelRow}>
+                <Text style={styles.focusedLabelText}>{`Animals in ${focusedLabel}`}</Text>
+                <Pressable accessibilityRole="button" onPress={() => setFocusedLabel(null)}>
                   <Text style={styles.showAllText}>Show all</Text>
                 </Pressable>
               </View>
@@ -329,21 +308,13 @@ export default function SelectRecordAnimalScreen() {
                 <View style={styles.emptyState}>
                   <AppIcon name="animals" size={86} color="#E5E0E7" opacity={1} />
                   <Text style={styles.emptyTitle}>No animals available</Text>
-                  <BouncyPressable
-                    accessibilityLabel="Add animal"
-                    accessibilityRole="button"
-                    onPress={handleAddAnimal}
-                    style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-                  >
-                    <AppIcon name="plus" size={16} color="#fff" />
-                    <Text style={styles.addButtonText}>Add Animal</Text>
-                  </BouncyPressable>
+                  <Text style={styles.emptyText}>Close this and tap + Add under the animal field.</Text>
                 </View>
-              ) : selectionMode === 'groups' && availableGroups.length === 0 ? (
+              ) : selectionMode === 'labels' && availableLabels.length === 0 ? (
                 <View style={styles.emptyState}>
                   <AppIcon name="group" size={72} color="#E5E0E7" opacity={1} />
-                  <Text style={styles.emptyTitle}>No groups available</Text>
-                  <Text style={styles.emptyText}>Assign animals to a group from their animal profile.</Text>
+                  <Text style={styles.emptyTitle}>No labels available</Text>
+                  <Text style={styles.emptyText}>Add labels to animals from their animal profile.</Text>
                 </View>
               ) : (
                 <>
@@ -369,15 +340,30 @@ export default function SelectRecordAnimalScreen() {
                               pressed && styles.pressed,
                             ]}
                           >
+                            <View
+                              style={[
+                                styles.speciesIconBadge,
+                                { backgroundColor: getSpeciesThemeByLabel(animal.species).chipBackground },
+                              ]}
+                            >
+                              <AppIcon
+                                name={SPECIES_ICONS.get(animal.species) ?? 'animals'}
+                                size={20}
+                                color={getSpeciesThemeByLabel(animal.species).icon}
+                              />
+                            </View>
                             <View style={styles.cardCopy}>
+                              {/* Tag first — it is what identifies the animal
+                                  on paper — with the name in brackets only
+                                  where one was given. The species is already
+                                  said by the badge to the left. */}
                               <Text style={styles.cardTitle}>
-                                {animal.id} • {animal.species}
+                                {animal.name.trim() ? `${animal.id} (${animal.name.trim()})` : animal.id}
                               </Text>
-                              <Text style={styles.cardMeta}>{animal.name.trim() || 'Unnamed'}</Text>
-                              <Text style={[styles.locationMeta, !isAtFromLocation && styles.locationMismatch]}>
+                              <Text style={[styles.cardMeta, !isAtFromLocation && styles.locationMismatch]}>
                                 {formatAnimalLocation(
                                   resolveAnimalFarmName(animal, farmEntities),
-                                  resolveAnimalPaddockName(animal, paddockEntities),
+                                  resolveAnimalLocationName(animal, locationEntities),
                                 )}
                                 {!isAtFromLocation ? ' • Not at From location' : ''}
                                 {!isEligible ? ` • ${animal.status}` : ''}
@@ -387,41 +373,44 @@ export default function SelectRecordAnimalScreen() {
                           </Pressable>
                         );
                       })
-                    : availableGroups.map((group) => {
-                        const groupAnimals = getAnimalsInGroup(group);
-                        const selectedCount = groupAnimals.filter((animal) => draftIds.includes(animal.uid)).length;
-                        const allSelected = groupAnimals.length > 0 && selectedCount === groupAnimals.length;
-                        const hasMixedLocations = recordType === 'Movement' && getGroupLocations(group).length > 1;
-                        const hasAnimalsOutsideFromLocation = groupAnimals.some((animal) => !isAnimalAtFromLocation(animal));
-                        const hasIneligibleAnimals = groupAnimals.some((animal) => !isAnimalEligibleForRecord(animal));
+                    : availableLabels.map((label) => {
+                        const labelAnimals = getAnimalsWithLabel(label);
+                        const selectedCount = labelAnimals.filter((animal) => draftIds.includes(animal.uid)).length;
+                        const allSelected = labelAnimals.length > 0 && selectedCount === labelAnimals.length;
+                        const hasMixedLocations = recordType === 'Movement' && getLabelLocations(label).length > 1;
+                        const hasAnimalsOutsideFromLocation = labelAnimals.some((animal) => !isAnimalAtFromLocation(animal));
+                        const hasIneligibleAnimals = labelAnimals.some((animal) => !isAnimalEligibleForRecord(animal));
 
                         return (
                           <Pressable
-                            key={group}
-                            accessibilityLabel={`Select group ${group}`}
+                            key={label}
+                            accessibilityLabel={`Select label ${label}`}
                             accessibilityRole="checkbox"
-                            accessibilityState={{ checked: allSelected, disabled: groupAnimals.length === 0 }}
-                            disabled={groupAnimals.length === 0}
-                            onPress={() => toggleGroup(group)}
+                            accessibilityState={{ checked: allSelected, disabled: labelAnimals.length === 0 }}
+                            disabled={labelAnimals.length === 0}
+                            onPress={() => toggleLabel(label)}
                             style={({ pressed }) => [
                               styles.card,
                               allSelected && styles.cardActive,
-                              groupAnimals.length === 0 && styles.cardDisabled,
+                              labelAnimals.length === 0 && styles.cardDisabled,
                               pressed && styles.pressed,
                             ]}
                           >
+                            <View style={[styles.speciesIconBadge, styles.labelIconBadge]}>
+                              <AppIcon name="group" size={20} color="#7E4542" />
+                            </View>
                             <View style={styles.cardCopy}>
-                              <Text style={styles.cardTitle}>{group}</Text>
+                              <Text style={styles.cardTitle}>{label}</Text>
                               <Text style={styles.cardMeta}>
-                                {groupAnimals.length === 0
+                                {labelAnimals.length === 0
                                   ? 'No animals assigned'
                                   : hasIneligibleAnimals
-                                    ? `${groupAnimals.length} animals • Some statuses require individual selection`
+                                    ? `${labelAnimals.length} animals • Some statuses require individual selection`
                                   : hasMixedLocations
-                                    ? `${groupAnimals.length} animals • Mixed locations — choose individually`
+                                    ? `${labelAnimals.length} animals • Mixed locations — choose individually`
                                     : hasAnimalsOutsideFromLocation
-                                      ? `${groupAnimals.length} ${groupAnimals.length === 1 ? 'animal' : 'animals'} • Not at From location`
-                                    : `${groupAnimals.length} ${groupAnimals.length === 1 ? 'animal' : 'animals'}${
+                                      ? `${labelAnimals.length} ${labelAnimals.length === 1 ? 'animal' : 'animals'} • Not at From location`
+                                    : `${labelAnimals.length} ${labelAnimals.length === 1 ? 'animal' : 'animals'}${
                                       selectedCount > 0 && !allSelected ? ` • ${selectedCount} selected` : ''
                                     }`}
                               </Text>
@@ -523,7 +512,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modeButtonActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   modeButtonText: {
     color: '#777178',
@@ -531,26 +520,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   modeButtonTextActive: {
-    color: '#7E4542',
+    color: '#fff',
     fontWeight: '700',
   },
-  addAnimalAction: {
-    minHeight: 48,
-    borderRadius: 24,
-    backgroundColor: '#FCE5E4',
-    paddingHorizontal: 18,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  addAnimalActionText: {
-    color: '#7E4542',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  focusedGroupRow: {
+  focusedLabelRow: {
     minHeight: 36,
     paddingHorizontal: 8,
     marginBottom: 8,
@@ -559,7 +532,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  focusedGroupText: {
+  focusedLabelText: {
     flex: 1,
     color: tokens.colors.text,
     fontSize: 13,
@@ -590,36 +563,20 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
   },
-  addButton: {
-    minHeight: 52,
-    borderRadius: 26,
-    backgroundColor: tokens.colors.accent,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
   card: {
-    minHeight: 72,
+    minHeight: 62,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    backgroundColor: tokens.colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    // Border is always present, just invisible (matches the card's own
-    // background) until active — keeps the card the same size either way
-    // instead of growing and shifting the rest of the layout on selection.
+    // Always bordered — subtle at rest, accent when selected — so the card
+    // never changes size on selection and shifts the rest of the list.
     borderWidth: 1,
-    borderColor: '#F5F3F7',
+    borderColor: tokens.colors.border,
   },
   cardActive: {
     backgroundColor: '#FCE5E4',
@@ -630,22 +587,33 @@ const styles = StyleSheet.create({
   },
   cardCopy: {
     flex: 1,
-    gap: 5,
+    gap: 2,
   },
   cardTitle: {
     color: tokens.colors.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
   cardMeta: {
-    color: '#5E5E5E',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  locationMeta: {
-    color: '#777178',
+    color: tokens.colors.textSoft,
     fontSize: 12,
     fontWeight: '500',
+  },
+  // Matches the herd and flock picker's badge: a rounded square in the
+  // species colour, not a circle.
+  speciesIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    overflow: 'hidden',
+  },
+  // A label has no species of its own — it can span several — so it takes the
+  // neutral accent tint rather than any one species' colour.
+  labelIconBadge: {
+    backgroundColor: '#FCE5E4',
   },
   locationMismatch: {
     color: '#B94F4A',
@@ -659,6 +627,6 @@ function equalsIgnoreCase(left: string, right: string) {
   return left.trim().toLowerCase() === right.trim().toLowerCase();
 }
 
-function formatAnimalLocation(farm: string, paddock: string) {
-  return [farm.trim(), paddock.trim()].filter(Boolean).join(' • ') || 'Location not set';
+function formatAnimalLocation(farm: string, location: string) {
+  return [farm.trim(), location.trim()].filter(Boolean).join(' • ') || 'Location not set';
 }

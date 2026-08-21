@@ -9,16 +9,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../src/components/AppIcon';
 import { AppTopBar } from '../../src/components/AppTopBar';
+import { FabSpeedDial } from '../../src/components/FabSpeedDial';
+import { PlanLimitGate } from '../../src/components/PlanLimitGate';
 import { AnimatedPopupCard } from '../../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../../src/components/BouncyPressable';
 import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { DesignField } from '../../src/components/DesignField';
-import { RECORD_TYPES, SPECIES_OPTIONS } from '../../src/constants/records';
+import { SPECIES_OPTIONS } from '../../src/constants/records';
+import { deriveRecordTypeOptions } from '../../src/utils/recordTypeOptions';
 import { getSpeciesThemeByLabel } from '../../src/constants/speciesTheme';
+import { FREE_EXPORT_LIMIT } from '../../src/constants/subscription';
 import { useAccount } from '../../src/context/AccountContext';
 import { useAnimals } from '../../src/context/AnimalsContext';
+import { useCollectives } from '../../src/context/CollectivesContext';
 import { useRecords } from '../../src/context/RecordsContext';
-import { type FarmEntity, type GroupEntity, type PaddockEntity, useSetup } from '../../src/context/SetupContext';
+import { useSubscription } from '../../src/context/SubscriptionContext';
+import {
+  collectiveTermForSpecies,
+  describeCollectiveCount,
+  getCollectiveCount,
+  type Collective,
+  type CollectiveStatus,
+} from '../../src/entities/collective';
+import { type FarmEntity, type LabelEntity, type LocationEntity, useSetup } from '../../src/context/SetupContext';
 import type { AccountProfile } from '../../src/entities/account';
 import type { Animal, AnimalStatus } from '../../src/entities/animal';
 import type { RecordEntry } from '../../src/entities/record';
@@ -30,24 +43,33 @@ import { findRecordAnimals, resolveRecordDisplayNames, resolveRecordDisplayTags 
 import {
   getRecordDisplayTitle,
   resolveAnimalFarmName,
-  resolveAnimalGroupName,
-  resolveAnimalPaddockName,
+  resolveAnimalLabelNames,
+  resolveAnimalLocationName,
   resolveFarmName,
-  resolvePaddockName,
+  resolveLocationName,
 } from '../../src/utils/recordLocations';
 
-type ExportTarget = 'animals' | 'records';
+type ExportTarget = 'animals' | 'records' | 'collectives';
 type ExportFormat = 'pdf' | 'spreadsheet';
 type DateFieldKey = 'startDate' | 'endDate';
-type MultiSelectKey = 'statuses' | 'species' | 'recordTypes' | 'farms' | 'paddocks' | 'groups';
+type MultiSelectKey = 'statuses' | 'species' | 'recordTypes' | 'farms' | 'locations' | 'labels';
 
 type AnimalExportFilters = {
   searchQuery: string;
   statuses: string[];
   species: string[];
   farms: string[];
-  paddocks: string[];
-  groups: string[];
+  locations: string[];
+  labels: string[];
+};
+
+type CollectiveExportFilters = {
+  searchQuery: string;
+  statuses: string[];
+  species: string[];
+  farms: string[];
+  locations: string[];
+  labels: string[];
 };
 
 type RecordExportFilters = {
@@ -57,18 +79,28 @@ type RecordExportFilters = {
   species: string[];
   recordTypes: string[];
   farms: string[];
-  paddocks: string[];
+  locations: string[];
 };
 
 const STATUS_OPTIONS: AnimalStatus[] = ['Active', 'Sold', 'Deceased'];
+const COLLECTIVE_STATUS_OPTIONS: CollectiveStatus[] = ['Active', 'Inactive'];
 
 const DEFAULT_ANIMAL_FILTERS: AnimalExportFilters = {
   searchQuery: '',
   statuses: [],
   species: [],
   farms: [],
-  paddocks: [],
-  groups: [],
+  locations: [],
+  labels: [],
+};
+
+const DEFAULT_COLLECTIVE_FILTERS: CollectiveExportFilters = {
+  searchQuery: '',
+  statuses: [],
+  species: [],
+  farms: [],
+  locations: [],
+  labels: [],
 };
 
 const DEFAULT_RECORD_FILTERS: RecordExportFilters = {
@@ -78,7 +110,7 @@ const DEFAULT_RECORD_FILTERS: RecordExportFilters = {
   species: [],
   recordTypes: [],
   farms: [],
-  paddocks: [],
+  locations: [],
 };
 
 export default function ExportScreen() {
@@ -87,14 +119,19 @@ export default function ExportScreen() {
   const { profile, updateField } = useAccount();
   const { animals } = useAnimals();
   const { records } = useRecords();
-  const { farms, farmEntities, paddocks, paddockEntities, groups, groupEntities } = useSetup();
+  const { collectives } = useCollectives();
+  const { farms, farmEntities, locations, locationEntities, labels, labelEntities } = useSetup();
+  const { isPro } = useSubscription();
   const [target, setTarget] = useState<ExportTarget>('records');
   const [animalFilters, setAnimalFilters] = useState<AnimalExportFilters>(DEFAULT_ANIMAL_FILTERS);
   const [recordFilters, setRecordFilters] = useState<RecordExportFilters>(DEFAULT_RECORD_FILTERS);
+  const [collectiveFilters, setCollectiveFilters] =
+    useState<CollectiveExportFilters>(DEFAULT_COLLECTIVE_FILTERS);
   const [activeDateField, setActiveDateField] = useState<DateFieldKey | null>(null);
   const [activeMultiSelect, setActiveMultiSelect] = useState<MultiSelectKey | null>(null);
   const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(null);
   const [showMoreAnimalFilters, setShowMoreAnimalFilters] = useState(false);
+  const [showMoreCollectiveFilters, setShowMoreCollectiveFilters] = useState(false);
   const [showMoreRecordFilters, setShowMoreRecordFilters] = useState(false);
   const hasAutoPreviewed = useRef(false);
 
@@ -103,15 +140,26 @@ export default function ExportScreen() {
     [animals, records],
   );
   const availableFarms = useMemo(() => uniqueValues([...farms, ...animals.map((animal) => animal.farm)]), [animals, farms]);
-  const availablePaddocks = useMemo(
-    () => uniqueValues([...paddocks, ...animals.map((animal) => animal.paddock)]),
-    [animals, paddocks],
+  const availableLocations = useMemo(
+    () => uniqueValues([...locations, ...animals.map((animal) => animal.location)]),
+    [animals, locations],
   );
-  const availableGroups = useMemo(() => uniqueValues([...groups, ...animals.map((animal) => animal.group)]), [animals, groups]);
+  const availableLabels = useMemo(
+    () => uniqueValues([...labels, ...animals.flatMap((animal) => animal.labels)]),
+    [animals, labels],
+  );
+  const recordTypeOptions = useMemo(
+    () => deriveRecordTypeOptions(records, recordFilters.recordTypes),
+    [recordFilters.recordTypes, records],
+  );
 
   const filteredAnimals = useMemo(
     () => animals.filter((animal) => animalMatchesFilters(animal, animalFilters)),
     [animalFilters, animals],
+  );
+  const filteredCollectives = useMemo(
+    () => collectives.filter((collective) => collectiveMatchesFilters(collective, collectiveFilters)),
+    [collectiveFilters, collectives],
   );
   const filteredRecords = useMemo(() => {
     const lookup = buildAnimalLookup(animals);
@@ -126,33 +174,45 @@ export default function ExportScreen() {
   const multiSelectOptions = useMemo(() => {
     switch (activeMultiSelect) {
       case 'statuses':
-        return [...STATUS_OPTIONS];
+        return target === 'collectives' ? [...COLLECTIVE_STATUS_OPTIONS] : [...STATUS_OPTIONS];
       case 'species':
         return availableSpecies;
       case 'recordTypes':
-        return [...RECORD_TYPES];
+        return recordTypeOptions;
       case 'farms':
         return availableFarms;
-      case 'paddocks':
-        return availablePaddocks;
-      case 'groups':
-        return availableGroups;
+      case 'locations':
+        return availableLocations;
+      case 'labels':
+        return availableLabels;
       default:
         return [];
     }
-  }, [activeMultiSelect, availableFarms, availableGroups, availablePaddocks, availableSpecies]);
+  }, [activeMultiSelect, availableFarms, availableLabels, availableLocations, availableSpecies, target]);
 
-  const currentCount = target === 'animals' ? filteredAnimals.length : filteredRecords.length;
+  const currentCount =
+    target === 'animals'
+      ? filteredAnimals.length
+      : target === 'collectives'
+        ? filteredCollectives.length
+        : filteredRecords.length;
+  const currentNoun =
+    target === 'animals' ? 'animals' : target === 'collectives' ? 'herds or flocks' : 'records';
+  const exportsUsed = profile.exportsUsed ?? 0;
   const currentSummary =
     target === 'animals'
       ? getAnimalFilterSummary(animalFilters)
-      : getRecordFilterSummary(recordFilters, profile.dateFormat);
+      : target === 'collectives'
+        ? getCollectiveFilterSummary(collectiveFilters)
+        : getRecordFilterSummary(recordFilters, profile.dateFormat);
 
   useEffect(() => {
     if (previewTarget === 'animals') {
       setTarget('animals');
     } else if (previewTarget === 'records') {
       setTarget('records');
+    } else if (previewTarget === 'collectives') {
+      setTarget('collectives');
     }
   }, [previewTarget]);
 
@@ -167,8 +227,10 @@ export default function ExportScreen() {
       try {
         const uri =
           previewTarget === 'animals'
-            ? await createAnimalsPdf(filteredAnimals, animalFilters, profile, farmEntities, paddockEntities, groupEntities)
-            : await createRecordsPdf(filteredRecords, animals, recordFilters, profile, farmEntities, paddockEntities);
+            ? await createAnimalsPdf(filteredAnimals, animalFilters, profile, farmEntities, locationEntities, labelEntities)
+            : previewTarget === 'collectives'
+              ? await createCollectivesPdf(filteredCollectives, collectiveFilters, profile)
+              : await createRecordsPdf(filteredRecords, animals, recordFilters, profile, farmEntities, locationEntities);
 
         await Linking.openURL(uri);
       } catch (error) {
@@ -184,8 +246,8 @@ export default function ExportScreen() {
     farmEntities,
     filteredAnimals,
     filteredRecords,
-    groupEntities,
-    paddockEntities,
+    labelEntities,
+    locationEntities,
     previewPdf,
     previewTarget,
     profile.dateFormat,
@@ -193,6 +255,10 @@ export default function ExportScreen() {
   ]);
 
   async function handleExport(format: ExportFormat) {
+    if (exportingFormat) {
+      return;
+    }
+
     const sharingAvailable = await Sharing.isAvailableAsync();
 
     if (!sharingAvailable) {
@@ -201,7 +267,17 @@ export default function ExportScreen() {
     }
 
     if (currentCount === 0) {
-      Alert.alert('Nothing to export', `There are no ${target === 'animals' ? 'animals' : 'records'} matching these filters yet.`);
+      Alert.alert('Nothing to export', `There are no ${currentNoun} matching these filters yet.`);
+      return;
+    }
+
+    // Basic's second cap. Checked before any work is done so the paywall is
+    // what the user meets, not a share sheet they are then charged for.
+    if (!isPro && exportsUsed >= FREE_EXPORT_LIMIT) {
+      router.push({
+        pathname: '/upgrade-to-pro',
+        params: { limitType: 'exports' },
+      });
       return;
     }
 
@@ -210,22 +286,35 @@ export default function ExportScreen() {
     try {
       if (target === 'animals') {
         if (format === 'pdf') {
-          const uri = await createAnimalsPdf(filteredAnimals, animalFilters, profile, farmEntities, paddockEntities, groupEntities);
+          const uri = await createAnimalsPdf(filteredAnimals, animalFilters, profile, farmEntities, locationEntities, labelEntities);
           await sharePdf(uri);
         } else {
-          await exportAnimalsCsv(filteredAnimals, profile.dateFormat, farmEntities, paddockEntities, groupEntities);
+          await exportAnimalsCsv(filteredAnimals, profile.dateFormat, farmEntities, locationEntities, labelEntities);
+        }
+      } else if (target === 'collectives') {
+        if (format === 'pdf') {
+          const uri = await createCollectivesPdf(filteredCollectives, collectiveFilters, profile);
+          await sharePdf(uri);
+        } else {
+          // Two files: the register, and the dated count history the head
+          // counts are derived from. One sheet cannot hold both without
+          // repeating every group on every count change.
+          await exportCollectivesCsv(filteredCollectives, profile.dateFormat);
+          await exportCollectiveCountEventsCsv(filteredCollectives, profile.dateFormat);
         }
       } else if (format === 'pdf') {
-        const uri = await createRecordsPdf(filteredRecords, animals, recordFilters, profile, farmEntities, paddockEntities);
+        const uri = await createRecordsPdf(filteredRecords, animals, recordFilters, profile, farmEntities, locationEntities);
         await sharePdf(uri);
       } else {
-        await exportRecordsCsv(filteredRecords, animals, profile.dateFormat, farmEntities, paddockEntities);
+        await exportRecordsCsv(filteredRecords, animals, profile.dateFormat, farmEntities, locationEntities);
       }
 
       // Drives the "back up your data" reminder on the Account screen —
       // only a completed export (shared or written to disk) counts, not a
-      // cancelled or failed one.
+      // cancelled or failed one. The Basic allowance is spent on the same
+      // terms, and for the same reason.
       updateField('lastExportedAt', new Date().toISOString());
+      updateField('exportsUsed', exportsUsed + 1);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Something went wrong while preparing the export.';
       Alert.alert('Export failed', message);
@@ -234,14 +323,24 @@ export default function ExportScreen() {
     }
   }
 
-  function updateAnimalMultiSelect(key: keyof Pick<AnimalExportFilters, 'statuses' | 'species' | 'farms' | 'paddocks' | 'groups'>, value: string) {
+  function updateAnimalMultiSelect(key: keyof Pick<AnimalExportFilters, 'statuses' | 'species' | 'farms' | 'locations' | 'labels'>, value: string) {
     setAnimalFilters((current) => ({
       ...current,
       [key]: toggleSelection(current[key], value),
     }));
   }
 
-  function updateRecordMultiSelect(key: keyof Pick<RecordExportFilters, 'species' | 'recordTypes' | 'farms' | 'paddocks'>, value: string) {
+  function updateCollectiveMultiSelect(
+    key: keyof Pick<CollectiveExportFilters, 'statuses' | 'species' | 'farms' | 'locations' | 'labels'>,
+    value: string,
+  ) {
+    setCollectiveFilters((current) => ({
+      ...current,
+      [key]: toggleSelection(current[key], value),
+    }));
+  }
+
+  function updateRecordMultiSelect(key: keyof Pick<RecordExportFilters, 'species' | 'recordTypes' | 'farms' | 'locations'>, value: string) {
     setRecordFilters((current) => ({
       ...current,
       [key]: toggleSelection(current[key], value),
@@ -253,15 +352,24 @@ export default function ExportScreen() {
       if (selectionKey === 'statuses') updateAnimalMultiSelect('statuses', option);
       if (selectionKey === 'species') updateAnimalMultiSelect('species', option);
       if (selectionKey === 'farms') updateAnimalMultiSelect('farms', option);
-      if (selectionKey === 'paddocks') updateAnimalMultiSelect('paddocks', option);
-      if (selectionKey === 'groups') updateAnimalMultiSelect('groups', option);
+      if (selectionKey === 'locations') updateAnimalMultiSelect('locations', option);
+      if (selectionKey === 'labels') updateAnimalMultiSelect('labels', option);
+      return;
+    }
+
+    if (target === 'collectives') {
+      if (selectionKey === 'statuses') updateCollectiveMultiSelect('statuses', option);
+      if (selectionKey === 'species') updateCollectiveMultiSelect('species', option);
+      if (selectionKey === 'farms') updateCollectiveMultiSelect('farms', option);
+      if (selectionKey === 'locations') updateCollectiveMultiSelect('locations', option);
+      if (selectionKey === 'labels') updateCollectiveMultiSelect('labels', option);
       return;
     }
 
     if (selectionKey === 'species') updateRecordMultiSelect('species', option);
     if (selectionKey === 'recordTypes') updateRecordMultiSelect('recordTypes', option);
     if (selectionKey === 'farms') updateRecordMultiSelect('farms', option);
-    if (selectionKey === 'paddocks') updateRecordMultiSelect('paddocks', option);
+    if (selectionKey === 'locations') updateRecordMultiSelect('locations', option);
   }
 
   function handleDateChange(event: DateTimePickerEvent, nextDate?: Date) {
@@ -294,6 +402,11 @@ export default function ExportScreen() {
       return;
     }
 
+    if (target === 'collectives') {
+      setCollectiveFilters(DEFAULT_COLLECTIVE_FILTERS);
+      return;
+    }
+
     setRecordFilters(DEFAULT_RECORD_FILTERS);
   }
 
@@ -322,6 +435,11 @@ export default function ExportScreen() {
             active={target === 'animals'}
             label="Animal register"
             onPress={() => setTarget('animals')}
+          />
+          <SegmentButton
+            active={target === 'collectives'}
+            label="Herds & flocks"
+            onPress={() => setTarget('collectives')}
           />
         </View>
 
@@ -367,14 +485,64 @@ export default function ExportScreen() {
                     onPress={() => setActiveMultiSelect('farms')}
                   />
                   <SelectionField
-                    label="Paddock"
-                    value={formatSelectionSummary(animalFilters.paddocks, 'Select paddock')}
-                    onPress={() => setActiveMultiSelect('paddocks')}
+                    label="Location"
+                    value={formatSelectionSummary(animalFilters.locations, 'Select location')}
+                    onPress={() => setActiveMultiSelect('locations')}
                   />
                   <SelectionField
-                    label="Group"
-                    value={formatSelectionSummary(animalFilters.groups, 'Select group')}
-                    onPress={() => setActiveMultiSelect('groups')}
+                    label="Labels"
+                    value={formatSelectionSummary(animalFilters.labels, 'Select labels')}
+                    onPress={() => setActiveMultiSelect('labels')}
+                  />
+                </>
+              ) : null}
+            </View>
+          ) : target === 'collectives' ? (
+            <View style={styles.filterStack}>
+              <DesignField
+                value={collectiveFilters.searchQuery}
+                label="Search ID, name or breed"
+                left={<SearchAffix />}
+                onChangeText={(value) =>
+                  setCollectiveFilters((current) => ({ ...current, searchQuery: value }))
+                }
+              />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setShowMoreCollectiveFilters((current) => !current)}
+                style={({ pressed }) => [styles.moreFiltersButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.moreFiltersText}>
+                  {showMoreCollectiveFilters ? 'Hide more filters' : 'Show more filters'}
+                </Text>
+                <AppIcon name="chevron-down" size={16} color={tokens.colors.accent} />
+              </Pressable>
+              {showMoreCollectiveFilters ? (
+                <>
+                  <SelectionField
+                    label="Status"
+                    value={formatSelectionSummary(collectiveFilters.statuses, 'Select status')}
+                    onPress={() => setActiveMultiSelect('statuses')}
+                  />
+                  <SelectionField
+                    label="Species"
+                    value={formatSelectionSummary(collectiveFilters.species, 'Select species')}
+                    onPress={() => setActiveMultiSelect('species')}
+                  />
+                  <SelectionField
+                    label="Farm"
+                    value={formatSelectionSummary(collectiveFilters.farms, 'Select farm')}
+                    onPress={() => setActiveMultiSelect('farms')}
+                  />
+                  <SelectionField
+                    label="Location"
+                    value={formatSelectionSummary(collectiveFilters.locations, 'Select location')}
+                    onPress={() => setActiveMultiSelect('locations')}
+                  />
+                  <SelectionField
+                    label="Labels"
+                    value={formatSelectionSummary(collectiveFilters.labels, 'Select labels')}
+                    onPress={() => setActiveMultiSelect('labels')}
                   />
                 </>
               ) : null}
@@ -434,9 +602,9 @@ export default function ExportScreen() {
                     onPress={() => setActiveMultiSelect('farms')}
                   />
                   <SelectionField
-                    label="Paddock"
-                    value={formatSelectionSummary(recordFilters.paddocks, 'Select paddock')}
-                    onPress={() => setActiveMultiSelect('paddocks')}
+                    label="Location"
+                    value={formatSelectionSummary(recordFilters.locations, 'Select location')}
+                    onPress={() => setActiveMultiSelect('locations')}
                   />
                 </>
               ) : null}
@@ -446,7 +614,17 @@ export default function ExportScreen() {
 
         <View style={styles.summaryCard}>
           <Text style={styles.countTitle}>
-            {currentCount} {target === 'animals' ? (currentCount === 1 ? 'animal' : 'animals') : currentCount === 1 ? 'record' : 'records'}
+            {target === 'collectives'
+              ? describeCollectiveCount(filteredCollectives)
+              : `${currentCount} ${
+                  target === 'animals'
+                    ? currentCount === 1
+                      ? 'animal'
+                      : 'animals'
+                    : currentCount === 1
+                      ? 'record'
+                      : 'records'
+                }`}
           </Text>
           <Text style={styles.countText}>{target === 'animals' ? 'Ready to export' : 'Ready to export'}</Text>
 
@@ -467,18 +645,6 @@ export default function ExportScreen() {
           </View>
         </View>
 
-        <View style={styles.actionStack}>
-          <ExportActionButton
-            busy={exportingFormat === 'pdf'}
-            label="Export PDF"
-            onPress={() => handleExport('pdf')}
-          />
-          <ExportActionButton
-            busy={exportingFormat === 'spreadsheet'}
-            label="Export Spreadsheet"
-            onPress={() => handleExport('spreadsheet')}
-          />
-        </View>
       </ScrollView>
 
       {activeDateField && Platform.OS === 'android' ? (
@@ -562,7 +728,9 @@ export default function ExportScreen() {
                       const selected =
                         target === 'animals'
                           ? isSelectedAnimalOption(animalFilters, 'species', option)
-                          : isSelectedRecordOption(recordFilters, 'species', option);
+                          : target === 'collectives'
+                            ? isSelectedCollectiveOption(collectiveFilters, 'species', option)
+                            : isSelectedRecordOption(recordFilters, 'species', option);
                       const theme = getSpeciesThemeByLabel(option);
                       const iconName = getSpeciesIconName(option);
                       const iconColor = option === 'Sheep' ? '#171717' : theme.icon;
@@ -584,7 +752,7 @@ export default function ExportScreen() {
                             <AppIcon name={iconName} size={26} color={iconColor} />
                             <Text style={[styles.speciesModalCardLabel, { color: theme.text }]}>{option}</Text>
                           </View>
-                          {selected ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                          {selected ? <AppIcon name="check" size={16} color="#fff" /> : null}
                         </Pressable>
                       );
                     })
@@ -617,7 +785,9 @@ export default function ExportScreen() {
                         const selected =
                           target === 'animals'
                             ? isSelectedAnimalOption(animalFilters, selectionKey, option)
-                            : isSelectedRecordOption(recordFilters, selectionKey, option);
+                            : target === 'collectives'
+                              ? isSelectedCollectiveOption(collectiveFilters, selectionKey, option)
+                              : isSelectedRecordOption(recordFilters, selectionKey, option);
 
                         return (
                           <Pressable
@@ -632,7 +802,7 @@ export default function ExportScreen() {
                             ]}
                           >
                             <Text style={[styles.selectionText, selected && styles.selectionTextActive]}>{option}</Text>
-                            {selected ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                            {selected ? <AppIcon name="check" size={16} color="#fff" /> : null}
                           </Pressable>
                         );
                       })
@@ -648,7 +818,25 @@ export default function ExportScreen() {
           </AnimatedPopupCard>
         </Pressable>
       </Modal>
+      <FabSpeedDial
+        accessibilityLabel="Export"
+        image={require('../../assets/export.png')}
+        actions={[
+          {
+            image: require('../../assets/pdf_export.png'),
+            label: 'Export PDF',
+            onPress: () => void handleExport('pdf'),
+          },
+          {
+            image: require('../../assets/csv_export.png'),
+            label: 'Export Spreadsheet',
+            onPress: () => void handleExport('spreadsheet'),
+          },
+        ]}
+      />
+      <PlanLimitGate />
       </TabSwipeView>
+
     </SafeAreaView>
   );
 }
@@ -701,28 +889,6 @@ function SelectionField({
   );
 }
 
-function ExportActionButton({
-  busy,
-  label,
-  onPress,
-}: {
-  busy: boolean;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <BouncyPressable
-      accessibilityRole="button"
-      disabled={busy}
-      onPress={onPress}
-      style={({ pressed }) => [styles.exportButton, pressed && styles.pressed]}
-    >
-      <AppIcon name="export2" size={18} color="#fff" />
-      <Text style={styles.exportLabel}>{busy ? 'Preparing export...' : label}</Text>
-    </BouncyPressable>
-  );
-}
-
 function SearchAffix() {
   return (
     <View style={styles.searchAffix}>
@@ -755,11 +921,14 @@ function animalMatchesFilters(animal: Animal, filters: AnimalExportFilters) {
     return false;
   }
 
-  if (filters.paddocks.length > 0 && !filters.paddocks.some((value) => equalsIgnoreCase(value, animal.paddock))) {
+  if (filters.locations.length > 0 && !filters.locations.some((value) => equalsIgnoreCase(value, animal.location))) {
     return false;
   }
 
-  if (filters.groups.length > 0 && !filters.groups.some((value) => equalsIgnoreCase(value, animal.group))) {
+  if (
+    filters.labels.length > 0 &&
+    !filters.labels.some((value) => animal.labels.some((entry) => equalsIgnoreCase(value, entry)))
+  ) {
     return false;
   }
 
@@ -810,7 +979,7 @@ function recordMatchesFilters(
   // Only resolve the record's related animals when a filter that actually
   // needs them is active — cheap checks above already reject most records
   // in a typical filtered/searched pass.
-  const needsRelatedAnimals = Boolean(searchQuery) || filters.farms.length > 0 || filters.paddocks.length > 0;
+  const needsRelatedAnimals = Boolean(searchQuery) || filters.farms.length > 0 || filters.locations.length > 0;
   const relatedAnimals = needsRelatedAnimals ? findRelatedAnimals(record, animals, lookup) : [];
 
   if (
@@ -829,8 +998,8 @@ function recordMatchesFilters(
   }
 
   if (
-    filters.paddocks.length > 0 &&
-    !relatedAnimals.some((animal) => filters.paddocks.some((value) => equalsIgnoreCase(value, animal.paddock)))
+    filters.locations.length > 0 &&
+    !relatedAnimals.some((animal) => filters.locations.some((value) => equalsIgnoreCase(value, animal.location)))
   ) {
     return false;
   }
@@ -857,22 +1026,25 @@ async function exportAnimalsCsv(
   animals: Animal[],
   dateFormat: Parameters<typeof formatDateForDisplay>[1],
   farms: FarmEntity[],
-  paddocks: PaddockEntity[],
-  groups: GroupEntity[],
+  locations: LocationEntity[],
+  labels: LabelEntity[],
 ) {
   const rows = [
     ['LivestockBook'],
     [],
     [
       'Animal ID',
+      'EID',
       'Name',
       'Species',
+      'Breed',
       'Sex',
+      'Age',
       'Date of Birth',
       'Status',
       'Farm',
-      'Paddock',
-      'Group',
+      'Location',
+      'Labels',
       'Weight',
       'Source',
       'Farm Entry Date',
@@ -880,14 +1052,17 @@ async function exportAnimalsCsv(
     ],
     ...animals.map((animal) => [
       animal.id,
+      animal.eid,
       animal.name,
       animal.species,
+      animal.breed,
       animal.sex,
+      animal.ageLabel,
       formatDateForDisplay(animal.dateOfBirth, dateFormat),
       animal.status,
       resolveAnimalFarmName(animal, farms),
-      resolveAnimalPaddockName(animal, paddocks),
-      resolveAnimalGroupName(animal, groups),
+      resolveAnimalLocationName(animal, locations),
+      resolveAnimalLabelNames(animal, labels).join(', '),
       formatWeight(animal.weight, animal.weightUnit),
       animal.source,
       formatDateForDisplay(animal.farmEntryDate, dateFormat),
@@ -898,39 +1073,231 @@ async function exportAnimalsCsv(
   await writeAndShareCsv(`animal-register-${createTimestamp()}.csv`, rows);
 }
 
+async function createCollectivesPdf(
+  collectives: Collective[],
+  filters: CollectiveExportFilters,
+  profile: AccountProfile,
+) {
+  const rows = collectives.map((collective) => [
+    collective.id || '—',
+    collective.name || '—',
+    collective.species || '—',
+    collective.breed || '—',
+    String(getCollectiveCount(collective)),
+    collective.status,
+    collective.farm || '—',
+    collective.location || '—',
+    collective.labels.join(', ') || '—',
+    collective.supplier || '—',
+    formatDateForDisplay(collective.startDate, profile.dateFormat) || '—',
+    collective.purpose || '—',
+  ]);
+
+  const html = buildPdfHtml({
+    title: 'Herd and Flock Register',
+    branding: await resolveBusinessBranding(profile),
+    countLabel: describeCollectiveCount(collectives),
+    filterSummary: getCollectiveFilterSummary(filters),
+    headers: [
+      'ID', 'Name', 'Species', 'Breed', 'Head Count', 'Status',
+      'Farm', 'Location', 'Labels', 'Supplier', 'Established', 'Purpose',
+    ],
+    rows,
+  });
+
+  return createPdfFile(html);
+}
+
+async function exportCollectivesCsv(
+  collectives: Collective[],
+  dateFormat: Parameters<typeof formatDateForDisplay>[1],
+) {
+  const rows = [
+    ['LivestockBook'],
+    [],
+    [
+      'Herd/Flock ID', 'Name', 'Type', 'Species', 'Breed', 'Head Count', 'Status',
+      'Farm', 'Location', 'Labels', 'Supplier', 'Cost Per Animal', 'Average Weight',
+      'Date Established', 'Born or Hatched', 'Closed', 'Purpose', 'Notes',
+      'Count Changes',
+    ],
+    ...collectives.map((collective) => [
+      collective.id,
+      collective.name,
+      collectiveTermForSpecies(collective.species),
+      collective.species,
+      collective.breed,
+      String(getCollectiveCount(collective)),
+      collective.status,
+      collective.farm,
+      collective.location,
+      collective.labels.join(', '),
+      collective.supplier,
+      collective.cost,
+      formatWeight(collective.averageWeight, collective.weightUnit),
+      formatDateForDisplay(collective.startDate, dateFormat),
+      formatDateForDisplay(collective.birthDate, dateFormat),
+      formatDateForDisplay(collective.endDate, dateFormat),
+      collective.purpose,
+      collective.notes,
+      String(collective.countEvents.length),
+    ]),
+  ];
+
+  await writeAndShareCsv(`herds-and-flocks-${createTimestamp()}.csv`, rows);
+}
+
+// Every dated change to every group, one row each — the head count is derived
+// from these, so a register that only reported the total would be unauditable.
+async function exportCollectiveCountEventsCsv(
+  collectives: Collective[],
+  dateFormat: Parameters<typeof formatDateForDisplay>[1],
+) {
+  const rows = [
+    ['LivestockBook'],
+    [],
+    ['Herd/Flock ID', 'Name', 'Species', 'Date', 'Change', 'Reason', 'Notes'],
+    ...collectives.flatMap((collective) =>
+      [...collective.countEvents]
+        .sort((left, right) => left.date.localeCompare(right.date))
+        .map((event) => [
+          collective.id,
+          collective.name,
+          collective.species,
+          formatDateForDisplay(event.date, dateFormat),
+          event.delta > 0 ? `+${event.delta}` : String(event.delta),
+          event.reason,
+          event.notes,
+        ]),
+    ),
+  ];
+
+  await writeAndShareCsv(`herd-count-history-${createTimestamp()}.csv`, rows);
+}
+
+function collectiveMatchesFilters(collective: Collective, filters: CollectiveExportFilters) {
+  const searchQuery = filters.searchQuery.trim().toLowerCase();
+
+  if (
+    searchQuery &&
+    ![collective.id, collective.name, collective.breed, collective.supplier]
+      .some((value) => value.toLowerCase().includes(searchQuery))
+  ) {
+    return false;
+  }
+
+  if (filters.statuses.length > 0 && !filters.statuses.some((value) => equalsIgnoreCase(value, collective.status))) {
+    return false;
+  }
+
+  if (filters.species.length > 0 && !filters.species.some((value) => equalsIgnoreCase(value, collective.species))) {
+    return false;
+  }
+
+  if (filters.farms.length > 0 && !filters.farms.some((value) => equalsIgnoreCase(value, collective.farm))) {
+    return false;
+  }
+
+  if (filters.locations.length > 0 && !filters.locations.some((value) => equalsIgnoreCase(value, collective.location))) {
+    return false;
+  }
+
+  if (
+    filters.labels.length > 0 &&
+    !filters.labels.some((value) => collective.labels.some((entry) => equalsIgnoreCase(value, entry)))
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 async function exportRecordsCsv(
   records: RecordEntry[],
   animals: Animal[],
   dateFormat: Parameters<typeof formatDateForDisplay>[1],
   farms: FarmEntity[],
-  paddocks: PaddockEntity[],
+  locations: LocationEntity[],
 ) {
   const lookup = buildAnimalLookup(animals);
   const rows = [
     ['LivestockBook'],
     [],
-    ['Date', 'Record Type', 'Title', 'Animal ID', 'Animal Name', 'Species', 'Farm', 'Paddock', 'Medicine', 'Dose', 'Withdrawal', 'Batch No.', 'Expiry', 'Details'],
+    // Every field a record can carry. A spreadsheet is read by filtering and
+    // pivoting, so a column that is blank for most types still earns its place —
+    // unlike the PDF, which is read as a page.
+    [
+      'Date', 'Record Type', 'Title',
+      'Animal ID', 'Animal Name', 'Herd/Flock ID', 'Herd/Flock Name',
+      'Species', 'Farm', 'Location', 'Moved From Farm', 'Moved From Location',
+      'Affected Count', 'New Count',
+      'Weight', 'Sample Size',
+      'Medicine', 'Dose', 'Route', 'Meat Withdrawal', 'Milk Withdrawal', 'Batch No.', 'Expiry',
+      'Health Status', 'Condition', 'Vet Seen',
+      'Cause of Death', 'Disposal Method',
+      'Buyer', 'Sale Price', 'Destination',
+      'Seller', 'Purchase Price', 'Source Farm', 'Currency',
+      'Feed Type', 'Feed Quantity', 'Cost',
+      'Eggs Collected', 'Eggs Damaged',
+      'Mother', 'Offspring Tag', 'Offspring Species', 'Offspring Breed', 'Offspring Sex', 'Offspring Weight',
+      'Details',
+    ],
     ...records.map((record) => {
       const relatedAnimals = findRelatedAnimals(record, animals, lookup);
 
       return [
         formatDateForDisplay(record.date, dateFormat),
         record.type,
-        getRecordDisplayTitle(record, farms, paddocks),
+        getRecordDisplayTitle(record, farms, locations),
         resolveRecordDisplayTags(record, animals).filter(Boolean).join(', ') || record.animalTag,
         resolveRecordDisplayNames(record, animals).filter(Boolean).join(', ') || record.animal,
+        record.collectiveId ?? '',
+        record.collectiveName ?? '',
         record.species,
         record.type === 'Movement'
           ? resolveFarmName(record.toFarmUid, record.toFarm, farms)
           : joinUnique(relatedAnimals.map((animal) => resolveAnimalFarmName(animal, farms))),
         record.type === 'Movement'
-          ? resolvePaddockName(record.toPaddockUid, record.toPaddock, paddocks)
-          : joinUnique(relatedAnimals.map((animal) => resolveAnimalPaddockName(animal, paddocks))),
+          ? resolveLocationName(record.toLocationUid, record.toLocation, locations)
+          : joinUnique(relatedAnimals.map((animal) => resolveAnimalLocationName(animal, locations))),
+        record.type === 'Movement' ? resolveFarmName(record.fromFarmUid, record.fromFarm, farms) : '',
+        record.type === 'Movement'
+          ? resolveLocationName(record.fromLocationUid, record.fromLocation, locations)
+          : '',
+        record.affectedCount ?? '',
+        record.newCount ?? '',
+        [record.weight, record.weightUnit].filter(Boolean).join(' '),
+        record.sampleSize ?? '',
         record.medicine ?? '',
         [record.dose, record.doseUnit].filter(Boolean).join(' '),
+        record.route ?? '',
         record.withdrawal ?? '',
+        record.milkWithdrawal ?? '',
         record.batchNumber ?? '',
         record.expiryDate ?? '',
+        record.healthStatus ?? '',
+        record.conditionDiagnosis ?? '',
+        record.vetSeen ?? '',
+        record.causeOfDeath ?? '',
+        record.disposalMethod ?? '',
+        record.buyer ?? '',
+        record.salePrice ?? '',
+        record.destination ?? '',
+        record.seller ?? '',
+        record.purchasePrice ?? '',
+        record.sourceFarm ?? '',
+        record.currencyCode ?? '',
+        record.feedType ?? '',
+        [record.feedQuantity, record.feedUnit].filter(Boolean).join(' '),
+        record.cost ?? '',
+        record.eggsCollected ?? '',
+        record.eggsDamaged ?? '',
+        record.motherName ?? '',
+        record.birthTagId ?? '',
+        record.birthSpecies ?? '',
+        record.birthBreed ?? '',
+        record.birthSex ?? '',
+        [record.birthWeight, record.birthWeightUnit].filter(Boolean).join(' '),
         record.details,
       ];
     }),
@@ -944,17 +1311,24 @@ async function createAnimalsPdf(
   filters: AnimalExportFilters,
   profile: AccountProfile,
   farms: FarmEntity[],
-  paddocks: PaddockEntity[],
-  groups: GroupEntity[],
+  locations: LocationEntity[],
+  labels: LabelEntity[],
 ) {
   const rows = animals.map((animal) => [
     animal.id,
+    animal.eid || '—',
     animal.name || '—',
     animal.species || '—',
+    animal.breed || '—',
+    animal.sex || '—',
+    animal.ageLabel || '—',
+    formatDateForDisplay(animal.dateOfBirth, profile.dateFormat) || '—',
+    formatWeight(animal.weight, animal.weightUnit) || '—',
     animal.status,
     resolveAnimalFarmName(animal, farms) || '—',
-    resolveAnimalPaddockName(animal, paddocks) || '—',
-    resolveAnimalGroupName(animal, groups) || '—',
+    resolveAnimalLocationName(animal, locations) || '—',
+    resolveAnimalLabelNames(animal, labels).join(', ') || '—',
+    animal.source || '—',
   ]);
 
   const html = buildPdfHtml({
@@ -962,7 +1336,10 @@ async function createAnimalsPdf(
     branding: await resolveBusinessBranding(profile),
     countLabel: `${animals.length} ${animals.length === 1 ? 'animal' : 'animals'}`,
     filterSummary: getAnimalFilterSummary(filters),
-    headers: ['Animal ID', 'Name', 'Species', 'Status', 'Farm', 'Paddock', 'Group'],
+    headers: [
+      'Animal ID', 'EID', 'Name', 'Species', 'Breed', 'Sex', 'Age',
+      'Date of Birth', 'Weight', 'Status', 'Farm', 'Location', 'Labels', 'Source',
+    ],
     rows,
   });
 
@@ -975,7 +1352,7 @@ async function createRecordsPdf(
   filters: RecordExportFilters,
   profile: AccountProfile,
   farms: FarmEntity[],
-  paddocks: PaddockEntity[],
+  locations: LocationEntity[],
 ) {
   const dateFormat = profile.dateFormat;
   const lookup = buildAnimalLookup(animals);
@@ -985,15 +1362,15 @@ async function createRecordsPdf(
     return [
       formatDateForDisplay(record.date, dateFormat),
       record.type,
-      getRecordDisplayTitle(record, farms, paddocks),
+      getRecordDisplayTitle(record, farms, locations),
       resolveRecordDisplayTags(record, animals).filter(Boolean).join(', ') || record.animalTag || '—',
       resolveRecordDisplayNames(record, animals).filter(Boolean).join(', ') || record.animal || '—',
       (record.type === 'Movement'
         ? resolveFarmName(record.toFarmUid, record.toFarm, farms)
         : joinUnique(relatedAnimals.map((animal) => resolveAnimalFarmName(animal, farms)))) || '—',
       (record.type === 'Movement'
-        ? resolvePaddockName(record.toPaddockUid, record.toPaddock, paddocks)
-        : joinUnique(relatedAnimals.map((animal) => resolveAnimalPaddockName(animal, paddocks)))) || '—',
+        ? resolveLocationName(record.toLocationUid, record.toLocation, locations)
+        : joinUnique(relatedAnimals.map((animal) => resolveAnimalLocationName(animal, locations)))) || '—',
     ];
   });
 
@@ -1002,7 +1379,7 @@ async function createRecordsPdf(
     branding: await resolveBusinessBranding(profile),
     countLabel: `${records.length} ${records.length === 1 ? 'record' : 'records'}`,
     filterSummary: getRecordFilterSummary(filters, dateFormat),
-    headers: ['Date', 'Type', 'Title', 'Animal ID', 'Animal Name', 'Farm', 'Paddock'],
+    headers: ['Date', 'Type', 'Title', 'Animal ID', 'Animal Name', 'Farm', 'Location'],
     rows,
   });
 
@@ -1104,8 +1481,17 @@ function isSelectedAnimalOption(filters: AnimalExportFilters, key: MultiSelectKe
   if (key === 'statuses') return filters.statuses.some((entry) => equalsIgnoreCase(entry, value));
   if (key === 'species') return filters.species.some((entry) => equalsIgnoreCase(entry, value));
   if (key === 'farms') return filters.farms.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'paddocks') return filters.paddocks.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'groups') return filters.groups.some((entry) => equalsIgnoreCase(entry, value));
+  if (key === 'locations') return filters.locations.some((entry) => equalsIgnoreCase(entry, value));
+  if (key === 'labels') return filters.labels.some((entry) => equalsIgnoreCase(entry, value));
+  return false;
+}
+
+function isSelectedCollectiveOption(filters: CollectiveExportFilters, key: MultiSelectKey, value: string) {
+  if (key === 'statuses') return filters.statuses.some((entry) => equalsIgnoreCase(entry, value));
+  if (key === 'species') return filters.species.some((entry) => equalsIgnoreCase(entry, value));
+  if (key === 'farms') return filters.farms.some((entry) => equalsIgnoreCase(entry, value));
+  if (key === 'locations') return filters.locations.some((entry) => equalsIgnoreCase(entry, value));
+  if (key === 'labels') return filters.labels.some((entry) => equalsIgnoreCase(entry, value));
   return false;
 }
 
@@ -1113,7 +1499,7 @@ function isSelectedRecordOption(filters: RecordExportFilters, key: MultiSelectKe
   if (key === 'species') return filters.species.some((entry) => equalsIgnoreCase(entry, value));
   if (key === 'recordTypes') return filters.recordTypes.some((entry) => equalsIgnoreCase(entry, value));
   if (key === 'farms') return filters.farms.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'paddocks') return filters.paddocks.some((entry) => equalsIgnoreCase(entry, value));
+  if (key === 'locations') return filters.locations.some((entry) => equalsIgnoreCase(entry, value));
   return false;
 }
 
@@ -1127,17 +1513,17 @@ function getSelectionTitle(key: MultiSelectKey | null) {
       return 'Select record types';
     case 'farms':
       return 'Select farms';
-    case 'paddocks':
-      return 'Select paddocks';
-    case 'groups':
-      return 'Select groups';
+    case 'locations':
+      return 'Select locations';
+    case 'labels':
+      return 'Select labels';
     default:
       return 'Select options';
   }
 }
 
 function needsExtraDropdownGap(key: MultiSelectKey | null) {
-  return key === 'recordTypes' || key === 'farms' || key === 'paddocks';
+  return key === 'recordTypes' || key === 'farms' || key === 'locations';
 }
 
 function getAnimalFilterSummary(filters: AnimalExportFilters) {
@@ -1147,8 +1533,21 @@ function getAnimalFilterSummary(filters: AnimalExportFilters) {
   if (filters.statuses.length > 0) summary.push(`Status: ${filters.statuses.join(', ')}`);
   if (filters.species.length > 0) summary.push(`Species: ${filters.species.join(', ')}`);
   if (filters.farms.length > 0) summary.push(`Farm: ${filters.farms.join(', ')}`);
-  if (filters.paddocks.length > 0) summary.push(`Paddock: ${filters.paddocks.join(', ')}`);
-  if (filters.groups.length > 0) summary.push(`Group: ${filters.groups.join(', ')}`);
+  if (filters.locations.length > 0) summary.push(`Location: ${filters.locations.join(', ')}`);
+  if (filters.labels.length > 0) summary.push(`Labels: ${filters.labels.join(', ')}`);
+
+  return summary;
+}
+
+function getCollectiveFilterSummary(filters: CollectiveExportFilters) {
+  const summary: string[] = [];
+
+  if (filters.searchQuery.trim()) summary.push(`Search: ${filters.searchQuery.trim()}`);
+  if (filters.statuses.length > 0) summary.push(`Status: ${filters.statuses.join(', ')}`);
+  if (filters.species.length > 0) summary.push(`Species: ${filters.species.join(', ')}`);
+  if (filters.farms.length > 0) summary.push(`Farm: ${filters.farms.join(', ')}`);
+  if (filters.locations.length > 0) summary.push(`Location: ${filters.locations.join(', ')}`);
+  if (filters.labels.length > 0) summary.push(`Labels: ${filters.labels.join(', ')}`);
 
   return summary;
 }
@@ -1162,7 +1561,7 @@ function getRecordFilterSummary(filters: RecordExportFilters, dateFormat: Parame
   if (filters.recordTypes.length > 0) summary.push(`Type: ${filters.recordTypes.join(', ')}`);
   if (filters.species.length > 0) summary.push(`Species: ${filters.species.join(', ')}`);
   if (filters.farms.length > 0) summary.push(`Farm: ${filters.farms.join(', ')}`);
-  if (filters.paddocks.length > 0) summary.push(`Paddock: ${filters.paddocks.join(', ')}`);
+  if (filters.locations.length > 0) summary.push(`Location: ${filters.locations.join(', ')}`);
 
   return summary;
 }
@@ -1344,20 +1743,21 @@ const styles = StyleSheet.create({
   },
   segmentRow: {
     flexDirection: 'row',
+    alignSelf: 'flex-start',
+    justifyContent: 'flex-start',
     gap: 10,
   },
+  // No flex: each button is only as wide as its own label, so the pair sits at
+  // the start of the row instead of splitting the screen in half.
   segmentButton: {
-    flex: 1,
-    minHeight: 50,
-    borderRadius: 25,
+    minHeight: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
   segmentButtonActive: {
-    // #FCEAEA, shared by hand with the Animals toggle, the Setup feedback card
-    // and the import prompt card.
-    backgroundColor: '#FCEAEA',
+    backgroundColor: tokens.colors.accent,
   },
   segmentButtonIdle: {
     backgroundColor: '#F5F3F7',
@@ -1367,7 +1767,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   segmentTextActive: {
-    color: tokens.colors.text,
+    color: '#fff',
   },
   segmentTextIdle: {
     color: '#8A7F87',
@@ -1497,24 +1897,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  actionStack: {
-    gap: 10,
-  },
-  exportButton: {
-    minHeight: 50,
-    borderRadius: 25,
-    backgroundColor: tokens.colors.accent,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  exportLabel: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.28)',
@@ -1571,7 +1953,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   selectionRowActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   selectionText: {
     color: tokens.colors.text,
@@ -1581,7 +1963,7 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   selectionTextActive: {
-    color: '#74423F',
+    color: '#fff',
   },
   speciesModalGrid: {
     flexDirection: 'row',

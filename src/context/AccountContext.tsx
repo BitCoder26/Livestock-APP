@@ -13,6 +13,7 @@ import {
   type LivestockBookBackup,
 } from '../services/backupService';
 import { ANIMALS_STORAGE_KEY, useAnimals } from './AnimalsContext';
+import { COLLECTIVES_STORAGE_KEY, useCollectives } from './CollectivesContext';
 import { RECORDS_STORAGE_KEY, useRecords } from './RecordsContext';
 import { SETUP_STORAGE_KEY, useSetup } from './SetupContext';
 
@@ -43,10 +44,15 @@ export function AccountProvider({ children }: PropsWithChildren) {
   const { resetAnimals, getAnimalsSnapshot, replaceAnimalsFromTransaction } = useAnimals();
   const { resetRecords, getRecordsSnapshot, replaceRecordsFromTransaction, clearFilters } = useRecords();
   const {
+    resetCollectives,
+    getCollectivesSnapshot,
+    replaceCollectivesFromTransaction,
+  } = useCollectives();
+  const {
     resetSetup,
     farmEntities,
-    paddockEntities,
-    groupEntities,
+    locationEntities,
+    labelEntities,
     medicineEntities,
     replaceSetupFromTransaction,
   } = useSetup();
@@ -133,7 +139,7 @@ export function AccountProvider({ children }: PropsWithChildren) {
         }
       },
       resetAppData: async () => {
-        const results = await Promise.all([resetAnimals(), resetRecords(), resetSetup()]);
+        const results = await Promise.all([resetAnimals(), resetRecords(), resetCollectives(), resetSetup()]);
         if (results.some((result) => !result.ok)) {
           throw new Error('Local data could not be reset completely.');
         }
@@ -151,19 +157,21 @@ export function AccountProvider({ children }: PropsWithChildren) {
         // walkthrough in backupService.ts for the overall restore design).
         const previousAnimals = getAnimalsSnapshot();
         const previousRecords = getRecordsSnapshot();
-        const previousSetup = { farms: farmEntities, paddocks: paddockEntities, groups: groupEntities, medicines: medicineEntities };
+        const previousCollectives = getCollectivesSnapshot();
+        const previousSetup = { farms: farmEntities, locations: locationEntities, labels: labelEntities, medicines: medicineEntities };
         const previousProfile = profile;
 
         const nextSetup = {
           farms: prepared.farms,
-          paddocks: prepared.paddocks,
-          groups: prepared.groups,
+          locations: prepared.locations,
+          labels: prepared.labels,
           medicines: prepared.medicines,
         };
 
         try {
           await AsyncStorage.multiSet([
             [ANIMALS_STORAGE_KEY, JSON.stringify(prepared.animals)],
+            [COLLECTIVES_STORAGE_KEY, JSON.stringify(prepared.collectives)],
             [RECORDS_STORAGE_KEY, JSON.stringify(prepared.records)],
             [SETUP_STORAGE_KEY, JSON.stringify(nextSetup)],
           ]);
@@ -172,6 +180,7 @@ export function AccountProvider({ children }: PropsWithChildren) {
           try {
             await AsyncStorage.multiSet([
               [ANIMALS_STORAGE_KEY, JSON.stringify(previousAnimals)],
+              [COLLECTIVES_STORAGE_KEY, JSON.stringify(previousCollectives)],
               [RECORDS_STORAGE_KEY, JSON.stringify(previousRecords)],
               [SETUP_STORAGE_KEY, JSON.stringify(previousSetup)],
             ]);
@@ -185,6 +194,7 @@ export function AccountProvider({ children }: PropsWithChildren) {
         }
 
         replaceAnimalsFromTransaction(prepared.animals);
+        replaceCollectivesFromTransaction(prepared.collectives);
         replaceRecordsFromTransaction(prepared.records);
         replaceSetupFromTransaction(nextSetup);
         clearFilters();
@@ -199,7 +209,7 @@ export function AccountProvider({ children }: PropsWithChildren) {
       },
       signOutAllDevices: async () => requestSignOutAllDevices(),
       deleteAccount: async () => {
-        const results = await Promise.all([resetAnimals(), resetRecords(), resetSetup()]);
+        const results = await Promise.all([resetAnimals(), resetRecords(), resetCollectives(), resetSetup()]);
         if (results.some((result) => !result.ok)) {
           return {
             requiresBackend: false,
@@ -217,16 +227,19 @@ export function AccountProvider({ children }: PropsWithChildren) {
       profile,
       resetAnimals,
       resetRecords,
+      resetCollectives,
       resetSetup,
       getAnimalsSnapshot,
+      getCollectivesSnapshot,
       getRecordsSnapshot,
       replaceAnimalsFromTransaction,
+      replaceCollectivesFromTransaction,
       replaceRecordsFromTransaction,
       replaceSetupFromTransaction,
       clearFilters,
       farmEntities,
-      paddockEntities,
-      groupEntities,
+      locationEntities,
+      labelEntities,
       medicineEntities,
     ],
   );

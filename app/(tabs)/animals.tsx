@@ -10,7 +10,13 @@ import { AnimatedPopupCard } from '../../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../../src/components/BouncyPressable';
 import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { useCollectives } from '../../src/context/CollectivesContext';
-import { collectiveTermForSpecies, getCollectiveCount } from '../../src/entities/collective';
+import {
+  collectiveTermForSpecies,
+  describeCollectiveCount,
+  getCollectiveCount,
+  type Collective,
+} from '../../src/entities/collective';
+import { abbreviateAgeLabel, getAnimalSexIcon } from '../../src/utils/animalDisplay';
 import { getSpeciesThemeByLabel, getSpeciesThemeByTone, getToneForSpecies } from '../../src/constants/speciesTheme';
 import { FabSpeedDial } from '../../src/components/FabSpeedDial';
 import { ImportPromptBubble } from '../../src/components/ImportPromptBubble';
@@ -20,6 +26,7 @@ import { useSetup } from '../../src/context/SetupContext';
 import type { Animal, AnimalTone } from '../../src/entities/animal';
 import { tokens } from '../../src/theme/tokens';
 import { MODAL_SHEET_ENTRANCE_DURATION, motionDuration } from '../../src/utils/motion';
+import { useThumbnailUri } from '../../src/utils/useThumbnailUri';
 
 const SPECIES_FILTER_OPTIONS = [
   { icon: 'cow-copy', label: 'Cattle' },
@@ -55,6 +62,12 @@ const SORT_OPTIONS = [
 ] as const;
 type SortOption = (typeof SORT_OPTIONS)[number]['value'];
 const DEFAULT_SORT: SortOption = 'newest';
+
+/** Sheet labels carry a "(default)" aside; the count line wants the order alone. */
+function getSortLabel(sort: SortOption) {
+  const label = SORT_OPTIONS.find((option) => option.value === sort)?.label ?? SORT_OPTIONS[0].label;
+  return label.replace(' (default)', '');
+}
 const STATUS_SORT_PRIORITY: Record<Animal['status'], number> = { Active: 0, Sold: 1, Deceased: 2 };
 
 // AnimalsContext backfills a real createdAt for every stored animal (see
@@ -80,11 +93,38 @@ function sortAnimals(list: Animal[], sort: SortOption): Animal[] {
   }
 }
 
-// Holds the new card back until the circular reveal has all but finished, so
-// it lands on a settled screen rather than sliding in behind the mask. It was
-// 700ms, which was tuned against a 650ms reveal; the reveal is now 380ms and
-// the old value left the card visibly late.
-const NEW_ANIMAL_CARD_ENTRANCE_DELAY = 340;
+// Collectives carry no createdAt, but they are stored newest-first (see
+// addCollective), so "recently added" is the stored order and "oldest" is its
+// reverse. The remaining options map straight across from the animal sort.
+const COLLECTIVE_STATUS_SORT_PRIORITY: Record<Collective['status'], number> = { Active: 0, Inactive: 1 };
+
+function sortCollectives(list: Collective[], sort: SortOption): Collective[] {
+  switch (sort) {
+    case 'name-asc':
+      return [...list].sort((a, b) =>
+        (a.name.trim() || a.id).localeCompare(b.name.trim() || b.id),
+      );
+    case 'tag-asc':
+      return [...list].sort((a, b) =>
+        a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' }),
+      );
+    case 'status':
+      return [...list].sort(
+        (a, b) => COLLECTIVE_STATUS_SORT_PRIORITY[a.status] - COLLECTIVE_STATUS_SORT_PRIORITY[b.status],
+      );
+    case 'oldest':
+      return [...list].reverse();
+    case 'newest':
+    default:
+      return list;
+  }
+}
+
+// Holds the new card back until the save-time circular reveal has all but
+// finished, so it lands on a settled screen rather than sliding in behind the
+// mask. This is the *return* reveal in (tabs)/_layout.tsx — the forward one on
+// the add buttons was removed — so it tracks REVEAL_DURATION, 650 on iOS.
+const NEW_ANIMAL_CARD_ENTRANCE_DELAY = 580;
 const ANIMAL_CARD_ENTRANCE_DURATION = motionDuration(260);
 // Removal is a response to a tap, so it runs shorter than the entrance and
 // without any delay at all — see the exit effect.
@@ -98,7 +138,7 @@ export default function AnimalsScreen() {
     deletingAnimalUid?: string;
   }>();
   const { animals, deleteAnimal } = useAnimals();
-  const { groups } = useSetup();
+  const { labels } = useSetup();
   const { step } = useOnboarding();
   const isFocused = useIsFocused();
   const [showFilterSheet, setShowFilterSheet] = useState(false);
@@ -106,26 +146,27 @@ export default function AnimalsScreen() {
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [appliedStatus, setAppliedStatus] = useState<StatusFilter[]>([]);
   const [appliedSpecies, setAppliedSpecies] = useState<SpeciesFilter[]>([]);
-  const [appliedGroups, setAppliedGroups] = useState<string[]>([]);
+  const [appliedLabels, setAppliedLabels] = useState<string[]>([]);
   const [appliedSort, setAppliedSort] = useState<SortOption>(DEFAULT_SORT);
   const [draftSearchQuery, setDraftSearchQuery] = useState('');
   const [draftStatus, setDraftStatus] = useState<StatusFilter[]>([]);
   const [draftSpecies, setDraftSpecies] = useState<SpeciesFilter[]>([]);
-  const [draftGroups, setDraftGroups] = useState<string[]>([]);
-  const [showGroupSelector, setShowGroupSelector] = useState(false);
+  const [draftLabels, setDraftLabels] = useState<string[]>([]);
+  const [showLabelSelector, setShowLabelSelector] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const sheetEntrance = useRef(new Animated.Value(0)).current;
   const sortSheetEntrance = useRef(new Animated.Value(0)).current;
-  const availableGroups = useMemo(
+  const availableLabels = useMemo(
     () =>
       Array.from(
         new Map(
-          [...groups, ...animals.map((animal) => animal.group)]
-            .map((group) => group.trim())
+          [...labels, ...animals.flatMap((animal) => animal.labels)]
+            .map((label) => label.trim())
             .filter(Boolean)
-            .map((group) => [group.toLowerCase(), group]),
+            .map((label) => [label.toLowerCase(), label]),
         ).values(),
       ),
-    [animals, groups],
+    [animals, labels],
   );
 
   const { collectives } = useCollectives();
@@ -167,7 +208,7 @@ export default function AnimalsScreen() {
     appliedSearchQuery.trim().length > 0 ||
     appliedStatus.length > 0 ||
     appliedSpecies.length > 0 ||
-    appliedGroups.length > 0;
+    appliedLabels.length > 0;
 
   const filteredAnimals = useMemo(() => {
     const normalizedQuery = appliedSearchQuery.trim().toLowerCase();
@@ -188,25 +229,33 @@ export default function AnimalsScreen() {
         appliedSpecies.length === 0 ||
         appliedSpecies.some((species) => animal.species.trim().toLowerCase() === species.toLowerCase());
 
-      const matchesGroup =
-        appliedGroups.length === 0 ||
-        appliedGroups.some((group) => animal.group.trim().toLowerCase() === group.toLowerCase());
+      // An animal carries several labels, so it matches if any selected label
+      // is among them.
+      const matchesLabel =
+        appliedLabels.length === 0 ||
+        appliedLabels.some((label) =>
+          animal.labels.some((entry) => entry.trim().toLowerCase() === label.toLowerCase()),
+        );
 
-      return matchesSearch && matchesStatus && matchesSpecies && matchesGroup;
+      return matchesSearch && matchesStatus && matchesSpecies && matchesLabel;
     });
-  }, [animals, appliedGroups, appliedSearchQuery, appliedSpecies, appliedStatus]);
+  }, [animals, appliedLabels, appliedSearchQuery, appliedSpecies, appliedStatus]);
 
   const sortedAnimals = useMemo(
     () => sortAnimals(filteredAnimals, appliedSort),
     [filteredAnimals, appliedSort],
+  );
+  const sortedCollectives = useMemo(
+    () => sortCollectives(collectives, appliedSort),
+    [collectives, appliedSort],
   );
 
   const openFilters = () => {
     setDraftSearchQuery(appliedSearchQuery);
     setDraftStatus([...appliedStatus]);
     setDraftSpecies([...appliedSpecies]);
-    setDraftGroups([...appliedGroups]);
-    setShowGroupSelector(false);
+    setDraftLabels([...appliedLabels]);
+    setShowLabelSelector(false);
     setShowFilterSheet(true);
   };
 
@@ -214,8 +263,8 @@ export default function AnimalsScreen() {
     setAppliedSearchQuery(draftSearchQuery.trim());
     setAppliedStatus([...draftStatus]);
     setAppliedSpecies([...draftSpecies]);
-    setAppliedGroups([...draftGroups]);
-    setShowGroupSelector(false);
+    setAppliedLabels([...draftLabels]);
+    setShowLabelSelector(false);
     setShowFilterSheet(false);
   };
 
@@ -243,7 +292,7 @@ export default function AnimalsScreen() {
             badge: appliedSort !== DEFAULT_SORT,
           },
           {
-            icon: 'filter',
+            icon: 'filter-funnel-outline',
             accessibilityLabel: hasActiveFilters ? 'Filter animals (filters applied)' : 'Filter animals',
             onPress: openFilters,
             badge: hasActiveFilters,
@@ -274,15 +323,27 @@ export default function AnimalsScreen() {
                   pressed && styles.pressed,
                 ]}
               >
-                <Text style={[styles.segmentText, selected ? styles.segmentTextActive : styles.segmentTextIdle]}>
-                  {option === 'individual' ? 'Individual' : 'Herds & flocks'}
+                <Text
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
+                  numberOfLines={1}
+                  style={[styles.segmentText, selected ? styles.segmentTextActive : styles.segmentTextIdle]}
+                >
+                  {option === 'individual' ? 'Individual animals' : 'Herds & flocks'}
                 </Text>
               </Pressable>
             );
           })}
         </View>
         <ImportPromptBubble onPress={() => router.push('/import-animals')} />
-        <Text style={styles.countText}>{animalView === 'collectives' ? `${collectives.length} herds & flocks` : hasActiveFilters ? `${filteredAnimals.length} of ${animals.length} animals` : `${animals.length} animals`}</Text>
+        <Text style={styles.countText}>
+          {animalView === 'collectives'
+            ? describeCollectiveCount(collectives)
+            : hasActiveFilters
+              ? `${filteredAnimals.length} of ${animals.length} animals`
+              : `${animals.length} animals`}
+          <Text>{` · ${getSortLabel(appliedSort)}`}</Text>
+        </Text>
         {animalView === 'collectives' ? (
           collectives.length === 0 ? (
             <View style={styles.emptyState}>
@@ -292,7 +353,7 @@ export default function AnimalsScreen() {
             </View>
           ) : (
             <>
-              {collectives.map((collective) => {
+              {sortedCollectives.map((collective) => {
                 const term = collectiveTermForSpecies(collective.species);
                 const count = getCollectiveCount(collective);
                 // Collectives carry a species label but no tone, so the theme
@@ -307,12 +368,12 @@ export default function AnimalsScreen() {
                 const reference = collective.id.trim();
                 const label = collective.name.trim();
                 const title = reference || label || `${collective.species} ${term}`;
-                const meta = [
-                  reference ? label : '',
-                  `${count} ${count === 1 ? 'animal' : 'animals'}`,
-                ]
-                  .filter(Boolean)
-                  .join(' • ');
+                // The count moves down to the footer row, which was carrying
+                // only the status word. Sharing the info row with the species
+                // chip meant a long name pushed the count under the chevron —
+                // and the count is the fact this card exists to show.
+                const meta = reference ? label : '';
+                const countLabel = `${count} ${count === 1 ? 'animal' : 'animals'}`;
 
                 return (
                   <BouncyPressable
@@ -327,18 +388,13 @@ export default function AnimalsScreen() {
                     }
                     style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
                   >
-                    <View
-                      style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}
-                    >
-                      <AppIcon
-                        name={getSpeciesIconName(collective.species, tone)}
-                        size={26}
-                        color={theme.icon}
-                      />
-                    </View>
+                    <CollectiveCardAvatar collective={collective} tone={tone} />
                     <View style={styles.cardCopy}>
                       <View style={styles.headerRow}>
-                        <Text style={styles.cardTitle}>{title}</Text>
+                        <Text style={styles.cardTitle} numberOfLines={1}>
+                          {title}
+                          {meta ? <Text style={styles.cardTitleName}>{` (${meta})`}</Text> : null}
+                        </Text>
                       </View>
                       <View style={styles.infoRow}>
                         <View
@@ -353,8 +409,8 @@ export default function AnimalsScreen() {
                             {collective.species}
                           </Text>
                         </View>
-                        <Text style={styles.metaText} numberOfLines={1}>
-                          {meta}
+                        <Text style={styles.countBadge} numberOfLines={1}>
+                          {countLabel}
                         </Text>
                       </View>
                       <View style={styles.footerRow}>
@@ -362,7 +418,7 @@ export default function AnimalsScreen() {
                           <View
                             style={[
                               styles.statusDot,
-                              collective.status === 'Closed'
+                              collective.status === 'Inactive'
                                 ? styles.statusSold
                                 : styles.statusActive,
                             ]}
@@ -411,7 +467,12 @@ export default function AnimalsScreen() {
                 <AnimalCardAvatar animal={animal} />
                 <View style={styles.cardCopy}>
                   <View style={styles.headerRow}>
-                    <Text style={styles.cardTitle}>{animal.id}</Text>
+                    <Text style={styles.cardTitle} numberOfLines={1}>
+                      {animal.id}
+                      {animal.name.trim() ? (
+                        <Text style={styles.cardTitleName}>{` (${animal.name.trim()})`}</Text>
+                      ) : null}
+                    </Text>
                   </View>
                   <View style={styles.infoRow}>
                     <View
@@ -420,11 +481,6 @@ export default function AnimalsScreen() {
                         { backgroundColor: theme.chipBackground },
                       ]}
                     >
-                      <AppIcon
-                        name={getSpeciesIconName(animal.species, animal.tone)}
-                        size={11}
-                        color={theme.icon}
-                      />
                       <Text
                         style={[
                           styles.speciesChipText,
@@ -441,7 +497,7 @@ export default function AnimalsScreen() {
                       color={tokens.colors.text}
                     />
                     <Text style={styles.metaText} numberOfLines={1}>
-                      {buildPrimaryMeta(animal.name, animal.ageLabel)}
+                      {abbreviateAgeLabel(animal.ageLabel)}
                     </Text>
                   </View>
                   <View style={styles.footerRow}>
@@ -472,22 +528,16 @@ export default function AnimalsScreen() {
         positionerRef={fabRef}
         actions={[
           {
-            // The Animals tab's own icon, so the action reads as "another one of
-            // these"; the herd adds a plus to mark it as several at once.
-            icon: 'goat-face',
-            label: 'Add individual',
-            onPress: () => router.push({ pathname: '/add-animal', params: { reveal: '1' } }),
+            // Custom white artwork: a single head for one animal, the herd
+            // drawing for several at once.
+            image: require('../../assets/individual.png'),
+            label: 'Add animal',
+            onPress: () => router.push('/add-animal'),
           },
           {
-            cluster: 'goat-face',
+            image: require('../../assets/herd.png'),
             label: 'Add herd or flock',
             onPress: () => router.push('/add-collective'),
-          },
-          {
-            glyph: '?',
-            label: 'Help',
-            variant: 'secondary',
-            onPress: () => router.push('/add-choose'),
           },
         ]}
       />
@@ -539,7 +589,7 @@ export default function AnimalsScreen() {
             <ScrollView contentContainerStyle={styles.filterContent} showsVerticalScrollIndicator={false}>
               <View style={styles.filterBlock}>
                 <Text style={styles.filterLabel}>Search</Text>
-                <View style={styles.searchField}>
+                <View style={[styles.searchField, searchFocused && styles.searchFieldFocused]}>
                   <AppIcon name="search" size={18} color="#6f6f6f" />
                   <TextInput
                     accessibilityLabel="Search by ID or name"
@@ -548,6 +598,8 @@ export default function AnimalsScreen() {
                     style={styles.searchInput}
                     value={draftSearchQuery}
                     onChangeText={setDraftSearchQuery}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setSearchFocused(false)}
                   />
                 </View>
               </View>
@@ -618,20 +670,20 @@ export default function AnimalsScreen() {
                   })}
                 </View>
               </View>
-              {availableGroups.length > 0 ? (
+              {availableLabels.length > 0 ? (
                 <View style={styles.filterBlock}>
-                  <Text style={styles.filterLabel}>By Group</Text>
+                  <Text style={styles.filterLabel}>By Label</Text>
                   <Pressable
-                    accessibilityLabel="Select groups"
+                    accessibilityLabel="Select labels"
                     accessibilityRole="button"
                     onPress={(event) => {
                       event.stopPropagation();
-                      setShowGroupSelector(true);
+                      setShowLabelSelector(true);
                     }}
                     style={({ pressed }) => [styles.pickerField, pressed && styles.pressed]}
                   >
-                    <Text style={[styles.fieldValue, draftGroups.length === 0 && styles.placeholderValue]}>
-                      {formatGroupSelection(draftGroups)}
+                    <Text style={[styles.fieldValue, draftLabels.length === 0 && styles.placeholderValue]}>
+                      {formatLabelSelection(draftLabels)}
                     </Text>
                     <AppIcon name="chevron-down" size={18} color="#7a7a7a" />
                   </Pressable>
@@ -646,8 +698,8 @@ export default function AnimalsScreen() {
                     setDraftSearchQuery('');
                     setDraftStatus([]);
                     setDraftSpecies([]);
-                    setDraftGroups([]);
-                    setShowGroupSelector(false);
+                    setDraftLabels([]);
+                    setShowLabelSelector(false);
                   }}
                   style={styles.clearFilterButton}
                 >
@@ -667,39 +719,39 @@ export default function AnimalsScreen() {
             </ScrollView>
           </Pressable>
           </Animated.View>
-          {showGroupSelector ? (
+          {showLabelSelector ? (
             <Pressable
               style={styles.selectionBackdrop}
               onPress={(event) => {
                 event.stopPropagation();
-                setShowGroupSelector(false);
+                setShowLabelSelector(false);
               }}
             >
-              <AnimatedPopupCard visible={showGroupSelector} style={styles.selectionCard} onPress={() => undefined}>
+              <AnimatedPopupCard visible={showLabelSelector} style={styles.selectionCard} onPress={() => undefined}>
                 <View style={styles.selectionHeader}>
-                  <Text style={styles.selectionTitle}>Select groups</Text>
+                  <Text style={styles.selectionTitle}>Select labels</Text>
                   <Pressable
                     accessibilityLabel="Done"
                     accessibilityRole="button"
-                    onPress={() => setShowGroupSelector(false)}
+                    onPress={() => setShowLabelSelector(false)}
                   >
                     <Text style={styles.modalDone}>Done</Text>
                   </Pressable>
                 </View>
                 <ScrollView showsVerticalScrollIndicator={false}>
-                  {availableGroups.map((group) => {
-                    const isSelected = draftGroups.some((entry) => entry.toLowerCase() === group.toLowerCase());
+                  {availableLabels.map((label) => {
+                    const isSelected = draftLabels.some((entry) => entry.toLowerCase() === label.toLowerCase());
 
                     return (
                       <Pressable
-                        key={group}
-                        accessibilityLabel={group}
+                        key={label}
+                        accessibilityLabel={label}
                         accessibilityRole="button"
                         onPress={() =>
-                          setDraftGroups((current) =>
-                            current.some((entry) => entry.toLowerCase() === group.toLowerCase())
-                              ? current.filter((entry) => entry.toLowerCase() !== group.toLowerCase())
-                              : [...current, group],
+                          setDraftLabels((current) =>
+                            current.some((entry) => entry.toLowerCase() === label.toLowerCase())
+                              ? current.filter((entry) => entry.toLowerCase() !== label.toLowerCase())
+                              : [...current, label],
                           )
                         }
                         style={({ pressed }) => [
@@ -708,8 +760,8 @@ export default function AnimalsScreen() {
                           pressed && styles.pressed,
                         ]}
                       >
-                        <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{group}</Text>
-                        {isSelected ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                        <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{label}</Text>
+                        {isSelected ? <AppIcon name="check" size={16} color="#fff" /> : null}
                       </Pressable>
                     );
                   })}
@@ -781,12 +833,12 @@ export default function AnimalsScreen() {
                     }}
                     style={({ pressed }) => [
                       styles.selectionRow,
-                      isSelected && styles.selectionRowActive,
+                      isSelected && styles.sortRowActive,
                       pressed && styles.pressed,
                     ]}
                   >
-                    <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{option.label}</Text>
-                    {isSelected ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                    <Text style={[styles.selectionText, isSelected && styles.sortTextActive]}>{option.label}</Text>
+                    {isSelected ? <AppIcon name="check" size={16} color="#fff" /> : null}
                   </Pressable>
                 );
               })}
@@ -922,23 +974,29 @@ const styles = StyleSheet.create({
   // than options inside a track.
   segmentRow: {
     flexDirection: 'row',
+    alignSelf: 'flex-start',
+    justifyContent: 'flex-start',
     gap: 10,
     // No extra margin — the content container's own gap is the only spacing
     // between the toggle and the import card, keeping them visually paired.
     marginBottom: 0,
   },
+  // No flex: each button is only as wide as its own label, so the pair sits at
+  // the start of the row instead of splitting the screen in half.
+  // The two labels together are wide for one row on a small screen, and these
+  // buttons hug their text rather than flexing — so let them give ground before
+  // the text does.
   segmentButton: {
-    flex: 1,
-    minHeight: 50,
-    borderRadius: 25,
+    flexShrink: 1,
+    minWidth: 0,
+    minHeight: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
   segmentButtonActive: {
-    // #FCEAEA rather than accentSoft, to match the import prompt card that sits
-    // directly beneath this toggle on the same screen.
-    backgroundColor: '#FCEAEA',
+    backgroundColor: tokens.colors.accent,
   },
   segmentButtonIdle: {
     backgroundColor: '#F5F3F7',
@@ -948,7 +1006,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   segmentTextActive: {
-    color: tokens.colors.text,
+    color: '#fff',
   },
   segmentTextIdle: {
     color: '#8A7F87',
@@ -1062,10 +1120,16 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 24,
     backgroundColor: '#F5F3F7',
+    borderWidth: 2,
+    borderColor: 'transparent',
     paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  // Same focus ring DesignField gives every field on the add screens.
+  searchFieldFocused: {
+    borderColor: tokens.colors.accent,
   },
   searchInput: {
     flex: 1,
@@ -1141,7 +1205,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   selectionRowActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
+  },
+  // Sort is a single choice, so the selected row is filled solid rather than
+  // washed — the check mark and label go white to sit on it.
+  sortRowActive: {
+    backgroundColor: tokens.colors.accent,
+  },
+  sortTextActive: {
+    color: '#fff',
+    fontWeight: '700',
   },
   selectionText: {
     color: tokens.colors.text,
@@ -1149,7 +1222,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   selectionTextActive: {
-    color: '#74423F',
+    color: '#fff',
   },
   optionRow: {
     flexDirection: 'row',
@@ -1163,7 +1236,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   filterChipActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   filterChipText: {
     color: '#555',
@@ -1171,7 +1244,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   filterChipTextActive: {
-    color: '#74423F',
+    color: '#fff',
   },
   pressed: {
     opacity: 0.9,
@@ -1213,9 +1286,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   speciesIconBadge: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -1242,6 +1315,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flexShrink: 1,
   },
+  // The name rides alongside the identifier rather than taking a line of its
+  // own: unbolded and bracketed, so the tag still reads as the title.
+  cardTitleName: {
+    // 13 to match metaText and the count, not the 16 of the identifier it sits
+    // beside — a nested Text inherits the parent's size unless it says otherwise.
+    fontSize: 13,
+    fontWeight: '500',
+    color: tokens.colors.textSoft,
+  },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1258,6 +1340,15 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  // Sits immediately right of the species chip. flexShrink 0 keeps it whole —
+  // it was being clipped by the chevron back when it shared this row with the
+  // name, which now lives up in the title.
+  countBadge: {
+    color: tokens.colors.text,
+    fontSize: 13,
+    fontWeight: '500',
+    flexShrink: 0,
   },
   speciesChip: {
     borderRadius: 14,
@@ -1299,7 +1390,9 @@ const styles = StyleSheet.create({
 });
 
 function AnimalCardAvatar({ animal }: { animal: Animal }) {
-  const imageUri = animal.showImageOnCard ? animal.imageUris?.[0]?.trim() || null : null;
+  // Cards draw at badge size, so they use the thumbnail rather than decoding
+  // the full-size photo once per row (see useThumbnailUri).
+  const imageUri = useThumbnailUri(animal.showImageOnCard ? animal.imageUris?.[0] : null);
   const [imageFailed, setImageFailed] = useState(false);
   const theme = getSpeciesThemeByTone(animal.tone);
 
@@ -1320,7 +1413,7 @@ function AnimalCardAvatar({ animal }: { animal: Animal }) {
       ) : (
         <AppIcon
           name={getSpeciesIconName(animal.species, animal.tone)}
-          size={26}
+          size={24}
           color={theme.icon}
         />
       )}
@@ -1328,20 +1421,46 @@ function AnimalCardAvatar({ animal }: { animal: Animal }) {
   );
 }
 
-function buildPrimaryMeta(name: string, ageLabel: string) {
-  return [name.trim(), abbreviateAgeLabel(ageLabel)].filter(Boolean).join(' • ');
+function CollectiveCardAvatar({ collective, tone }: { collective: Collective; tone: AnimalTone }) {
+  const imageUri = useThumbnailUri(collective.showImageOnCard ? collective.imageUris?.[0] : null);
+  const [imageFailed, setImageFailed] = useState(false);
+  const theme = getSpeciesThemeByLabel(collective.species);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [collective.uid, imageUri]);
+
+  return (
+    <View style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}>
+      {imageUri && !imageFailed ? (
+        <Image
+          accessibilityIgnoresInvertColors
+          resizeMode="cover"
+          source={{ uri: imageUri }}
+          style={styles.animalProfileImage}
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <AppIcon
+          name={getSpeciesIconName(collective.species, tone)}
+          size={24}
+          color={theme.icon}
+        />
+      )}
+    </View>
+  );
 }
 
-function formatGroupSelection(groups: string[]) {
-  if (groups.length === 0) {
-    return 'Select groups';
+function formatLabelSelection(labels: string[]) {
+  if (labels.length === 0) {
+    return 'Select labels';
   }
 
-  if (groups.length === 1) {
-    return groups[0];
+  if (labels.length === 1) {
+    return labels[0];
   }
 
-  return `${groups.length} groups selected`;
+  return `${labels.length} labels selected`;
 }
 
 function getSpeciesIconName(species: string, tone: AnimalTone) {
@@ -1367,10 +1486,6 @@ function getSpeciesIconName(species: string, tone: AnimalTone) {
   return getToneFallback(tone);
 }
 
-function getAnimalSexIcon(sex: unknown): 'female' | 'male' {
-  return sex === 'male' ? 'male' : 'female';
-}
-
 function getToneFallback(tone: AnimalTone) {
   switch (tone) {
     case 'pig':
@@ -1392,15 +1507,3 @@ function getToneFallback(tone: AnimalTone) {
   }
 }
 
-function abbreviateAgeLabel(ageLabel: string) {
-  const trimmed = ageLabel.trim();
-
-  if (!trimmed) {
-    return '';
-  }
-
-  return trimmed
-    .replace(/years old/i, 'yrs')
-    .replace(/months old/i, 'mos')
-    .replace(/days old/i, 'days');
-}

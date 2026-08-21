@@ -4,8 +4,8 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 
 import { createUniqueUuid } from '../utils/createLocalId';
 
-export type SetupCollectionKey = 'farms' | 'paddocks' | 'groups' | 'medicines';
-export type SetupSelectionTarget = 'fromFarm' | 'fromPaddock' | 'toFarm' | 'toPaddock';
+export type SetupCollectionKey = 'farms' | 'locations' | 'labels' | 'medicines';
+export type SetupSelectionTarget = 'fromFarm' | 'fromLocation' | 'toFarm' | 'toLocation';
 // address/country are deliberately not tracked here: the account-level
 // profile.businessAddress and profile.country already own those concepts
 // (businessAddress is what's actually printed on exports; country drives
@@ -20,25 +20,26 @@ export type FarmEntity = {
   holdingId: string;
   notes: string;
 };
-export type PaddockEntity = {
+export type LocationEntity = {
   uid?: string;
   farmUid?: string;
   name: string;
   farm: string;
   notes: string;
 };
-// Deliberately not tied to a farm, paddock, or species: an animal's actual
+// Deliberately not tied to a farm, location, or species: an animal's actual
 // location already lives on the Animal record (kept live by Movement
-// records — see rebuildAnimalsState in RecordsContext), so a farm/paddock
-// stored here would go stale the moment the group's animals move, with
-// nothing to keep it in sync. Species was dropped for the same reason: there
-// is no updateGroup, so a species label set at creation can never be
-// corrected once a farmer deliberately mixes species into a group (a
-// co-grazing mob, a quarantine pen, a mixed hobby-farm group) — it would
-// just silently go wrong with no way to fix it. A Group is just a
-// freely-composable management label (e.g. "Dairy A"), independent of where
-// its animals are or what species they are.
-export type GroupEntity = {
+// records — see rebuildAnimalsState in RecordsContext), so a farm/location
+// stored here would go stale the moment a labelled animal moves, with
+// nothing to keep it in sync. Species was dropped for the same reason: a
+// species set at creation can never be corrected once a farmer deliberately
+// mixes species under one label (a co-grazing mob, a quarantine pen, a mixed
+// hobby-farm batch) — it would just silently go wrong with no way to fix it.
+// A Label is a freely-composable management tag (e.g. "Dairy A", "Mothers"),
+// independent of where its animals are or what species they are. An animal
+// carries as many as apply, which is the whole point: labels are how you
+// mass-record animals that aren't in a herd or flock.
+export type LabelEntity = {
   uid?: string;
   name: string;
   animals: string;
@@ -70,23 +71,23 @@ export type SetupMutationResult =
 
 type SetupContextValue = {
   farmEntities: FarmEntity[];
-  paddockEntities: PaddockEntity[];
-  groupEntities: GroupEntity[];
+  locationEntities: LocationEntity[];
+  labelEntities: LabelEntity[];
   medicineEntities: MedicineEntity[];
   farms: string[];
-  paddocks: string[];
-  groups: string[];
+  locations: string[];
+  labels: string[];
   medicines: string[];
   isLoaded: boolean;
   addFarm: (farm: FarmEntity) => Promise<SetupMutationResult>;
   updateFarm: (uid: string, farm: FarmEntity) => Promise<SetupMutationResult>;
   removeFarm: (name: string) => Promise<SetupMutationResult>;
-  addPaddock: (paddock: PaddockEntity) => Promise<SetupMutationResult>;
-  updatePaddock: (uid: string, paddock: PaddockEntity) => Promise<SetupMutationResult>;
-  removePaddock: (name: string) => Promise<SetupMutationResult>;
-  addGroup: (group: GroupEntity) => Promise<SetupMutationResult>;
-  updateGroup: (uid: string, group: GroupEntity) => Promise<SetupMutationResult>;
-  removeGroup: (name: string) => Promise<SetupMutationResult>;
+  addLocation: (location: LocationEntity) => Promise<SetupMutationResult>;
+  updateLocation: (uid: string, location: LocationEntity) => Promise<SetupMutationResult>;
+  removeLocation: (name: string) => Promise<SetupMutationResult>;
+  addLabel: (label: LabelEntity) => Promise<SetupMutationResult>;
+  updateLabel: (uid: string, label: LabelEntity) => Promise<SetupMutationResult>;
+  removeLabel: (name: string) => Promise<SetupMutationResult>;
   addMedicine: (medicine: MedicineEntity) => Promise<SetupMutationResult>;
   updateMedicine: (uid: string, medicine: MedicineEntity) => Promise<SetupMutationResult>;
   removeMedicine: (name: string) => Promise<SetupMutationResult>;
@@ -103,16 +104,16 @@ type SetupContextValue = {
   // larger cross-store transaction) before syncing this context's state.
   replaceSetupFromTransaction: (nextSetup: {
     farms: FarmEntity[];
-    paddocks: PaddockEntity[];
-    groups: GroupEntity[];
+    locations: LocationEntity[];
+    labels: LabelEntity[];
     medicines: MedicineEntity[];
   }) => void;
 };
 
 const EMPTY_SETUP = {
   farms: [] as FarmEntity[],
-  paddocks: [] as PaddockEntity[],
-  groups: [] as GroupEntity[],
+  locations: [] as LocationEntity[],
+  labels: [] as LabelEntity[],
   medicines: [] as MedicineEntity[],
 };
 
@@ -121,8 +122,8 @@ const SetupContext = createContext<SetupContextValue | null>(null);
 
 export function SetupProvider({ children }: PropsWithChildren) {
   const [farmEntities, setFarmEntities] = useState<FarmEntity[]>(EMPTY_SETUP.farms);
-  const [paddockEntities, setPaddockEntities] = useState<PaddockEntity[]>(EMPTY_SETUP.paddocks);
-  const [groupEntities, setGroupEntities] = useState<GroupEntity[]>(EMPTY_SETUP.groups);
+  const [locationEntities, setLocationEntities] = useState<LocationEntity[]>(EMPTY_SETUP.locations);
+  const [labelEntities, setLabelEntities] = useState<LabelEntity[]>(EMPTY_SETUP.labels);
   const [medicineEntities, setMedicineEntities] = useState<MedicineEntity[]>(EMPTY_SETUP.medicines);
   const setupRef = useRef(EMPTY_SETUP);
   const setupMutationInProgress = useRef(false);
@@ -144,8 +145,8 @@ export function SetupProvider({ children }: PropsWithChildren) {
             const normalizedSetup = normalizeStoredSetup(parsedSetup);
             setupRef.current = normalizedSetup;
             setFarmEntities(normalizedSetup.farms);
-            setPaddockEntities(normalizedSetup.paddocks);
-            setGroupEntities(normalizedSetup.groups);
+            setLocationEntities(normalizedSetup.locations);
+            setLabelEntities(normalizedSetup.labels);
             setMedicineEntities(normalizedSetup.medicines);
             await AsyncStorage.setItem(SETUP_STORAGE_KEY, JSON.stringify(normalizedSetup));
           }
@@ -171,8 +172,8 @@ export function SetupProvider({ children }: PropsWithChildren) {
       const replaceSetup = (nextSetup: typeof EMPTY_SETUP) => {
         setupRef.current = nextSetup;
         setFarmEntities(nextSetup.farms);
-        setPaddockEntities(nextSetup.paddocks);
-        setGroupEntities(nextSetup.groups);
+        setLocationEntities(nextSetup.locations);
+        setLabelEntities(nextSetup.labels);
         setMedicineEntities(nextSetup.medicines);
       };
 
@@ -196,12 +197,12 @@ export function SetupProvider({ children }: PropsWithChildren) {
 
       return {
       farmEntities,
-      paddockEntities,
-      groupEntities,
+      locationEntities,
+      labelEntities,
       medicineEntities,
       farms: farmEntities.map((farm) => farm.name),
-      paddocks: paddockEntities.map((paddock) => paddock.name),
-      groups: groupEntities.map((group) => group.name),
+      locations: locationEntities.map((location) => location.name),
+      labels: labelEntities.map((label) => label.name),
       medicines: medicineEntities.map((medicine) => medicine.name),
       isLoaded: hasLoadedStoredSetup,
       pendingSetupSelectionTarget,
@@ -252,20 +253,20 @@ export function SetupProvider({ children }: PropsWithChildren) {
 
         // Records link to farms by uid and resolve the live name at display
         // time (see resolveFarmName), so a rename shows up on them for
-        // free. Paddocks are a much smaller, bounded collection and still
+        // free. Locations are a much smaller, bounded collection and still
         // carry a denormalized farm-name string alongside farmUid — cheap
-        // enough to just keep in sync eagerly here. Groups don't reference a
-        // farm at all (see GroupEntity), so there's nothing to sync there.
+        // enough to just keep in sync eagerly here. Labels don't reference a
+        // farm at all (see LabelEntity), so there's nothing to sync there.
         return persistSetup({
           ...setupRef.current,
           farms: setupRef.current.farms.map((entry) => (entry.uid === uid ? updatedFarm : entry)),
-          paddocks: nameChanged
-            ? setupRef.current.paddocks.map((entry) => (entry.farmUid === uid ? { ...entry, farm: name } : entry))
-            : setupRef.current.paddocks,
+          locations: nameChanged
+            ? setupRef.current.locations.map((entry) => (entry.farmUid === uid ? { ...entry, farm: name } : entry))
+            : setupRef.current.locations,
         });
       },
       removeFarm: async (name) => {
-        if (setupRef.current.paddocks.some((entry) => equalsIgnoreCase(entry.farm, name))) {
+        if (setupRef.current.locations.some((entry) => equalsIgnoreCase(entry.farm, name))) {
           return { ok: false, reason: 'in-use' };
         }
 
@@ -274,40 +275,40 @@ export function SetupProvider({ children }: PropsWithChildren) {
           farms: setupRef.current.farms.filter((entry) => !equalsIgnoreCase(entry.name, name)),
         });
       },
-      addPaddock: async (rawPaddock) => {
-        const paddock = {
-          uid: rawPaddock.uid || createUniqueUuid(setupRef.current.paddocks.map((entry) => entry.uid ?? '')),
+      addLocation: async (rawLocation) => {
+        const location = {
+          uid: rawLocation.uid || createUniqueUuid(setupRef.current.locations.map((entry) => entry.uid ?? '')),
           farmUid:
-            rawPaddock.farmUid ||
-            setupRef.current.farms.find((entry) => equalsIgnoreCase(entry.name, rawPaddock.farm))?.uid,
-          name: rawPaddock.name.trim(),
-          farm: rawPaddock.farm.trim(),
-          notes: rawPaddock.notes.trim(),
+            rawLocation.farmUid ||
+            setupRef.current.farms.find((entry) => equalsIgnoreCase(entry.name, rawLocation.farm))?.uid,
+          name: rawLocation.name.trim(),
+          farm: rawLocation.farm.trim(),
+          notes: rawLocation.notes.trim(),
         };
 
-        if (!paddock.name || !paddock.farm) {
+        if (!location.name || !location.farm) {
           return { ok: false, reason: 'invalid' };
         }
 
-        if (!setupRef.current.farms.some((entry) => equalsIgnoreCase(entry.name, paddock.farm))) {
+        if (!setupRef.current.farms.some((entry) => equalsIgnoreCase(entry.name, location.farm))) {
           return { ok: false, reason: 'invalid' };
         }
 
-        if (setupRef.current.paddocks.some((entry) => equalsIgnoreCase(entry.name, paddock.name))) {
+        if (setupRef.current.locations.some((entry) => equalsIgnoreCase(entry.name, location.name))) {
           return { ok: false, reason: 'duplicate' };
         }
 
-        return persistSetup({ ...setupRef.current, paddocks: [...setupRef.current.paddocks, paddock] });
+        return persistSetup({ ...setupRef.current, locations: [...setupRef.current.locations, location] });
       },
-      updatePaddock: async (uid, rawPaddock) => {
-        const existing = setupRef.current.paddocks.find((entry) => entry.uid === uid);
+      updateLocation: async (uid, rawLocation) => {
+        const existing = setupRef.current.locations.find((entry) => entry.uid === uid);
 
         if (!existing) {
           return { ok: false, reason: 'invalid' };
         }
 
-        const name = rawPaddock.name.trim();
-        const farmName = rawPaddock.farm.trim();
+        const name = rawLocation.name.trim();
+        const farmName = rawLocation.farm.trim();
 
         if (!name || !farmName) {
           return { ok: false, reason: 'invalid' };
@@ -319,87 +320,87 @@ export function SetupProvider({ children }: PropsWithChildren) {
           return { ok: false, reason: 'invalid' };
         }
 
-        if (setupRef.current.paddocks.some((entry) => entry.uid !== uid && equalsIgnoreCase(entry.name, name))) {
+        if (setupRef.current.locations.some((entry) => entry.uid !== uid && equalsIgnoreCase(entry.name, name))) {
           return { ok: false, reason: 'duplicate' };
         }
 
-        const updatedPaddock: PaddockEntity = {
+        const updatedLocation: LocationEntity = {
           uid,
           farmUid: matchingFarm.uid,
           name,
           farm: matchingFarm.name,
-          notes: rawPaddock.notes.trim(),
+          notes: rawLocation.notes.trim(),
         };
 
-        // Records link to paddocks by uid and resolve the live name at
-        // display time, so a rename shows up on them for free. Groups don't
-        // reference a paddock at all (see GroupEntity), so there's nothing
+        // Records link to locations by uid and resolve the live name at
+        // display time, so a rename shows up on them for free. Labels don't
+        // reference a location at all (see LabelEntity), so there's nothing
         // to sync there.
         return persistSetup({
           ...setupRef.current,
-          paddocks: setupRef.current.paddocks.map((entry) => (entry.uid === uid ? updatedPaddock : entry)),
+          locations: setupRef.current.locations.map((entry) => (entry.uid === uid ? updatedLocation : entry)),
         });
       },
-      removePaddock: async (name) => {
+      removeLocation: async (name) => {
         return persistSetup({
           ...setupRef.current,
-          paddocks: setupRef.current.paddocks.filter((entry) => !equalsIgnoreCase(entry.name, name)),
+          locations: setupRef.current.locations.filter((entry) => !equalsIgnoreCase(entry.name, name)),
         });
       },
-      addGroup: async (rawGroup) => {
-        const group = {
-          uid: rawGroup.uid || createUniqueUuid(setupRef.current.groups.map((entry) => entry.uid ?? '')),
-          name: rawGroup.name.trim(),
-          animals: rawGroup.animals.trim(),
-          notes: rawGroup.notes.trim(),
+      addLabel: async (rawLabel) => {
+        const label = {
+          uid: rawLabel.uid || createUniqueUuid(setupRef.current.labels.map((entry) => entry.uid ?? '')),
+          name: rawLabel.name.trim(),
+          animals: rawLabel.animals.trim(),
+          notes: rawLabel.notes.trim(),
         };
 
-        if (!group.name) {
+        if (!label.name) {
           return { ok: false, reason: 'invalid' };
         }
 
-        if (setupRef.current.groups.some((entry) => equalsIgnoreCase(entry.name, group.name))) {
+        if (setupRef.current.labels.some((entry) => equalsIgnoreCase(entry.name, label.name))) {
           return { ok: false, reason: 'duplicate' };
         }
 
-        return persistSetup({ ...setupRef.current, groups: [...setupRef.current.groups, group] });
+        return persistSetup({ ...setupRef.current, labels: [...setupRef.current.labels, label] });
       },
-      updateGroup: async (uid, rawGroup) => {
-        const existing = setupRef.current.groups.find((entry) => entry.uid === uid);
+      updateLabel: async (uid, rawLabel) => {
+        const existing = setupRef.current.labels.find((entry) => entry.uid === uid);
 
         if (!existing) {
           return { ok: false, reason: 'invalid' };
         }
 
-        const name = rawGroup.name.trim();
+        const name = rawLabel.name.trim();
 
         if (!name) {
           return { ok: false, reason: 'invalid' };
         }
 
-        if (setupRef.current.groups.some((entry) => entry.uid !== uid && equalsIgnoreCase(entry.name, name))) {
+        if (setupRef.current.labels.some((entry) => entry.uid !== uid && equalsIgnoreCase(entry.name, name))) {
           return { ok: false, reason: 'duplicate' };
         }
 
-        // Only name/notes are editable from the Groups screen — everything
-        // else (farm/paddock/species links) stays exactly as it was.
-        // Animals link to groups by uid and resolve the live name at
+        // Only name/notes are editable from the Labels screen — everything
+        // else (farm/location/species links) stays exactly as it was.
+        // Animals link to labels by uid and resolve the live name at
         // display time, so a rename shows up on them for free.
-        const updatedGroup: GroupEntity = {
+        const updatedLabel: LabelEntity = {
           ...existing,
           name,
-          notes: rawGroup.notes.trim(),
+          notes: rawLabel.notes.trim(),
         };
 
         return persistSetup({
           ...setupRef.current,
-          groups: setupRef.current.groups.map((entry) => (entry.uid === uid ? updatedGroup : entry)),
+          labels: setupRef.current.labels.map((entry) => (entry.uid === uid ? updatedLabel : entry)),
         });
       },
-      removeGroup: async (name) => {
+      removeLabel: async (name) => {
         return persistSetup({
           ...setupRef.current,
-          groups: setupRef.current.groups.filter((entry) => !equalsIgnoreCase(entry.name, name)),
+          labels: setupRef.current.labels.filter((entry) => !equalsIgnoreCase(entry.name, name)),
         });
       },
       addMedicine: async (rawMedicine) => {
@@ -507,20 +508,20 @@ export function SetupProvider({ children }: PropsWithChildren) {
           });
         }
 
-        if (collection === 'paddocks') {
+        if (collection === 'locations') {
           return { ok: false, reason: 'invalid' };
         }
 
-        if (collection === 'groups') {
-          if (setupRef.current.groups.some((entry) => equalsIgnoreCase(entry.name, value))) {
+        if (collection === 'labels') {
+          if (setupRef.current.labels.some((entry) => equalsIgnoreCase(entry.name, value))) {
             return { ok: false, reason: 'duplicate' };
           }
           return persistSetup({
             ...setupRef.current,
-            groups: [
-              ...setupRef.current.groups,
+            labels: [
+              ...setupRef.current.labels,
               {
-                uid: createUniqueUuid(setupRef.current.groups.map((entry) => entry.uid ?? '')),
+                uid: createUniqueUuid(setupRef.current.labels.map((entry) => entry.uid ?? '')),
                 name: value,
                 animals: '',
                 notes: '',
@@ -576,7 +577,7 @@ export function SetupProvider({ children }: PropsWithChildren) {
       },
       removeItem: async (collection, value) => {
         if (collection === 'farms') {
-          if (setupRef.current.paddocks.some((entry) => equalsIgnoreCase(entry.farm, value))) {
+          if (setupRef.current.locations.some((entry) => equalsIgnoreCase(entry.farm, value))) {
             return { ok: false, reason: 'in-use' };
           }
           return persistSetup({
@@ -585,17 +586,17 @@ export function SetupProvider({ children }: PropsWithChildren) {
           });
         }
 
-        if (collection === 'paddocks') {
+        if (collection === 'locations') {
           return persistSetup({
             ...setupRef.current,
-            paddocks: setupRef.current.paddocks.filter((entry) => !equalsIgnoreCase(entry.name, value)),
+            locations: setupRef.current.locations.filter((entry) => !equalsIgnoreCase(entry.name, value)),
           });
         }
 
-        if (collection === 'groups') {
+        if (collection === 'labels') {
           return persistSetup({
             ...setupRef.current,
-            groups: setupRef.current.groups.filter((entry) => !equalsIgnoreCase(entry.name, value)),
+            labels: setupRef.current.labels.filter((entry) => !equalsIgnoreCase(entry.name, value)),
           });
         }
 
@@ -619,7 +620,7 @@ export function SetupProvider({ children }: PropsWithChildren) {
       },
       };
     },
-    [farmEntities, groupEntities, hasLoadedStoredSetup, medicineEntities, paddockEntities, pendingSetupSelectionResult, pendingSetupSelectionTarget],
+    [farmEntities, labelEntities, hasLoadedStoredSetup, medicineEntities, locationEntities, pendingSetupSelectionResult, pendingSetupSelectionTarget],
   );
 
   return <SetupContext.Provider value={value}>{children}</SetupContext.Provider>;
@@ -630,16 +631,38 @@ export function isStoredSetup(value: unknown): value is typeof EMPTY_SETUP {
     return false;
   }
 
-  const setup = value as Partial<typeof EMPTY_SETUP>;
+  const setup = value as Partial<typeof EMPTY_SETUP> & { groups?: unknown; paddocks?: unknown };
   return (
     Array.isArray(setup.farms) &&
-    Array.isArray(setup.paddocks) &&
-    Array.isArray(setup.groups) &&
+    // `paddocks` is what installs written before the Locations rename hold.
+    (Array.isArray(setup.locations) || Array.isArray(setup.paddocks)) &&
+    // `groups` is what installs written before the Labels rename hold. Accept
+    // either shape here or their whole setup — farms and medicines included —
+    // is rejected as unreadable and silently reset to empty.
+    (Array.isArray(setup.labels) || Array.isArray(setup.groups)) &&
     Array.isArray(setup.medicines)
   );
 }
 
-export function normalizeStoredSetup(setup: typeof EMPTY_SETUP): typeof EMPTY_SETUP {
+export function normalizeStoredSetup(
+  setup: typeof EMPTY_SETUP & { groups?: LabelEntity[]; paddocks?: LocationEntity[] },
+): typeof EMPTY_SETUP {
+  // Locations were called Paddocks before the rename; read whichever key this
+  // install holds. The normalized value written back is always `locations`.
+  const storedLocations: LocationEntity[] = Array.isArray(setup.locations)
+    ? setup.locations
+    : Array.isArray(setup.paddocks)
+      ? setup.paddocks
+      : [];
+  // Labels were called Groups before the rename. Read whichever key this
+  // install happens to hold; the normalized value written back is always
+  // `labels`, so each install migrates once on the first load after updating.
+  const storedLabels: LabelEntity[] = Array.isArray(setup.labels)
+    ? setup.labels
+    : Array.isArray(setup.groups)
+      ? setup.groups
+      : [];
+
   const farmUids = new Set<string>();
   // Farms carry no address/country (see FarmEntity) — any left over in older
   // stored data is just inert extra JSON, harmlessly dropped by not being
@@ -651,34 +674,34 @@ export function normalizeStoredSetup(setup: typeof EMPTY_SETUP): typeof EMPTY_SE
     return { uid, name: farm.name, holdingId: farm.holdingId, notes: farm.notes };
   });
 
-  const paddockUids = new Set<string>();
-  // Paddocks carry no area/areaUnit (see PaddockEntity) — any left over in
+  const locationUids = new Set<string>();
+  // Locations carry no area/areaUnit (see LocationEntity) — any left over in
   // older stored data is just inert extra JSON, harmlessly dropped by not
   // being spread through here.
-  const paddocks = setup.paddocks.map((paddock) => {
-    const storedUid = paddock.uid?.trim();
-    const uid = storedUid && !paddockUids.has(storedUid) ? storedUid : createUniqueUuid(paddockUids);
-    paddockUids.add(uid);
+  const locations = storedLocations.map((location) => {
+    const storedUid = location.uid?.trim();
+    const uid = storedUid && !locationUids.has(storedUid) ? storedUid : createUniqueUuid(locationUids);
+    locationUids.add(uid);
     const matchingFarm = farms.find(
-      (farm) => farm.uid === paddock.farmUid || equalsIgnoreCase(farm.name, paddock.farm),
+      (farm) => farm.uid === location.farmUid || equalsIgnoreCase(farm.name, location.farm),
     );
-    return { uid, farmUid: matchingFarm?.uid, name: paddock.name, farm: paddock.farm, notes: paddock.notes };
+    return { uid, farmUid: matchingFarm?.uid, name: location.name, farm: location.farm, notes: location.notes };
   });
 
-  const groupUids = new Set<string>();
-  // Groups carry no farm/paddock/species reference (see GroupEntity) — any
+  const labelUids = new Set<string>();
+  // Labels carry no farm/location/species reference (see LabelEntity) — any
   // left over in older stored data is just inert extra JSON, harmlessly
   // dropped by not being spread through here.
-  const groups = setup.groups.map((group) => {
-    const storedUid = group.uid?.trim();
-    const uid = storedUid && !groupUids.has(storedUid) ? storedUid : createUniqueUuid(groupUids);
-    groupUids.add(uid);
+  const labels = storedLabels.map((label) => {
+    const storedUid = label.uid?.trim();
+    const uid = storedUid && !labelUids.has(storedUid) ? storedUid : createUniqueUuid(labelUids);
+    labelUids.add(uid);
 
     return {
       uid,
-      name: group.name,
-      animals: group.animals,
-      notes: group.notes,
+      name: label.name,
+      animals: label.animals,
+      notes: label.notes,
     };
   });
 
@@ -690,7 +713,7 @@ export function normalizeStoredSetup(setup: typeof EMPTY_SETUP): typeof EMPTY_SE
     return { ...medicine, uid };
   });
 
-  return { farms, paddocks, groups, medicines };
+  return { farms, locations, labels, medicines };
 }
 
 function equalsIgnoreCase(left: string, right: string) {

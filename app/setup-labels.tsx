@@ -10,114 +10,114 @@ import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
 import { InfoModal } from '../src/components/InfoModal';
 import { useAnimals } from '../src/context/AnimalsContext';
-import { type GroupEntity, useSetup } from '../src/context/SetupContext';
+import { type LabelEntity, useSetup } from '../src/context/SetupContext';
 import type { Animal } from '../src/entities/animal';
 import { tokens } from '../src/theme/tokens';
 
-export default function SetupGroupsScreen() {
+export default function SetupLabelsScreen() {
   const router = useRouter();
   const { animals } = useAnimals();
-  const { groupEntities, addGroup, updateGroup, removeGroup } = useSetup();
+  const { labelEntities, addLabel, updateLabel, removeLabel } = useSetup();
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
-  const [groupPendingDelete, setGroupPendingDelete] = useState<string | null>(null);
+  const [labelPendingDelete, setLabelPendingDelete] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-  const [editingGroupUid, setEditingGroupUid] = useState<string | null>(null);
-  const isEditingGroup = editingGroupUid !== null;
+  const [editingLabelUid, setEditingLabelUid] = useState<string | null>(null);
+  const isEditingLabel = editingLabelUid !== null;
 
-  const resetGroupForm = () => {
-    setEditingGroupUid(null);
+  const resetLabelForm = () => {
+    setEditingLabelUid(null);
     setName('');
     setNotes('');
   };
 
-  const handleStartEditGroup = (group: GroupEntity) => {
-    setEditingGroupUid(group.uid ?? null);
-    setName(group.name);
-    setNotes(group.notes);
+  const handleStartEditLabel = (label: LabelEntity) => {
+    setEditingLabelUid(label.uid ?? null);
+    setName(label.name);
+    setNotes(label.notes);
   };
 
-  const handleSaveGroup = async () => {
+  const handleSaveLabel = async () => {
     if (!name.trim()) {
-      Alert.alert('Group name required', 'Enter a name for the group.');
+      Alert.alert('Label name required', 'Enter a name for the label.');
       return;
     }
 
-    const result = editingGroupUid
-      ? await updateGroup(editingGroupUid, { name, animals: '', notes })
-      : await addGroup({ name, animals: '', notes });
+    const result = editingLabelUid
+      ? await updateLabel(editingLabelUid, { name, animals: '', notes })
+      : await addLabel({ name, animals: '', notes });
 
     if (!result.ok) {
       Alert.alert(
-        result.reason === 'duplicate' ? 'Group already exists' : 'Group could not be saved',
-        result.reason === 'duplicate' ? 'Use a different group name.' : 'Please try again.',
+        result.reason === 'duplicate' ? 'Label already exists' : 'Label could not be saved',
+        result.reason === 'duplicate' ? 'Use a different label name.' : 'Please try again.',
       );
       return;
     }
 
-    resetGroupForm();
+    resetLabelForm();
   };
 
-  const confirmDeleteGroup = async () => {
-    if (!groupPendingDelete) {
+  const confirmDeleteLabel = async () => {
+    if (!labelPendingDelete) {
       return;
     }
 
-    if (animals.some((animal) => animal.group.trim().toLowerCase() === groupPendingDelete.trim().toLowerCase())) {
-      setGroupPendingDelete(null);
-      Alert.alert('Group is in use', 'Remove or reassign the animals in this group before deleting it.');
+    if (animals.some((animal) => animal.labels.some((entry) => equalsIgnoreCase(entry, labelPendingDelete)))) {
+      setLabelPendingDelete(null);
+      Alert.alert('Label is in use', 'Remove this label from its animals before deleting it.');
       return;
     }
 
-    const result = await removeGroup(groupPendingDelete);
-    setGroupPendingDelete(null);
+    const result = await removeLabel(labelPendingDelete);
+    setLabelPendingDelete(null);
 
     if (!result.ok) {
-      Alert.alert('Group could not be deleted', 'Nothing was changed. Please try again.');
+      Alert.alert('Label could not be deleted', 'Nothing was changed. Please try again.');
       return;
     }
 
-    if (equalsIgnoreCase(name, groupPendingDelete)) {
-      resetGroupForm();
+    if (equalsIgnoreCase(name, labelPendingDelete)) {
+      resetLabelForm();
     }
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
-        title="Groups"
+        title="Labels"
         leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: () => router.back() }}
         actions={[
           {
             icon: 'help-circle',
-            accessibilityLabel: 'About groups',
+            accessibilityLabel: 'About labels',
             onPress: () => setShowHelp(true),
           },
         ]}
       />
-      <ScrollView contentContainerStyle={[styles.content, groupEntities.length === 0 && styles.emptyContent]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, labelEntities.length === 0 && styles.emptyContent]} showsVerticalScrollIndicator={false}>
         <View style={styles.editorCard}>
-          <Text style={styles.sectionLabel}>{isEditingGroup ? 'Edit group' : 'Animal groups'}</Text>
+          <Text style={styles.sectionLabel}>{isEditingLabel ? 'Edit label' : 'Animal labels'}</Text>
 
-          <DesignField value={name} label="Group name *" onChangeText={setName} />
+          <DesignField value={name} label="Label name *" onChangeText={setName} />
           <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
 
           <View style={styles.editorActionsRow}>
             <BouncyPressable
               accessibilityRole="button"
-              accessibilityLabel={isEditingGroup ? 'Save group changes' : 'Add group'}
+              accessibilityLabel={isEditingLabel ? 'Save label changes' : 'Add label'}
               containerStyle={styles.editorPrimaryButtonWrap}
-              onPress={handleSaveGroup}
+              onPress={handleSaveLabel}
               style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
             >
-              <AppIcon name={isEditingGroup ? 'check' : 'plus'} size={16} color="#fff" />
-              <Text style={styles.addButtonText}>{isEditingGroup ? 'Save Changes' : 'Add Group'}</Text>
+              <AppIcon name={isEditingLabel ? 'check' : 'plus'} size={16} color="#fff" />
+              <Text style={styles.addButtonText}>{isEditingLabel ? 'Save Changes' : 'Add Label'}</Text>
             </BouncyPressable>
-            {isEditingGroup ? (
+            {isEditingLabel ? (
               <BouncyPressable
                 accessibilityRole="button"
-                accessibilityLabel="Cancel editing group"
-                onPress={resetGroupForm}
+                accessibilityLabel="Cancel editing label"
+                onPress={resetLabelForm}
                 style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -126,38 +126,38 @@ export default function SetupGroupsScreen() {
           </View>
         </View>
 
-        {groupEntities.length === 0 ? (
+        {labelEntities.length === 0 ? (
           <View style={styles.emptyState}>
             <AppIcon name="tag" size={90} color="#E5E0E7" opacity={1} />
             <Text style={styles.emptyTitle}>Empty</Text>
           </View>
         ) : (
           <View style={styles.list}>
-            {groupEntities.map((group) => {
-              const animalCount = getGroupAnimalCount(group, animals);
+            {labelEntities.map((label) => {
+              const animalCount = getLabelAnimalCount(label, animals);
 
               return (
-              <View key={group.uid ?? group.name} style={styles.itemCard}>
+              <View key={label.uid ?? label.name} style={styles.itemCard}>
                 <View style={styles.itemHeader}>
                   <View style={styles.itemTitleRow}>
                     <View style={styles.itemIconBadge}>
                       <AppIcon name="tag" size={22} color="#171717" />
                     </View>
                     <View style={styles.itemHeadingCopy}>
-                      <Text style={styles.itemTitle}>{group.name}</Text>
+                      <Text style={styles.itemTitle}>{label.name}</Text>
                       <Text style={styles.itemSubtitle}>{animalCount} {animalCount === 1 ? 'animal' : 'animals'}</Text>
                     </View>
                   </View>
                   <View style={styles.itemActionsRow}>
-                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Edit ${group.name}`} onPress={() => handleStartEditGroup(group)} style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
+                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Edit ${label.name}`} onPress={() => handleStartEditLabel(label)} style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
                       <AppIcon name="edit" size={18} color="#171717" />
                     </BouncyPressable>
-                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Delete ${group.name}`} onPress={() => setGroupPendingDelete(group.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Delete ${label.name}`} onPress={() => setLabelPendingDelete(label.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
                       <AppIcon name="trash" size={28} color="#fff" />
                     </BouncyPressable>
                   </View>
                 </View>
-                {group.notes ? <Text style={styles.itemNotes}>{group.notes}</Text> : null}
+                {label.notes ? <Text style={styles.itemNotes}>{label.notes}</Text> : null}
               </View>
               );
             })}
@@ -168,20 +168,20 @@ export default function SetupGroupsScreen() {
       <Modal
         transparent
         animationType="fade"
-        visible={groupPendingDelete !== null}
-        onRequestClose={() => setGroupPendingDelete(null)}
+        visible={labelPendingDelete !== null}
+        onRequestClose={() => setLabelPendingDelete(null)}
       >
-        <Pressable style={styles.centeredModalBackdrop} onPress={() => setGroupPendingDelete(null)}>
+        <Pressable style={styles.centeredModalBackdrop} onPress={() => setLabelPendingDelete(null)}>
           <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
-            <Text style={styles.deleteConfirmTitle}>Delete group?</Text>
+            <Text style={styles.deleteConfirmTitle}>Delete label?</Text>
             <Text style={styles.deleteConfirmText}>
-              {groupPendingDelete ? `Are you sure you want to delete ${groupPendingDelete}?` : ''}
+              {labelPendingDelete ? `Are you sure you want to delete ${labelPendingDelete}?` : ''}
             </Text>
             <View style={styles.deleteConfirmActions}>
-              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={() => setGroupPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
+              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={() => setLabelPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
                 <Text style={styles.deleteCancelButtonText}>Cancel</Text>
               </BouncyPressable>
-              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={confirmDeleteGroup} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
+              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={confirmDeleteLabel} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
                 <Text style={styles.deleteConfirmButtonText}>Delete</Text>
               </BouncyPressable>
             </View>
@@ -191,16 +191,23 @@ export default function SetupGroupsScreen() {
       <InfoModal
         visible={showHelp}
         onClose={() => setShowHelp(false)}
-        title="Groups"
-        description="Organise animals into groups so you can move, treat and record them together. Groups are flexible — animals can move between farms or paddocks without leaving the group, and you can mix species when needed."
+        title="Labels"
+        description={
+          'Labels let you create your own groups of animals for any purpose. An animal can have ' +
+          'multiple labels, allowing groups to overlap — for example, “Milking cows”, “Mothers” or ' +
+          '“Young stock”. You can then add records to all animals with a label at once. Labels are ' +
+          'separate from herds, flocks, farms, locations and species.'
+        }
       />
     </SafeAreaView>
   );
 }
 
-function getGroupAnimalCount(group: GroupEntity, animals: Animal[]) {
+function getLabelAnimalCount(label: LabelEntity, animals: Animal[]) {
   return animals.filter(
-    (animal) => (group.uid && animal.groupUid === group.uid) || equalsIgnoreCase(animal.group, group.name),
+    (animal) =>
+      (label.uid && animal.labelUids?.includes(label.uid)) ||
+      animal.labels.some((entry) => equalsIgnoreCase(entry, label.name)),
   ).length;
 }
 

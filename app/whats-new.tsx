@@ -9,7 +9,7 @@ const UPDATES = [
   'Added a new Reports screen with Herd Overview, Activity, Financial, and Health summaries, filterable by All time, This year, or This month.',
   'You can now add a photo to animal profiles, individual records, and your business logo.',
   'Your business name, address, and logo now appear at the top of exported PDFs.',
-  'Added new checks to catch mistakes before they\'re saved, including duplicate animal IDs, paddocks that don\'t belong to the selected farm, and Movement records with the same source and destination.',
+  'Added new checks to catch mistakes before they\'re saved, including duplicate animal IDs, locations that don\'t belong to the selected farm, and Movement records with the same source and destination.',
   'Added a sort control to the Animals tab: Recently Added, Oldest Added, Name (A–Z), Tag / ID (A–Z), or Status.',
   'Added Backup & Restore, so you can save your farm data and bring it back on this or a new device.',
   'General bug fixes and stability improvements.',

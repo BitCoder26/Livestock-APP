@@ -2,6 +2,7 @@ import { ReactNode, useRef, useState } from 'react';
 import { KeyboardTypeOptions, Pressable, StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 
 import { AppIcon, AppIconName } from './AppIcon';
+import { FieldLabel } from './FieldLabel';
 import { tokens } from '../theme/tokens';
 
 type DesignFieldProps = {
@@ -18,6 +19,8 @@ type DesignFieldProps = {
   onChangeText?: (value: string) => void;
   fieldStyle?: StyleProp<ViewStyle>;
   editable?: boolean;
+  /** Shows an (i) beside the label that opens this field's explanation. */
+  onInfoPress?: () => void;
 };
 
 export function DesignField({
@@ -32,13 +35,14 @@ export function DesignField({
   onChangeText,
   fieldStyle,
   editable = true,
+  onInfoPress,
 }: DesignFieldProps) {
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   return (
     <View style={styles.block}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? <FieldLabel label={label} onInfoPress={onInfoPress} /> : null}
       <Pressable
         accessibilityRole="button"
         onPress={() => inputRef.current?.focus()}

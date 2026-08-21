@@ -28,6 +28,16 @@ export type Animal = {
   /** Immutable internal identifier. The editable livestock tag is stored in `id`. */
   uid: string;
   id: string;
+  /**
+   * Electronic identifier — the number in the animal's EID tag or bolus, which
+   * is a different number from the visual tag held in `id`. Both appear on
+   * movement documents and both get checked at an assurance inspection, so one
+   * field cannot stand in for the other.
+   *
+   * Individual identification only: collectives carry a herd or flock mark
+   * instead, which is their `id`.
+   */
+  eid: string;
   species: string;
   sex: AnimalSex;
   name: string;
@@ -41,10 +51,24 @@ export type Animal = {
   status: AnimalStatus;
   farmUid?: string;
   farm: string;
-  paddockUid?: string;
-  paddock: string;
-  groupUid?: string;
-  group: string;
+  /**
+   * Wherever the animal is actually kept — a paddock, shed, pen, hutch or yard.
+   * Stored as `paddock`/`paddockUid` before the Locations rename; see
+   * normalizeStoredAnimal, which migrates each animal on first load.
+   */
+  locationUid?: string;
+  location: string;
+  /**
+   * Freely-composable management tags — "Milking cows", "Mothers". An animal
+   * carries as many as apply, which is what makes them useful for recording
+   * against a set of animals that isn't a herd or flock. Uids are the live
+   * link; the names beside them are the resolved display copy.
+   *
+   * Stored as `group`/`groupUid` (single) before the Labels rename — see
+   * normalizeStoredAnimal, which migrates each animal on first load.
+   */
+  labelUids?: string[];
+  labels: string[];
   /** How the animal joined the farm — informational, not derived. */
   source: AnimalSource | '';
   /** Date the animal joined this farm. Distinct from dateOfBirth for

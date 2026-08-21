@@ -18,7 +18,7 @@ import { AppIcon, type AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { requestAppStoreReview } from '../src/components/AppReviewGate';
 import { BouncyPressable } from '../src/components/BouncyPressable';
-import { FREE_ANIMAL_LIMIT, FREE_RECORD_LIMIT } from '../src/constants/subscription';
+import { FREE_EXPORT_LIMIT, FREE_RECORD_LIMIT } from '../src/constants/subscription';
 import { useAccount } from '../src/context/AccountContext';
 import type { AccountProfile } from '../src/entities/account';
 import { useAnimals } from '../src/context/AnimalsContext';
@@ -29,6 +29,7 @@ import { tokens } from '../src/theme/tokens';
 const USERJOT_URL = 'https://livestockbook.userjot.com/?cursor=1&order=top&limit=10';
 const FACEBOOK_GROUP_URL = 'https://www.facebook.com/groups/1353099223626390/';
 const WEB_PORTAL_URL = 'https://livestockbook.app/';
+const GUIDE_URL = 'https://livestockbook.app/guide.html';
 // How long the backup reminder stays hidden after the user's last export,
 // or after they dismiss it with "Remind me later".
 const BACKUP_NUDGE_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -147,6 +148,11 @@ export default function AccountScreen() {
       icon: 'group',
       onPress: () => void openExternalTarget(FACEBOOK_GROUP_URL, 'Facebook Group'),
     },
+    {
+      label: 'Guide',
+      icon: 'help-circle',
+      onPress: () => void openExternalTarget(GUIDE_URL, 'Guide'),
+    },
   ];
 
   const infoItems: HubItem[] = [
@@ -180,9 +186,10 @@ export default function AccountScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <PlanCard
           animalCount={animals.length}
-          animalLimit={FREE_ANIMAL_LIMIT}
           recordCount={records.length}
           recordLimit={FREE_RECORD_LIMIT}
+          exportCount={Math.min(profile.exportsUsed ?? 0, FREE_EXPORT_LIMIT)}
+          exportLimit={FREE_EXPORT_LIMIT}
           isPro={displayedIsPro}
           onUpgrade={() => router.push('/upgrade-to-pro')}
         />
@@ -284,14 +291,23 @@ function BackupNudgeCard({ onBackUpNow, onSnooze }: { onBackUpNow: () => void; o
 
 type PlanCardProps = {
   animalCount: number;
-  animalLimit: number;
   recordCount: number;
   recordLimit: number;
+  exportCount: number;
+  exportLimit: number;
   isPro: boolean;
   onUpgrade: () => void;
 };
 
-function PlanCard({ animalCount, animalLimit, recordCount, recordLimit, isPro, onUpgrade }: PlanCardProps) {
+function PlanCard({
+  animalCount,
+  recordCount,
+  recordLimit,
+  exportCount,
+  exportLimit,
+  isPro,
+  onUpgrade,
+}: PlanCardProps) {
   if (isPro) {
     return <ProPlanCard animalCount={animalCount} recordCount={recordCount} />;
   }
@@ -302,11 +318,11 @@ function PlanCard({ animalCount, animalLimit, recordCount, recordLimit, isPro, o
         <Text style={styles.planTitle}>Basic Plan</Text>
       </View>
       <Text style={styles.planSubtitle}>
-        <Text style={styles.planSubtitleStar}>★</Text> Upgrade for unlimited animals and records.
+        <Text style={styles.planSubtitleStar}>★</Text> Upgrade for unlimited records and exports.
       </Text>
 
       <PlanUsageRow label="Records" count={recordCount} limit={recordLimit} />
-      <PlanUsageRow label="Animals" count={animalCount} limit={animalLimit} />
+      <PlanUsageRow label="Exports" count={exportCount} limit={exportLimit} />
 
       <UpgradeButton onPress={onUpgrade} />
     </View>
@@ -325,7 +341,7 @@ function ProPlanCard({ animalCount, recordCount }: { animalCount: number; record
         </View>
       </View>
 
-      <Text style={styles.proSubtitle}>Unlimited animals and records.</Text>
+      <Text style={styles.proSubtitle}>Unlimited records and exports.</Text>
 
       <View style={styles.proStatsRow}>
         <View style={styles.proStatBlock}>

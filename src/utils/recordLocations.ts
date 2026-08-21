@@ -1,6 +1,6 @@
 import type { Animal } from '../entities/animal';
 import type { RecordEntry } from '../entities/record';
-import type { FarmEntity, GroupEntity, PaddockEntity } from '../context/SetupContext';
+import type { FarmEntity, LabelEntity, LocationEntity } from '../context/SetupContext';
 
 // Resolves a farm's current display name, preferring a live lookup by uid —
 // so a rename in Setup shows up everywhere instantly — and falling back to
@@ -18,86 +18,89 @@ export function resolveFarmName(uid: string | undefined, frozenName: string | un
   return frozenName?.trim() ?? '';
 }
 
-export function resolvePaddockName(
+export function resolveLocationName(
   uid: string | undefined,
   frozenName: string | undefined,
-  paddocks: PaddockEntity[],
+  locations: LocationEntity[],
 ): string {
   if (uid) {
-    const paddock = paddocks.find((entry) => entry.uid === uid);
-    if (paddock) {
-      return paddock.name;
+    const location = locations.find((entry) => entry.uid === uid);
+    if (location) {
+      return location.name;
     }
   }
 
   return frozenName?.trim() ?? '';
 }
 
-export function formatLocationLabel(farmName: string, paddockName: string, separator = ' • '): string {
-  return [farmName.trim(), paddockName.trim()].filter(Boolean).join(separator);
+export function formatLocationLabel(farmName: string, locationName: string, separator = ' • '): string {
+  return [farmName.trim(), locationName.trim()].filter(Boolean).join(separator);
 }
 
 // A Movement record's "From" place, resolved fresh from the current
-// farm/paddock names rather than trusting whatever was baked into
+// farm/location names rather than trusting whatever was baked into
 // record.title at save time — so a rename shows up immediately everywhere
 // this is used, without ever rewriting a stored record.
-export function resolveMovementFromLabel(record: RecordEntry, farms: FarmEntity[], paddocks: PaddockEntity[]): string {
+export function resolveMovementFromLabel(record: RecordEntry, farms: FarmEntity[], locations: LocationEntity[]): string {
   const farm = resolveFarmName(record.fromFarmUid, record.fromFarm, farms);
-  const paddock = resolvePaddockName(record.fromPaddockUid, record.fromPaddock, paddocks);
-  return formatLocationLabel(farm, paddock, ' / ');
+  const location = resolveLocationName(record.fromLocationUid, record.fromLocation, locations);
+  return formatLocationLabel(farm, location, ' / ');
 }
 
-export function resolveMovementToLabel(record: RecordEntry, farms: FarmEntity[], paddocks: PaddockEntity[]): string {
+export function resolveMovementToLabel(record: RecordEntry, farms: FarmEntity[], locations: LocationEntity[]): string {
   const farm = resolveFarmName(record.toFarmUid, record.toFarm, farms);
-  const paddock = resolvePaddockName(record.toPaddockUid, record.toPaddock, paddocks);
-  return formatLocationLabel(farm, paddock, ' / ');
+  const location = resolveLocationName(record.toLocationUid, record.toLocation, locations);
+  return formatLocationLabel(farm, location, ' / ');
 }
 
-export function resolveMovementSummary(record: RecordEntry, farms: FarmEntity[], paddocks: PaddockEntity[]): string {
-  const from = resolveMovementFromLabel(record, farms, paddocks);
-  const to = resolveMovementToLabel(record, farms, paddocks);
+export function resolveMovementSummary(record: RecordEntry, farms: FarmEntity[], locations: LocationEntity[]): string {
+  const from = resolveMovementFromLabel(record, farms, locations);
+  const to = resolveMovementToLabel(record, farms, locations);
   return [from, to].filter(Boolean).join(' to ');
 }
 
 // A record's display title — unchanged for every type except Movement,
-// where it's recomputed fresh from the current farm/paddock names instead
+// where it's recomputed fresh from the current farm/location names instead
 // of trusting whatever was baked into record.title when it was saved. Same
 // "Movement: X to Y" shape as before, just never stale after a rename.
-export function getRecordDisplayTitle(record: RecordEntry, farms: FarmEntity[], paddocks: PaddockEntity[]): string {
+export function getRecordDisplayTitle(record: RecordEntry, farms: FarmEntity[], locations: LocationEntity[]): string {
   if (record.type !== 'Movement') {
     return record.title;
   }
 
-  const summary = resolveMovementSummary(record, farms, paddocks);
+  const summary = resolveMovementSummary(record, farms, locations);
   return summary ? `Movement: ${summary}` : record.title;
 }
 
-// An animal's current farm/paddock, resolved live via the uid
-// rebuildAnimalsState already caches on it — so a farm/paddock rename shows
+// An animal's current farm/location, resolved live via the uid
+// rebuildAnimalsState already caches on it — so a farm/location rename shows
 // up on every animal card, timeline, and export immediately, without
-// needing to eagerly rewrite the animal's own cached farm/paddock text.
+// needing to eagerly rewrite the animal's own cached farm/location text.
 export function resolveAnimalFarmName(animal: Animal, farms: FarmEntity[]): string {
   return resolveFarmName(animal.farmUid, animal.farm, farms);
 }
 
-export function resolveAnimalPaddockName(animal: Animal, paddocks: PaddockEntity[]): string {
-  return resolvePaddockName(animal.paddockUid, animal.paddock, paddocks);
+export function resolveAnimalLocationName(animal: Animal, locations: LocationEntity[]): string {
+  return resolveLocationName(animal.locationUid, animal.location, locations);
 }
 
-export function resolveAnimalLocationLabel(animal: Animal, farms: FarmEntity[], paddocks: PaddockEntity[]): string {
-  return formatLocationLabel(resolveAnimalFarmName(animal, farms), resolveAnimalPaddockName(animal, paddocks));
+export function resolveAnimalLocationLabel(animal: Animal, farms: FarmEntity[], locations: LocationEntity[]): string {
+  return formatLocationLabel(resolveAnimalFarmName(animal, farms), resolveAnimalLocationName(animal, locations));
 }
 
-// Same live-uid-first pattern as farm/paddock, applied to an animal's group
-// — a group rename shows up immediately wherever this is used instead of
-// the animal's cached group string going stale.
-export function resolveAnimalGroupName(animal: Animal, groups: GroupEntity[]): string {
-  if (animal.groupUid) {
-    const group = groups.find((entry) => entry.uid === animal.groupUid);
-    if (group) {
-      return group.name;
-    }
-  }
+// Same live-uid-first pattern as farm/location, applied to an animal's labels
+// — a label rename shows up immediately wherever this is used instead of the
+// animal's cached label strings going stale. Returns every label the animal
+// carries, in stored order.
+export function resolveAnimalLabelNames(animal: Animal, labels: LabelEntity[]): string[] {
+  const storedNames = animal.labels ?? [];
+  const storedUids = animal.labelUids ?? [];
 
-  return animal.group?.trim() ?? '';
+  return storedNames
+    .map((name, index) => {
+      const uid = storedUids[index];
+      const match = uid ? labels.find((entry) => entry.uid === uid) : undefined;
+      return (match?.name ?? name).trim();
+    })
+    .filter(Boolean);
 }

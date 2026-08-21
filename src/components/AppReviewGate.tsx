@@ -90,7 +90,7 @@ function isValidState(value: unknown): value is ReviewGateState {
 //     animals and records on file, not just an idle install).
 // A tap on "Rate" cancels all remaining opportunities for good; "Maybe
 // later" only dismisses the one that just fired.
-export function AppReviewGate() {
+export function AppReviewGate({ onVisibilityChange }: { onVisibilityChange?: (visible: boolean) => void } = {}) {
   const { animals } = useAnimals();
   const { records } = useRecords();
   const { profile } = useAccount();
@@ -156,6 +156,13 @@ export function AppReviewGate() {
       }
     })();
   }, [animals.length, records.length, profile.lastExportedAt, isFocused]);
+
+  // Lets the host screen hold back any other popup of its own while this one
+  // owns the screen — two modals presenting at the same instant stack badly
+  // (see PlanLimitGate, which the Records tab defers on this).
+  useEffect(() => {
+    onVisibilityChange?.(visible);
+  }, [onVisibilityChange, visible]);
 
   const handleRate = async () => {
     setVisible(false);

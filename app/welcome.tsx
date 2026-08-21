@@ -6,6 +6,10 @@ import { BouncyPressable } from '../src/components/BouncyPressable';
 import { useOnboarding } from '../src/context/OnboardingContext';
 import { tokens } from '../src/theme/tokens';
 
+// Same asset and same rounded-square treatment the About screen uses, so the
+// mark reads identically wherever the app introduces itself.
+const APP_LOGO = require('../assets/logo/about-logo.png');
+
 export default function WelcomeScreen() {
   const { startSetup } = useOnboarding();
 
@@ -19,20 +23,23 @@ export default function WelcomeScreen() {
         />
       </View>
       <View style={styles.copy}>
+        <Image source={APP_LOGO} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>Welcome to LivestockBook</Text>
         <Text style={styles.subtitle}>
-          The easy way to keep your herd&apos;s records straight — births, weights, treatments and
-          movements — so you stay compliant and ready for inspection day.
+          Keep your livestock records simple, organised and ready when you need them.
+        </Text>
+        <Text style={styles.subtitle}>
+          Add animals, log records, track herds and flocks, and export everything from one place.
         </Text>
       </View>
       <View style={styles.footer}>
         <BouncyPressable
-          accessibilityLabel="Next"
+          accessibilityLabel="Set up LivestockBook"
           accessibilityRole="button"
           onPress={startSetup}
           style={({ pressed }) => [styles.nextButton, pressed && styles.nextButtonPressed]}
         >
-          <Text style={styles.nextButtonText}>Next</Text>
+          <Text style={styles.nextButtonText}>Set up LivestockBook</Text>
           <AppIcon name="chevron-right-minimal" size={18} color="#FFFFFF" />
         </BouncyPressable>
       </View>
@@ -55,8 +62,15 @@ const styles = StyleSheet.create({
   },
   copy: {
     paddingHorizontal: 28,
-    paddingTop: 30,
+    paddingTop: 22,
     gap: 12,
+  },
+  logo: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    alignSelf: 'center',
+    marginBottom: 2,
   },
   title: {
     color: tokens.colors.text,

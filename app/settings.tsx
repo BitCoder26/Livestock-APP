@@ -1,15 +1,19 @@
+import AsyncStorage from 'expo-sqlite/kv-store';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
+import type { ImageRequireSource } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
@@ -26,28 +30,70 @@ import {
 import { DATE_FORMAT_OPTIONS, MEASUREMENT_UNIT_OPTIONS, type AppDateFormat } from '../src/entities/account';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
+import { useCollectives } from '../src/context/CollectivesContext';
 import { useRecords } from '../src/context/RecordsContext';
 import { useSetup } from '../src/context/SetupContext';
 import {
   buildBackup,
+  collectBackupPhotos,
+  createBackupArchive,
   createBackupFile,
   describeBackupValidationFailure,
   pickBackupFile,
-  readBackupFileText,
+  readBackupSource,
+  restoreArchivePhotos,
+  shareBackupArchive,
   shareBackupFile,
+  totalPhotoBytes,
   validateBackupText,
+  type BackupSource,
   type LivestockBookBackup,
 } from '../src/services/backupService';
 import { tokens } from '../src/theme/tokens';
 
 const ACCOUNT_SURFACE_GREY = '#F1EFF3';
 
+// Whether backups carry photos. Device-local rather than part of the account
+// profile: it describes how this phone makes a backup file, not anything about
+// the farm, and it is exactly the kind of choice that should not travel to a
+// new device inside the backup it controls.
+const INCLUDE_PHOTOS_KEY = 'livestockbook.backupIncludePhotos.v1';
+
+// Above this, a backup is too big for email (25MB is the common ceiling) and
+// awkward for messaging apps, so the size is put in front of the user before
+// the file is made rather than after.
+const LARGE_BACKUP_WARNING_BYTES = 25 * 1024 * 1024;
+
+function formatBytes(bytes: number) {
+  if (bytes <= 0) {
+    return '0 MB';
+  }
+
+  const megabytes = bytes / (1024 * 1024);
+
+  if (megabytes < 0.1) {
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  }
+
+  return `${megabytes < 10 ? megabytes.toFixed(1) : Math.round(megabytes)} MB`;
+}
+
+// Data & Backup rows carry the same mark size as the rows on the Account
+// screen they are reached from — the two lists read as one set of options,
+// not as two sizes of button.
+const DATA_ROW_ICON = 20;
+// The bundled artwork is drawn at 40% of its square canvas (measured off the
+// files), so its box has to be that much wider for the mark inside it to
+// stand the same height as a drawn icon beside it.
+const DATA_ROW_IMAGE = Math.round(DATA_ROW_ICON / 0.45);
+
 export default function SettingsScreen() {
   const router = useRouter();
   const { profile, isLoaded, updateField, resetAppData, restoreFromBackup } = useAccount();
   const { animals } = useAnimals();
+  const { collectives } = useCollectives();
   const { records } = useRecords();
-  const { farmEntities, paddockEntities, groupEntities, medicineEntities } = useSetup();
+  const { farmEntities, locationEntities, labelEntities, medicineEntities } = useSetup();
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [showCurrencyInfo, setShowCurrencyInfo] = useState(false);
   const [currencySearch, setCurrencySearch] = useState('');
@@ -59,12 +105,57 @@ export default function SettingsScreen() {
   const [isPickingBackup, setIsPickingBackup] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [pendingRestore, setPendingRestore] = useState<LivestockBookBackup | null>(null);
+  const [pendingArchive, setPendingArchive] = useState<BackupSource['archive'] | null>(null);
+  const [includePhotos, setIncludePhotos] = useState(false);
   const backupInProgress = useRef(false);
   const restoreInProgress = useRef(false);
   const selectedCurrency = getCurrencyOption(profile.currency);
   const selectedCurrencyLabel = selectedCurrency
     ? formatCurrencyOption(selectedCurrency)
     : profile.currency;
+
+  useEffect(() => {
+    let active = true;
+
+    void (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(INCLUDE_PHOTOS_KEY);
+
+        if (active && stored === 'true') {
+          setIncludePhotos(true);
+        }
+      } catch {
+        // Leave it off — the smaller backup is the safer default.
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Recomputed from the live data rather than cached: photos are added and
+  // removed constantly, and a stale figure here would misstate the size of a
+  // file the user is about to try to email.
+  const backupPhotos = useMemo(
+    () => collectBackupPhotos({
+      animals,
+      collectives,
+      records,
+      farmEntities,
+      locationEntities,
+      labelEntities,
+      medicineEntities,
+      profile,
+    }),
+    [animals, collectives, records, farmEntities, locationEntities, labelEntities, medicineEntities, profile],
+  );
+  const photoBytes = useMemo(() => totalPhotoBytes(backupPhotos), [backupPhotos]);
+
+  function toggleIncludePhotos(next: boolean) {
+    setIncludePhotos(next);
+    void AsyncStorage.setItem(INCLUDE_PHOTOS_KEY, next ? 'true' : 'false');
+  }
 
   async function handleBackUpData() {
     if (backupInProgress.current) {
@@ -77,25 +168,56 @@ export default function SettingsScreen() {
     try {
       const backup = buildBackup({
         animals,
+        collectives,
         records,
         farmEntities,
-        paddockEntities,
-        groupEntities,
+        locationEntities,
+        labelEntities,
         medicineEntities,
         profile,
       });
       // Success is only ever reported once this line has actually completed —
       // if writing the file throws, control jumps straight to the catch
       // block below and no confirmation is shown.
-      const uri = await createBackupFile(backup);
+      const withPhotos = includePhotos && backupPhotos.length > 0;
 
-      await shareBackupFile(uri);
+      if (withPhotos && photoBytes > LARGE_BACKUP_WARNING_BYTES) {
+        const proceed = await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'This backup will be large',
+            `${backupPhotos.length} photos add ${formatBytes(photoBytes)}. A file this size is usually too big to email — save it to Files or a cloud drive instead.`,
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Continue', onPress: () => resolve(true) },
+            ],
+          );
+        });
+
+        if (!proceed) {
+          return;
+        }
+      }
+
+      const uri = withPhotos
+        ? await createBackupArchive(backup, backupPhotos)
+        : await createBackupFile(backup);
+
+      if (withPhotos) {
+        await shareBackupArchive(uri);
+      } else {
+        await shareBackupFile(uri);
+      }
       // Drives the "back up your data" reminder on the Account screen — a
       // full backup counts just as much as a CSV/PDF export does (see
       // export.tsx's handleExport), since either one gets the user's data
       // off-device.
       updateField('lastExportedAt', new Date().toISOString());
-      Alert.alert('Backup created', 'Your LivestockBook backup file is ready to save.');
+      Alert.alert(
+        'Backup created',
+        includePhotos && backupPhotos.length > 0
+          ? `Your backup includes ${backupPhotos.length} ${backupPhotos.length === 1 ? 'photo' : 'photos'} and is ready to save.`
+          : 'Your LivestockBook backup file is ready to save.',
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Something went wrong while preparing the backup.';
       Alert.alert('Backup failed', message);
@@ -120,14 +242,16 @@ export default function SettingsScreen() {
         return;
       }
 
-      const text = await readBackupFileText(picked.uri);
-      const validation = validateBackupText(text);
+      const source = await readBackupSource(picked.uri);
+      const validation = validateBackupText(source.text);
 
       if (!validation.ok) {
         const { title, message } = describeBackupValidationFailure(validation.reason);
         Alert.alert(title, message);
         return;
       }
+
+      setPendingArchive(source.archive ?? null);
 
       // Nothing about the current data has been touched yet — validation
       // succeeded, so now (and only now) ask for confirmation before
@@ -149,6 +273,31 @@ export default function SettingsScreen() {
     setIsRestoring(true);
 
     try {
+      // Photos go back on disk *before* the records land. Restoring the data
+      // re-normalizes every entity, and that normalization drops any photo
+      // reference whose file is not on disk (see filterAccessibleImageUris) —
+      // so writing the photos afterwards would leave the archive's pictures
+      // sitting there with nothing pointing at them, which is the exact
+      // failure this feature exists to prevent. If the data restore fails
+      // after this point, the rollback leaves these files unreferenced, which
+      // costs some disk and nothing else.
+      let photoNote = '';
+
+      if (pendingArchive && pendingArchive.photoEntries.length > 0) {
+        try {
+          const { restored, skipped } = restoreArchivePhotos(
+            pendingArchive.uri,
+            pendingArchive.photoEntries,
+          );
+          photoNote =
+            skipped > 0
+              ? ` ${restored} of ${restored + skipped} photos were restored.`
+              : ` ${restored} ${restored === 1 ? 'photo was' : 'photos were'} restored.`;
+        } catch {
+          photoNote = ' The photos in this backup could not be restored.';
+        }
+      }
+
       const result = await restoreFromBackup(pendingRestore);
 
       if (!result.ok) {
@@ -162,7 +311,8 @@ export default function SettingsScreen() {
       }
 
       setPendingRestore(null);
-      Alert.alert('Restore complete', 'Your LivestockBook data has been restored successfully.');
+      setPendingArchive(null);
+      Alert.alert('Restore complete', `Your LivestockBook data has been restored successfully.${photoNote}`);
     } finally {
       setIsRestoring(false);
     }
@@ -299,14 +449,33 @@ export default function SettingsScreen() {
             </BouncyPressable>
           </View>
           <DataRow
-            icon="export-outline"
+            image={require('../assets/import.png')}
+            label="Import Animals"
+            onPress={() => router.push('/import-animals')}
+          />
+          <View style={styles.photoToggleRow}>
+            <Text style={styles.photoToggleTitle}>Include photos in backup</Text>
+            <Switch
+              accessibilityLabel="Include photos in backup"
+              accessibilityRole="switch"
+              disabled={backupPhotos.length === 0}
+              ios_backgroundColor="#E5E0E7"
+              onValueChange={toggleIncludePhotos}
+              style={styles.photoToggleSwitch}
+              thumbColor="#fff"
+              trackColor={{ false: '#E5E0E7', true: tokens.colors.accent }}
+              value={includePhotos && backupPhotos.length > 0}
+            />
+          </View>
+          <DataRow
+            image={require('../assets/backup.png')}
             label="Back Up Data"
             busy={isBackingUp}
             busyLabel="Preparing backup..."
             onPress={() => void handleBackUpData()}
           />
           <DataRow
-            icon="export-download-outline"
+            image={require('../assets/restore.png')}
             label="Restore Data"
             busy={isPickingBackup}
             busyLabel="Opening file..."
@@ -370,7 +539,7 @@ export default function SettingsScreen() {
 
       <Modal
         transparent
-        animationType="fade"
+        animationType="none"
         visible={pendingRestore !== null}
         onRequestClose={() => setPendingRestore(null)}
       >
@@ -398,12 +567,12 @@ export default function SettingsScreen() {
         </Pressable>
       </Modal>
 
-      <Modal transparent animationType="fade" visible={showResetModal} onRequestClose={() => setShowResetModal(false)}>
+      <Modal transparent animationType="none" visible={showResetModal} onRequestClose={() => setShowResetModal(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowResetModal(false)}>
           <AnimatedPopupCard visible={showResetModal} style={styles.sheet} onPress={() => undefined}>
             <Text style={styles.sheetTitle}>Reset app data</Text>
             <Text style={styles.sheetBody}>
-              This will remove your animals, records, setup items, and filters from this device. Your profile and preferences will stay in place.
+              This will remove your animals, herds and flocks, records, setup items, and filters from this device. Your profile and preferences will stay in place.
             </Text>
             <View style={styles.sheetButtons}>
               <SheetButton label="Cancel" variant="secondary" onPress={() => setShowResetModal(false)} />
@@ -448,7 +617,7 @@ function SelectionModal({ visible, title, options, selectedValue, onSelect, onCl
     : options.filter((option) => option.toLowerCase().includes(normalizedSearch));
 
   return (
-    <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <AnimatedPopupCard visible={visible} style={styles.selectionSheet} onPress={() => undefined}>
           <Text style={styles.selectionTitle}>{title}</Text>
@@ -585,14 +754,16 @@ function ActionButton({ label, onPress, variant = 'default' }: ActionButtonProps
 }
 
 type DataRowProps = {
-  icon: AppIconName;
+  /** Either a drawn icon or bundled artwork, tinted the same accent either way. */
+  icon?: AppIconName;
+  image?: ImageRequireSource;
   label: string;
   onPress: () => void;
   busy?: boolean;
   busyLabel?: string;
 };
 
-function DataRow({ icon, label, onPress, busy = false, busyLabel }: DataRowProps) {
+function DataRow({ icon, image, label, onPress, busy = false, busyLabel }: DataRowProps) {
   return (
     <BouncyPressable
       accessibilityLabel={label}
@@ -604,9 +775,11 @@ function DataRow({ icon, label, onPress, busy = false, busyLabel }: DataRowProps
       <View style={styles.dataRowIconWrap}>
         {busy ? (
           <ActivityIndicator color={tokens.colors.accent} size="small" />
-        ) : (
-          <AppIcon name={icon} size={28} color={tokens.colors.accent} />
-        )}
+        ) : image ? (
+          <Image resizeMode="contain" source={image} style={styles.dataRowImage} />
+        ) : icon ? (
+          <AppIcon name={icon} size={DATA_ROW_ICON} color={tokens.colors.accent} />
+        ) : null}
       </View>
       <Text style={styles.dataRowLabel}>{busy && busyLabel ? busyLabel : label}</Text>
       <AppIcon name="chevron-right" size={12} color={tokens.colors.textSoft} />
@@ -650,6 +823,22 @@ function SheetButton({ label, onPress, disabled = false, variant = 'default' }: 
 }
 
 const styles = StyleSheet.create({
+  photoToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+  },
+  photoToggleTitle: {
+    color: tokens.colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  photoToggleSwitch: {
+    alignSelf: 'center',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: tokens.colors.background,
@@ -718,7 +907,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   optionChipSelected: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   optionChipPressed: {
     opacity: 0.92,
@@ -729,7 +918,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   optionTextSelected: {
-    color: '#74423F',
+    color: '#fff',
   },
   actionButton: {
     minHeight: 54,
@@ -832,7 +1021,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   selectionRowActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   selectionText: {
     color: tokens.colors.text,
@@ -840,7 +1029,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   selectionTextActive: {
-    color: '#74423F',
+    color: '#fff',
   },
   sheetBody: {
     color: '#444',
@@ -913,9 +1102,14 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   dataRowIconWrap: {
-    width: 28,
+    width: DATA_ROW_IMAGE,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dataRowImage: {
+    width: DATA_ROW_IMAGE,
+    height: DATA_ROW_IMAGE,
+    tintColor: tokens.colors.accent,
   },
   dataRowLabel: {
     flex: 1,

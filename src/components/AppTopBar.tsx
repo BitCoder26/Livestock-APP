@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,6 +13,9 @@ type Action = {
   color?: string;
   size?: number;
   badge?: boolean;
+  // Set when a screen anchors a dropdown to this button: the wrapper View is
+  // measured in window coordinates so a Modal-drawn menu can sit under it.
+  anchorRef?: RefObject<View | null>;
 };
 
 type AppTopBarProps = {
@@ -43,9 +47,8 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
         </View>
         <View style={styles.actions}>
           {actions.map((action) => {
-            return (
+            const button = (
               <BouncyPressable
-                key={action.accessibilityLabel}
                 accessibilityLabel={action.accessibilityLabel}
                 accessibilityRole="button"
                 hitSlop={12}
@@ -55,12 +58,22 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
               >
                 <AppIcon
                   name={action.icon}
-                  size={action.size ?? (action.icon === 'filter' ? 28 : 24)}
+                  size={action.size ?? 24}
                   color={action.color ?? '#fff'}
                 />
                 {action.badge ? <View style={styles.badgeDot} accessible={false} /> : null}
               </BouncyPressable>
             );
+
+            if (action.anchorRef) {
+              return (
+                <View key={action.accessibilityLabel} ref={action.anchorRef} collapsable={false}>
+                  {button}
+                </View>
+              );
+            }
+
+            return <View key={action.accessibilityLabel}>{button}</View>;
           })}
         </View>
       </View>

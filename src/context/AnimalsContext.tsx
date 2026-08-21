@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import type { Animal, AnimalStatus, AnimalStatusChange, AnimalTone } from '../entities/animal';
 import { createUniqueUuid } from '../utils/createLocalId';
 import { filterAccessibleImageUris } from '../utils/imageStorage';
-import { type FarmEntity, type GroupEntity, type PaddockEntity, useSetup } from './SetupContext';
+import { type FarmEntity, type LabelEntity, type LocationEntity, useSetup } from './SetupContext';
 
 export type CreateAnimalInput = Omit<Animal, 'uid' | 'tone' | 'ageLabel'>;
 
@@ -44,6 +44,17 @@ type AnimalsContextValue = {
     animalUid: string,
     status: AnimalStatus,
   ) => Promise<AnimalMutationResult>;
+  /**
+   * Drops one dated line from the animal's status history. The animal's
+   * current `status` is deliberately left alone — this removes a line from the
+   * record of what happened, not the state itself, which the status dropdown
+   * owns. Removing the line that set the current status therefore leaves the
+   * animal on that status with nothing on the timeline explaining it.
+   */
+  removeAnimalStatusChange: (
+    animalUid: string,
+    changeId: string,
+  ) => Promise<AnimalMutationResult>;
   getAnimalsSnapshot: () => Animal[];
   replaceAnimalsFromTransaction: (nextAnimals: Animal[]) => void;
 };
@@ -54,8 +65,8 @@ export const ANIMALS_STORAGE_KEY = 'livestockbook.animals.v1';
 export function AnimalsProvider({ children }: PropsWithChildren) {
   const {
     farmEntities,
-    paddockEntities,
-    groupEntities,
+    locationEntities,
+    labelEntities,
     isLoaded: setupLoaded,
   } = useSetup();
   const [animals, setAnimals] = useState<Animal[]>([]);
@@ -86,8 +97,8 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
                 animal,
                 usedUids,
                 farmEntities,
-                paddockEntities,
-                groupEntities,
+                locationEntities,
+                labelEntities,
                 index,
                 storedAnimalsList.length,
               ),
@@ -114,7 +125,7 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
     return () => {
       isActive = false;
     };
-  }, [farmEntities, groupEntities, paddockEntities, setupLoaded]);
+  }, [farmEntities, labelEntities, locationEntities, setupLoaded]);
 
   const value = useMemo<AnimalsContextValue>(
     () => {
@@ -189,6 +200,12 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
           return { ok: false, reason: 'not-found' };
         }
 
+        // Picking the status the animal already has is a no-op, not an event —
+        // it shouldn't leave a "Marked Active" line on the timeline.
+        if (existing.status === status) {
+          return { ok: true, animal: existing };
+        }
+
         const updated: Animal = {
           ...existing,
           status,
@@ -204,6 +221,30 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
         const next = animalsRef.current.map((item) =>
           item.uid === animalUid ? updated : item,
         );
+
+        if (!(await persistAndReplaceAnimals(next))) {
+          return { ok: false, reason: 'storage-error' };
+        }
+
+        return { ok: true, animal: updated };
+      },
+      removeAnimalStatusChange: async (animalUid, changeId) => {
+        const existing = animalsRef.current.find((item) => item.uid === animalUid);
+
+        if (!existing) {
+          return { ok: false, reason: 'not-found' };
+        }
+
+        const statusHistory = (existing.statusHistory ?? []).filter(
+          (change) => change.id !== changeId,
+        );
+
+        if (statusHistory.length === (existing.statusHistory ?? []).length) {
+          return { ok: true, animal: existing };
+        }
+
+        const updated: Animal = { ...existing, statusHistory };
+        const next = animalsRef.current.map((item) => (item.uid === animalUid ? updated : item));
 
         if (!(await persistAndReplaceAnimals(next))) {
           return { ok: false, reason: 'storage-error' };
@@ -367,8 +408,8 @@ export function normalizeStoredAnimal(
   animal: Animal,
   usedUids: Set<string>,
   farms: FarmEntity[],
-  paddocks: PaddockEntity[],
-  groups: GroupEntity[],
+  locations: LocationEntity[],
+  labels: LabelEntity[],
   // Position of this animal in the stored (newest-first) list, used to
   // backfill a real createdAt for animals that never had one — see
   // synthesizeCreatedAt below.
@@ -382,21 +423,71 @@ export function normalizeStoredAnimal(
     : createUniqueUuid(usedUids);
   usedUids.add(uid);
   const farm = farms.find((entry) => entry.uid === animal.farmUid || equalsIgnoreCase(entry.name, animal.farm));
-  const paddock = paddocks.find(
+  // Locations were `paddock`/`paddockUid` before the rename; fall back to the
+  // old keys so an animal saved earlier keeps where it is kept.
+  const legacyLocation = animal as Partial<Animal> & { paddock?: string; paddockUid?: string };
+  const storedLocationUid = animal.locationUid ?? legacyLocation.paddockUid;
+  const storedLocationName = animal.location ?? legacyLocation.paddock ?? '';
+
+  const location = locations.find(
     (entry) =>
-      (entry.uid === animal.paddockUid || equalsIgnoreCase(entry.name, animal.paddock)) &&
+      (entry.uid === storedLocationUid || equalsIgnoreCase(entry.name, storedLocationName)) &&
       (!farm?.uid || entry.farmUid === farm.uid || equalsIgnoreCase(entry.farm, farm.name)),
   );
-  const group = groups.find(
-    (entry) => entry.uid === animal.groupUid || equalsIgnoreCase(entry.name, animal.group),
-  );
+  // Labels were a single `group`/`groupUid` before the rename. Read the new
+  // shape when present, otherwise fold the one stored group into a list — each
+  // animal migrates once, on the first load after updating.
+  const legacy = animal as Partial<Animal> & { group?: string; groupUid?: string };
+  const storedLabelUids = Array.isArray(animal.labelUids)
+    ? animal.labelUids
+    : legacy.groupUid
+      ? [legacy.groupUid]
+      : [];
+  const storedLabelNames = Array.isArray(animal.labels)
+    ? animal.labels
+    : typeof legacy.group === 'string' && legacy.group.trim()
+      ? [legacy.group]
+      : [];
+
+  // Resolve each stored label against live setup, uid first so a rename shows
+  // up immediately. Deduplicated by uid, since two stored entries can resolve
+  // to the same label once one of them matched only by name.
+  const resolvedLabels: LabelEntity[] = [];
+  const seenLabelKeys = new Set<string>();
+
+  for (const [index, name] of storedLabelNames.entries()) {
+    const uid = storedLabelUids[index];
+    const match = labels.find(
+      (entry) => (uid && entry.uid === uid) || equalsIgnoreCase(entry.name, name),
+    );
+    const key = match?.uid ?? name.trim().toLowerCase();
+
+    if (!key || seenLabelKeys.has(key)) {
+      continue;
+    }
+
+    seenLabelKeys.add(key);
+    resolvedLabels.push(match ?? { name: name.trim(), animals: '', notes: '' });
+  }
+
+  // Uids with no name alongside them — possible only in hand-edited storage.
+  for (const uid of storedLabelUids.slice(storedLabelNames.length)) {
+    const match = labels.find((entry) => entry.uid === uid);
+
+    if (match && !seenLabelKeys.has(match.uid ?? '')) {
+      seenLabelKeys.add(match.uid ?? '');
+      resolvedLabels.push(match);
+    }
+  }
 
   return {
     ...animal,
     uid,
     farmUid: farm?.uid,
-    paddockUid: paddock?.uid,
-    groupUid: group?.uid,
+    locationUid: location?.uid,
+    location: location?.name ?? storedLocationName,
+    labelUids: resolvedLabels.map((entry) => entry.uid).filter((uid): uid is string => !!uid),
+    labels: resolvedLabels.map((entry) => entry.name),
     sex: animal.sex === 'male' ? 'male' : 'female',
     ageLabel: formatAgeLabel(animal.ageValue ?? '', animal.ageUnit ?? 'years old'),
     imageUris,
@@ -404,6 +495,7 @@ export function normalizeStoredAnimal(
     tone: inferAnimalTone(animal.species),
     createdAt: isValidCreatedAt(animal.createdAt) ? animal.createdAt : synthesizeCreatedAt(index, total),
     // Animals stored before these fields existed won't have them at all.
+    eid: animal.eid ?? '',
     source: animal.source ?? '',
     farmEntryDate: animal.farmEntryDate ?? '',
     statusHistory: normalizeStatusHistory(animal.statusHistory),

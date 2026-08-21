@@ -17,11 +17,15 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AppIcon } from '../src/components/AppIcon';
 import { BouncyPressable } from '../src/components/BouncyPressable';
-import { FREE_ANIMAL_LIMIT, FREE_RECORD_LIMIT } from '../src/constants/subscription';
+import { FREE_EXPORT_LIMIT, FREE_RECORD_LIMIT } from '../src/constants/subscription';
 import { useSubscription } from '../src/context/SubscriptionContext';
 import { tokens } from '../src/theme/tokens';
 
-const PERKS = ['Unlimited animals', 'Unlimited records'];
+// Records and exports are the only things Basic caps (see FREE_RECORD_LIMIT
+// and FREE_EXPORT_LIMIT), so they are the only things Pro can honestly claim
+// to unlock. Animals and herds were never counted, and listing them here
+// charged for what is already free.
+const PERKS = ['Unlimited records', 'Unlimited PDF & spreadsheet exports'];
 const PRIVACY_POLICY_URL = 'https://livestockbook.app/privacy.html';
 const TERMS_OF_USE_URL = 'https://livestockbook.app/terms.html';
 
@@ -70,7 +74,7 @@ const POP_OUT_DURATION = 170;
 export default function UpgradeToProScreen() {
   const router = useRouter();
   const { limitType, autotest, debug } = useLocalSearchParams<{
-    limitType?: 'animals' | 'records';
+    limitType?: 'animals' | 'records' | 'exports';
     autotest?: 'purchase-monthly' | 'purchase-yearly' | 'restore';
     debug?: string;
   }>();
@@ -153,9 +157,9 @@ export default function UpgradeToProScreen() {
   ];
 
   const limitMessage =
-    limitType === 'animals'
-      ? `Free plan includes up to ${FREE_ANIMAL_LIMIT} animals. Upgrade to keep adding more without removing any existing data.`
-      : limitType === 'records'
+    limitType === 'exports'
+      ? `Free plan includes ${FREE_EXPORT_LIMIT} exports. Upgrade for unlimited PDF and spreadsheet exports of your animals, herds and records.`
+      : limitType === 'animals' || limitType === 'records'
         ? `Free plan includes up to ${FREE_RECORD_LIMIT} records. Upgrade to keep adding more without removing any existing data.`
         : null;
 

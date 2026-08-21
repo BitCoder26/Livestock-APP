@@ -47,7 +47,7 @@ export default function AddChooseScreen() {
         <BouncyPressable
           accessibilityLabel="Add an individual animal"
           accessibilityRole="button"
-          onPress={() => router.replace({ pathname: '/add-animal', params: { reveal: '1' } })}
+          onPress={() => router.replace('/add-animal')}
           style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
         >
           <View style={styles.cardIcon}>

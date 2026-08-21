@@ -21,10 +21,12 @@ export type Collective = {
   species: string;
   breed: string;
   status: CollectiveStatus;
+  /** Every hand-made status change, dated, for the group's timeline. */
+  statusHistory?: CollectiveStatusChange[];
   farmUid?: string;
   farm: string;
-  paddockUid?: string;
-  paddock: string;
+  locationUid?: string;
+  location: string;
   /** Date the collective was established or acquired onto this farm. */
   startDate: string;
   /** When the animals were born or hatched — distinct from when they arrived. */
@@ -40,7 +42,21 @@ export type Collective = {
   endDate: string;
   purpose: string;
   notes: string;
+  /**
+   * Management tags, the same ones animals carry — "Organic", "Winter shed".
+   * A group can hold several. Kept as uid + resolved name in parallel arrays so
+   * a label rename shows up here without rewriting every group.
+   */
+  labelUids?: string[];
+  labels: string[];
   imageUris?: string[];
+  /**
+   * Whether the profile picture replaces the species icon on the herd card. A
+   * group photo identifies far less than an individual animal's does — two
+   * flocks of brown hens look alike — so the icon stays the default and this is
+   * opt-in.
+   */
+  showImageOnCard?: boolean;
   /**
    * Dated changes to the head count, oldest first. The current count is derived
    * from these rather than stored: a mutable number would lose every previous
@@ -50,7 +66,22 @@ export type Collective = {
   countEvents: CollectiveCountEvent[];
 };
 
-export type CollectiveStatus = 'Active' | 'Closed';
+/**
+ * A group is either in use or it is not — and unlike an animal, it is never
+ * "sold" or "deceased" as a whole. Animals leave a flock by different routes
+ * at different times; the flock itself just stops being one you keep.
+ *
+ * Deliberately never derived from records. An emptied flock is often only
+ * between batches, and the keeper is the one who knows which.
+ */
+export type CollectiveStatus = 'Active' | 'Inactive';
+
+/** A dated line for the group's timeline whenever its status is changed. */
+export type CollectiveStatusChange = {
+  id: string;
+  date: string;
+  status: CollectiveStatus;
+};
 
 export type CollectiveCountEventReason =
   | 'Established'
@@ -67,9 +98,16 @@ export type CollectiveCountEvent = {
   delta: number;
   reason: CollectiveCountEventReason;
   notes: string;
+  /**
+   * Set when this change was entered as a record rather than typed straight
+   * into the herd or flock. Editing or deleting that record rewrites the
+   * event it owns — see `syncRecordCountEvent` in CollectivesContext — so the
+   * head count can never drift away from the records that explain it.
+   */
+  recordId?: string;
 };
 
-export const COLLECTIVE_STATUSES: CollectiveStatus[] = ['Active', 'Closed'];
+export const COLLECTIVE_STATUSES: CollectiveStatus[] = ['Active', 'Inactive'];
 
 export const COLLECTIVE_COUNT_REASONS: CollectiveCountEventReason[] = [
   'Established',
@@ -103,6 +141,56 @@ const SPECIES_COLLECTIVE_TERMS: Record<string, string> = {
 
 export function collectiveTermForSpecies(species: string) {
   return SPECIES_COLLECTIVE_TERMS[species.trim()] ?? 'batch';
+}
+
+/**
+ * Counts a mixed list of collectives in the words that actually apply to it:
+ * "1 flock", "3 herds", "4 herds & batches". Saying "herds & flocks" over a
+ * list that holds neither — or over exactly one of something — reads as a
+ * template that was never filled in.
+ *
+ * Terms are named in a fixed order rather than the order they happen to appear
+ * in, so the same mix always reads the same way. Once more than one term is in
+ * play every term is plural: the leading number counts the whole list, not any
+ * one kind, so "2 herd & flock" would be describing something else.
+ */
+export function describeCollectiveCount(collectives: Collective[]) {
+  const terms = new Set(collectives.map((collective) => collectiveTermForSpecies(collective.species)));
+  const present = COLLECTIVE_TERM_ORDER.filter((term) => terms.has(term));
+  const count = collectives.length;
+
+  if (present.length === 0) {
+    return `0 ${pluralizeCollectiveTerm('herd')} & ${pluralizeCollectiveTerm('flock')}`;
+  }
+
+  if (present.length === 1) {
+    const term = present[0];
+    return `${count} ${count === 1 ? term : pluralizeCollectiveTerm(term)}`;
+  }
+
+  const plurals = present.map(pluralizeCollectiveTerm);
+  const last = plurals[plurals.length - 1];
+  const rest = plurals.slice(0, -1);
+
+  return `${count} ${rest.join(', ')} & ${last}`;
+}
+
+const COLLECTIVE_TERM_ORDER = ['herd', 'flock', 'batch'];
+
+function pluralizeCollectiveTerm(term: string) {
+  // "batch" is the only term whose plural is not a bare +s.
+  return /(?:ch|sh|s|x|z)$/.test(term) ? `${term}es` : `${term}s`;
+}
+
+/**
+ * What the group's own identifier is called, in the keeper's words: a flock of
+ * hens has a flock ID, a pig unit a herd ID. Mirrors the animal side's
+ * "Animal ID / Tag" rather than the anonymous "Reference" — a field named after
+ * the thing it identifies is one the keeper knows what to type into.
+ */
+export function collectiveIdLabelForSpecies(species: string) {
+  const term = collectiveTermForSpecies(species);
+  return `${term.charAt(0).toUpperCase()}${term.slice(1)} ID`;
 }
 
 /** "Herd or flock" — the label used before a species has been chosen. */

@@ -9,11 +9,12 @@ import { AppIcon, AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
-import { CircularRevealView } from '../src/components/CircularRevealView';
 import { DesignField } from '../src/components/DesignField';
+import { FieldLabel } from '../src/components/FieldLabel';
 import { FloatingActionButton } from '../src/components/FloatingActionButton';
+import { InfoModal } from '../src/components/InfoModal';
 import { RECORD_TYPES, SPECIES_OPTIONS } from '../src/constants/records';
-import { FREE_ANIMAL_LIMIT, FREE_RECORD_LIMIT } from '../src/constants/subscription';
+import { FREE_RECORD_LIMIT } from '../src/constants/subscription';
 import { useAccount } from '../src/context/AccountContext';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
 import { useAnimals } from '../src/context/AnimalsContext';
@@ -23,7 +24,7 @@ import type { CreateAnimalInput } from '../src/context/AnimalsContext';
 import {
   type FarmEntity,
   type MedicineEntity,
-  type PaddockEntity,
+  type LocationEntity,
   type SetupSelectionTarget,
   useSetup,
 } from '../src/context/SetupContext';
@@ -38,10 +39,16 @@ import { findRecordAnimals, resolveRecordAnimalUids } from '../src/utils/recordA
 import { getStructuredDetailLabels, stripStructuredDetailLines } from '../src/utils/recordNotes';
 import {
   resolveAnimalFarmName,
-  resolveAnimalPaddockName,
+  resolveAnimalLocationName,
   resolveFarmName,
-  resolvePaddockName,
+  resolveLocationName,
 } from '../src/utils/recordLocations';
+import {
+  equalsIgnoreCase,
+  isValidNonNegativeInteger,
+  isValidNonNegativeNumber,
+  isValidPositiveNumber,
+} from '../src/utils/validation';
 
 const DOSE_UNITS = ['ml', 'mg', 'g', 'tablet(s)', 'bolus', 'sachet', 'dose'] as const;
 const WEIGHT_UNITS = ['kg', 'lb'] as const;
@@ -58,21 +65,52 @@ const CAUSE_OF_DEATH_OPTIONS = [
   'Unknown',
   'Other',
 ] as const;
-const MOVEMENT_PICKERS = ['fromFarm', 'fromPaddock', 'toFarm', 'toPaddock'] as const;
+const MOVEMENT_PICKERS = ['fromFarm', 'fromLocation', 'toFarm', 'toLocation'] as const;
+
+/**
+ * The notes behind each field's (i), matching the collective Add Record
+ * screen's map field for field. Where a field means the same thing on both
+ * screens the wording is identical on purpose — a keeper who learns what Cost
+ * does on a flock record should not have to re-read it on an animal's.
+ */
+const FIELD_NOTES: Record<string, { title: string; description: string }> = {
+  withdrawal: {
+    title: 'Withdrawal periods',
+    description:
+      'Days after treatment before meat or milk may be sold. The app counts them from this record\u2019s date and flags the animals still inside the period.\n\n' +
+      'Leave blank if the product has none.',
+  },
+  cost: {
+    title: 'Cost',
+    description: 'Adds to Costs in Reports, kept apart from money spent buying animals.',
+  },
+  otherTitle: {
+    title: 'Title',
+    description:
+      'Other covers anything the types above do not \u2014 bedding, fencing, a water test. Whatever you type here becomes the record\u2019s name.',
+  },
+};
 
 type MovementPickerKey = (typeof MOVEMENT_PICKERS)[number];
 
 export default function AddRecordScreen() {
   const insets = useSafeAreaInsets();
+  const [fieldNote, setFieldNote] = useState<(typeof FIELD_NOTES)[string] | null>(null);
+  const showFieldNote = (key: keyof typeof FIELD_NOTES) => () => setFieldNote(FIELD_NOTES[key]);
   const router = useRouter();
   const pathname = usePathname();
-  const { selectedAnimalIds, selectedMotherUid, selectedMotherName, recordId, draftRecord, reveal } = useLocalSearchParams<{
+  const {
+    selectedAnimalIds,
+    selectedMotherUid,
+    selectedMotherName,
+    recordId,
+    draftRecord,
+  } = useLocalSearchParams<{
     selectedAnimalIds?: string;
     selectedMotherUid?: string;
     selectedMotherName?: string;
     recordId?: string;
     draftRecord?: string;
-    reveal?: string;
   }>();
   const { profile } = useAccount();
   const { animals } = useAnimals();
@@ -89,7 +127,7 @@ export default function AddRecordScreen() {
   const {
     farms,
     farmEntities,
-    paddockEntities,
+    locationEntities,
     medicineEntities,
     pendingSetupSelectionResult,
     beginSetupSelection,
@@ -120,6 +158,10 @@ export default function AddRecordScreen() {
   const [seller, setSeller] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('');
   const [sourceFarm, setSourceFarm] = useState('');
+  // Carried by Other only: the catch-all record is how a keeper logs any
+  // spend that is not buying an animal, so it needs somewhere for the money
+  // to go other than the notes, where Reports could never total it.
+  const [cost, setCost] = useState('');
   const [motherUid, setMotherUid] = useState('');
   const [motherName, setMotherName] = useState('');
   const [birthTagId, setBirthTagId] = useState('');
@@ -132,12 +174,13 @@ export default function AddRecordScreen() {
   const [doseUnit, setDoseUnit] = useState<(typeof DOSE_UNITS)[number]>('ml');
   const [route, setRoute] = useState<(typeof ROUTE_OPTIONS)[number]>('Injection');
   const [withdrawal, setWithdrawal] = useState('0');
+  const [milkWithdrawal, setMilkWithdrawal] = useState('');
   const [batchNumber, setBatchNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [fromFarm, setFromFarm] = useState('');
-  const [fromPaddock, setFromPaddock] = useState('');
+  const [fromLocation, setFromLocation] = useState('');
   const [toFarm, setToFarm] = useState('');
-  const [toPaddock, setToPaddock] = useState('');
+  const [toLocation, setToLocation] = useState('');
   const [details, setDetails] = useState('');
   const [chosenAnimalIds, setChosenAnimalIds] = useState<string[]>(
     selectedAnimalIds ? selectedAnimalIds.split(',').filter(Boolean) : [],
@@ -154,8 +197,6 @@ export default function AddRecordScreen() {
   const [showExpiryDatePicker, setShowExpiryDatePicker] = useState(false);
   const [activeMovementPicker, setActiveMovementPicker] = useState<MovementPickerKey | null>(null);
   const [imageUris, setImageUris] = useState<string[]>([]);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteImpact, setDeleteImpact] = useState<RecordImpactChange[]>([]);
   const [showUpdateImpactConfirm, setShowUpdateImpactConfirm] = useState(false);
   const [updateImpact, setUpdateImpact] = useState<RecordImpactChange[]>([]);
   const pendingUpdatePayloadRef = useRef<Parameters<typeof updateRecord>[1] | null>(null);
@@ -194,9 +235,9 @@ export default function AddRecordScreen() {
     selectedMother?.sex === 'female' && equalsIgnoreCase(selectedMother.species, birthSpecies)
       ? selectedMother
       : null;
-  const inheritedLocation = formatAnimalLocation(inheritedMother, farmEntities, paddockEntities);
+  const inheritedLocation = formatAnimalLocation(inheritedMother, farmEntities, locationEntities);
   const displayedNewbornLocation = isEditing
-    ? formatAnimalLocation(editingBirthAnimal, farmEntities, paddockEntities)
+    ? formatAnimalLocation(editingBirthAnimal, farmEntities, locationEntities)
     : inheritedLocation;
   const currencyCode = profile.currency;
   const currencyPrefix = formatCurrencyPrefix(currencyCode);
@@ -204,19 +245,19 @@ export default function AddRecordScreen() {
     () => medicineEntities.filter((entry) => entry.treatmentType === (isVaccinationRecord ? 'vaccine' : 'medicine')),
     [isVaccinationRecord, medicineEntities],
   );
-  const fromPaddockOptions = useMemo(
+  const fromLocationOptions = useMemo(
     () =>
-      paddockEntities
-        .filter((paddock) => !fromFarm.trim() || equalsIgnoreCase(paddock.farm, fromFarm))
-        .map((paddock) => paddock.name),
-    [fromFarm, paddockEntities],
+      locationEntities
+        .filter((location) => !fromFarm.trim() || equalsIgnoreCase(location.farm, fromFarm))
+        .map((location) => location.name),
+    [fromFarm, locationEntities],
   );
-  const toPaddockOptions = useMemo(
+  const toLocationOptions = useMemo(
     () =>
-      paddockEntities
-        .filter((paddock) => !toFarm.trim() || equalsIgnoreCase(paddock.farm, toFarm))
-        .map((paddock) => paddock.name),
-    [paddockEntities, toFarm],
+      locationEntities
+        .filter((location) => !toFarm.trim() || equalsIgnoreCase(location.farm, toFarm))
+        .map((location) => location.name),
+    [locationEntities, toFarm],
   );
 
   useEffect(() => {
@@ -287,6 +328,7 @@ export default function AddRecordScreen() {
     setSeller(draft.seller);
     setPurchasePrice(draft.purchasePrice);
     setSourceFarm(draft.sourceFarm);
+    setCost(draft.cost);
     setMotherUid(selectedMotherUid ?? draft.motherUid ?? '');
     setMotherName(selectedMotherName ?? draft.motherName);
     setBirthTagId(draft.birthTagId);
@@ -299,12 +341,13 @@ export default function AddRecordScreen() {
     setDoseUnit(draft.doseUnit);
     setRoute(draft.route);
     setWithdrawal(draft.withdrawal);
+    setMilkWithdrawal(draft.milkWithdrawal);
     setBatchNumber(draft.batchNumber);
     setExpiryDate(draft.expiryDate);
     setFromFarm(draft.fromFarm);
-    setFromPaddock(draft.fromPaddock);
+    setFromLocation(draft.fromLocation);
     setToFarm(draft.toFarm);
-    setToPaddock(draft.toPaddock);
+    setToLocation(draft.toLocation);
     setDetails(draft.details);
     setChosenAnimalIds(
       selectedAnimalIds !== undefined
@@ -319,7 +362,7 @@ export default function AddRecordScreen() {
       return;
     }
 
-    const formState = buildFormStateFromRecord(editingRecord, animals, farmEntities, paddockEntities);
+    const formState = buildFormStateFromRecord(editingRecord, animals, farmEntities, locationEntities);
     setSelectedDate(formState.selectedDate);
     setRecordType(formState.recordType);
     setRecordTitle(formState.recordTitle);
@@ -337,6 +380,7 @@ export default function AddRecordScreen() {
     setSeller(formState.seller);
     setPurchasePrice(formState.purchasePrice);
     setSourceFarm(formState.sourceFarm);
+    setCost(formState.cost);
     setMotherUid(formState.motherUid);
     setMotherName(formState.motherName);
     setBirthTagId(formState.birthTagId);
@@ -349,16 +393,17 @@ export default function AddRecordScreen() {
     setDoseUnit(formState.doseUnit);
     setRoute(formState.route);
     setWithdrawal(formState.withdrawal);
+    setMilkWithdrawal(formState.milkWithdrawal);
     setBatchNumber(formState.batchNumber);
     setExpiryDate(formState.expiryDate);
     setFromFarm(formState.fromFarm);
-    setFromPaddock(formState.fromPaddock);
+    setFromLocation(formState.fromLocation);
     setToFarm(formState.toFarm);
-    setToPaddock(formState.toPaddock);
+    setToLocation(formState.toLocation);
     setDetails(formState.details);
     setChosenAnimalIds(formState.chosenAnimalIds);
     setImageUris(filterAccessibleImageUris(formState.imageUris));
-  }, [animals, draftRecord, editingRecord, farmEntities, paddockEntities]);
+  }, [animals, draftRecord, editingRecord, farmEntities, locationEntities]);
 
   useEffect(() => {
     if (!pendingSetupSelectionResult) {
@@ -368,17 +413,17 @@ export default function AddRecordScreen() {
     switch (pendingSetupSelectionResult.target) {
       case 'fromFarm':
         setFromFarm(pendingSetupSelectionResult.value);
-        setFromPaddock('');
+        setFromLocation('');
         break;
       case 'toFarm':
         setToFarm(pendingSetupSelectionResult.value);
-        setToPaddock('');
+        setToLocation('');
         break;
-      case 'fromPaddock':
-        setFromPaddock(pendingSetupSelectionResult.value);
+      case 'fromLocation':
+        setFromLocation(pendingSetupSelectionResult.value);
         break;
-      case 'toPaddock':
-        setToPaddock(pendingSetupSelectionResult.value);
+      case 'toLocation':
+        setToLocation(pendingSetupSelectionResult.value);
         break;
     }
 
@@ -408,7 +453,11 @@ export default function AddRecordScreen() {
 
     const missingFields: string[] = [];
 
-    if (!isBirthRecord && chosenAnimalIds.length === 0) {
+    // Other is the only type that may stand on its own: it is where a keeper
+    // logs something that happened on the farm rather than to an animal — a
+    // feed delivery, bedding, a fencing repair. Every other type describes an
+    // event that happened *to* something, so it still needs one.
+    if (!isBirthRecord && !isOtherRecord && chosenAnimalIds.length === 0) {
       missingFields.push('Animal(s)');
     }
 
@@ -422,24 +471,15 @@ export default function AddRecordScreen() {
       }
     }
 
-    if (isMedicationRecord) {
-      if (!medicine.trim()) {
-        missingFields.push('Medicine');
-      }
-
-      if (!dose.trim()) {
-        missingFields.push('Dose');
-      }
+    // Dose is deliberately not required, matching the collective screen: a
+    // treatment given in the water or the feed has no per-animal figure the
+    // keeper can honestly state. What was used is the part that must be there.
+    if (isMedicationRecord && !medicine.trim()) {
+      missingFields.push('Medicine');
     }
 
-    if (isVaccinationRecord) {
-      if (!medicine.trim()) {
-        missingFields.push('Vaccine');
-      }
-
-      if (!dose.trim()) {
-        missingFields.push('Dose');
-      }
+    if (isVaccinationRecord && !medicine.trim()) {
+      missingFields.push('Vaccine');
     }
 
     if (isMovementRecord) {
@@ -468,10 +508,6 @@ export default function AddRecordScreen() {
       missingFields.push('Title');
     }
 
-    if (isDeathRecord && !causeOfDeath.trim()) {
-      missingFields.push('Cause of Death');
-    }
-
     if (missingFields.length > 0) {
       showMissingRequiredFields([...new Set(missingFields)]);
       return;
@@ -484,7 +520,11 @@ export default function AddRecordScreen() {
     }
 
     if ((isMedicationRecord || isVaccinationRecord) && withdrawal.trim() && !isValidNonNegativeInteger(withdrawal)) {
-      invalidFields.push('Withdrawal Period (whole number of days, 0 or greater)');
+      invalidFields.push('Meat Withdrawal (whole number of days, 0 or greater)');
+    }
+
+    if ((isMedicationRecord || isVaccinationRecord) && milkWithdrawal.trim() && !isValidNonNegativeInteger(milkWithdrawal)) {
+      invalidFields.push('Milk Withdrawal (whole number of days, 0 or greater)');
     }
 
     if (isSaleRecord && salePrice.trim() && !isValidNonNegativeNumber(salePrice)) {
@@ -514,7 +554,7 @@ export default function AddRecordScreen() {
     if (
       isMovementRecord &&
       equalsIgnoreCase(fromFarm, toFarm) &&
-      equalsIgnoreCase(fromPaddock, toPaddock)
+      equalsIgnoreCase(fromLocation, toLocation)
     ) {
       Alert.alert('Location unchanged', 'Choose a different destination for this Movement record.');
       return;
@@ -522,16 +562,16 @@ export default function AddRecordScreen() {
 
     if (
       isMovementRecord &&
-      ((fromPaddock.trim() &&
-        !paddockEntities.some(
-          (entry) => equalsIgnoreCase(entry.name, fromPaddock) && equalsIgnoreCase(entry.farm, fromFarm),
+      ((fromLocation.trim() &&
+        !locationEntities.some(
+          (entry) => equalsIgnoreCase(entry.name, fromLocation) && equalsIgnoreCase(entry.farm, fromFarm),
         )) ||
-        (toPaddock.trim() &&
-          !paddockEntities.some(
-            (entry) => equalsIgnoreCase(entry.name, toPaddock) && equalsIgnoreCase(entry.farm, toFarm),
+        (toLocation.trim() &&
+          !locationEntities.some(
+            (entry) => equalsIgnoreCase(entry.name, toLocation) && equalsIgnoreCase(entry.farm, toFarm),
           )))
     ) {
-      Alert.alert('Paddock does not match farm', 'Select paddocks belonging to their chosen farms.');
+      Alert.alert('Location does not match farm', 'Select locations belonging to their chosen farms.');
       return;
     }
 
@@ -617,13 +657,13 @@ export default function AddRecordScreen() {
           return false;
         }
 
-        // No paddock on file for the animal isn't a mismatch — it just means
-        // its paddock was never recorded, not that it's known to be elsewhere.
+        // No location on file for the animal isn't a mismatch — it just means
+        // its location was never recorded, not that it's known to be elsewhere.
         return (
           !equalsIgnoreCase(locationAsOf.farm, fromFarm) ||
-          (fromPaddock.trim().length > 0 &&
-            locationAsOf.paddock.trim().length > 0 &&
-            !equalsIgnoreCase(locationAsOf.paddock, fromPaddock))
+          (fromLocation.trim().length > 0 &&
+            locationAsOf.location.trim().length > 0 &&
+            !equalsIgnoreCase(locationAsOf.location, fromLocation))
         );
       });
 
@@ -632,7 +672,7 @@ export default function AddRecordScreen() {
           'Animals at a different location',
           `${formatAnimalReferences(animalsOutsideFromLocation)} ${
             animalsOutsideFromLocation.length === 1 ? "wasn't" : "weren't"
-          } at ${formatMovementPlace(fromFarm, fromPaddock)} on ${date}. Remove ${
+          } at ${formatMovementPlace(fromFarm, fromLocation)} on ${date}. Remove ${
             animalsOutsideFromLocation.length === 1 ? 'it' : 'them'
           } or change the From location.`,
         );
@@ -640,15 +680,15 @@ export default function AddRecordScreen() {
       }
     }
 
-    const movementTitle = [formatMovementPlace(fromFarm, fromPaddock), formatMovementPlace(toFarm, toPaddock)]
+    const movementTitle = [formatMovementPlace(fromFarm, fromLocation), formatMovementPlace(toFarm, toLocation)]
       .filter(Boolean)
       .join(' to ');
-    // Stored alongside the frozen fromFarm/toFarm/fromPaddock/toPaddock text
+    // Stored alongside the frozen fromFarm/toFarm/fromLocation/toLocation text
     // so a later rename in Setup can be resolved live for display (see
-    // resolveFarmName/resolvePaddockName) instead of the record being stuck
+    // resolveFarmName/resolveLocationName) instead of the record being stuck
     // showing whatever name was current when it was saved.
     const findFarmUid = (name: string) => farmEntities.find((entry) => equalsIgnoreCase(entry.name, name))?.uid;
-    const findPaddockUid = (name: string) => paddockEntities.find((entry) => equalsIgnoreCase(entry.name, name))?.uid;
+    const findLocationUid = (name: string) => locationEntities.find((entry) => equalsIgnoreCase(entry.name, name))?.uid;
     const resolvedMotherName = motherUid
       ? inheritedMother?.name ?? ''
       : motherName.trim();
@@ -706,7 +746,9 @@ export default function AddRecordScreen() {
         : isWeightRecord
           ? `${recordType}: ${weight.trim()} ${weightUnit}`.trim()
         : isDeathRecord
-          ? `${recordType}: ${causeOfDeath.trim()}`.trim()
+          ? causeOfDeath.trim()
+            ? `${recordType}: ${causeOfDeath.trim()}`
+            : recordType
         : isBirthRecord
           ? `${recordType}: ${birthTagId.trim()}`.trim()
         : isHealthCheckRecord
@@ -732,6 +774,7 @@ export default function AddRecordScreen() {
       doseUnit: isMedicationRecord || isVaccinationRecord ? doseUnit : undefined,
       route: isMedicationRecord || isVaccinationRecord ? route : undefined,
       withdrawal: isMedicationRecord || isVaccinationRecord ? withdrawal.trim() : undefined,
+      milkWithdrawal: isMedicationRecord || isVaccinationRecord ? milkWithdrawal.trim() : undefined,
       batchNumber: isMedicationRecord || isVaccinationRecord ? batchNumber.trim() : undefined,
       expiryDate: isMedicationRecord || isVaccinationRecord ? expiryDate.trim() : undefined,
       imageUris: imageUris.length > 0 ? imageUris : undefined,
@@ -747,7 +790,8 @@ export default function AddRecordScreen() {
       salePrice: isSaleRecord ? salePrice.trim() : undefined,
       seller: isPurchaseRecord ? seller.trim() : undefined,
       purchasePrice: isPurchaseRecord ? purchasePrice.trim() : undefined,
-      currencyCode: isSaleRecord || isPurchaseRecord ? currencyCode : undefined,
+      cost: isOtherRecord ? cost.trim() || undefined : undefined,
+      currencyCode: isSaleRecord || isPurchaseRecord || (isOtherRecord && cost.trim()) ? currencyCode : undefined,
       motherUid: isBirthRecord ? inheritedMother?.uid : undefined,
       motherName: isBirthRecord ? resolvedMotherName : undefined,
       birthTagId: isBirthRecord ? birthTagId.trim() : undefined,
@@ -757,13 +801,13 @@ export default function AddRecordScreen() {
       birthWeight: isBirthRecord ? birthWeight.trim() : undefined,
       birthWeightUnit: isBirthRecord ? birthWeightUnit : undefined,
       fromFarm: isMovementRecord ? fromFarm.trim() || undefined : undefined,
-      fromPaddock: isMovementRecord ? fromPaddock.trim() || undefined : undefined,
+      fromLocation: isMovementRecord ? fromLocation.trim() || undefined : undefined,
       toFarm: isMovementRecord ? toFarm.trim() : undefined,
-      toPaddock: isMovementRecord ? toPaddock.trim() : undefined,
+      toLocation: isMovementRecord ? toLocation.trim() : undefined,
       fromFarmUid: isMovementRecord ? findFarmUid(fromFarm) : undefined,
-      fromPaddockUid: isMovementRecord ? findPaddockUid(fromPaddock) : undefined,
+      fromLocationUid: isMovementRecord ? findLocationUid(fromLocation) : undefined,
       toFarmUid: isMovementRecord ? findFarmUid(toFarm) : undefined,
-      toPaddockUid: isMovementRecord ? findPaddockUid(toPaddock) : undefined,
+      toLocationUid: isMovementRecord ? findLocationUid(toLocation) : undefined,
     };
 
     const birthAnimalInput = isBirthRecord
@@ -839,15 +883,7 @@ export default function AddRecordScreen() {
     if (!isPro && records.length >= FREE_RECORD_LIMIT) {
       router.push({
         pathname: '/upgrade-to-pro',
-        params: { limitType: 'records', ...(reveal === '1' ? { source: 'add-record' } : {}) },
-      });
-      return;
-    }
-
-    if (!isPro && isBirthRecord && animals.length >= FREE_ANIMAL_LIMIT) {
-      router.push({
-        pathname: '/upgrade-to-pro',
-        params: { limitType: 'animals', ...(reveal === '1' ? { source: 'add-record' } : {}) },
+        params: { limitType: 'records' },
       });
       return;
     }
@@ -911,6 +947,7 @@ export default function AddRecordScreen() {
     seller,
     purchasePrice,
     sourceFarm,
+    cost,
     motherUid,
     motherName: selectedMother?.name ?? motherName,
     birthTagId,
@@ -923,12 +960,13 @@ export default function AddRecordScreen() {
     doseUnit,
     route,
     withdrawal,
+    milkWithdrawal,
     batchNumber,
     expiryDate,
     fromFarm,
-    fromPaddock,
+    fromLocation,
     toFarm,
-    toPaddock,
+    toLocation,
     details,
     chosenAnimalIds,
     imageUris,
@@ -946,9 +984,13 @@ export default function AddRecordScreen() {
       setRoute(entry.defaultRoute as (typeof ROUTE_OPTIONS)[number]);
     }
 
-    const defaultWithdrawal = entry.meatWithdrawalPeriod.trim() || entry.milkWithdrawalPeriod.trim();
-    if (defaultWithdrawal) {
-      setWithdrawal(defaultWithdrawal);
+    // Each figure from its own field: falling back from one to the other would
+    // put a milk figure under a meat label.
+    if (entry.meatWithdrawalPeriod.trim()) {
+      setWithdrawal(entry.meatWithdrawalPeriod);
+    }
+    if (entry.milkWithdrawalPeriod.trim()) {
+      setMilkWithdrawal(entry.milkWithdrawalPeriod);
     }
 
     if (entry.batchNumber?.trim()) {
@@ -959,27 +1001,6 @@ export default function AddRecordScreen() {
     }
 
     setShowTreatmentPicker(false);
-  };
-
-  const handleDeleteRecord = () => {
-    if (!editingRecord) {
-      return;
-    }
-
-    setDeleteImpact(previewDeleteRecordImpact(editingRecord.id));
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDeleteRecord = () => {
-    if (!editingRecord) {
-      return;
-    }
-
-    setShowDeleteConfirm(false);
-    router.replace({
-      pathname: '/(tabs)/records',
-      params: { deletingRecordId: editingRecord.id },
-    });
   };
 
   const cancelUpdateImpact = () => {
@@ -1044,21 +1065,37 @@ export default function AddRecordScreen() {
   };
 
   const openSetupScreen = (
-    nextPathname: '/setup-farms' | '/setup-paddocks',
+    nextPathname: '/setup-farms' | '/setup-locations',
     nextTarget: SetupSelectionTarget,
   ) => {
     beginSetupSelection(nextTarget);
     router.push({
       pathname: nextPathname,
-      params: reveal === '1' ? { source: 'add-record' } : {},
+      params: {},
     });
   };
 
   const openMedicinesScreen = () => {
     router.push({
       pathname: '/setup-medicines',
-      params: reveal === '1' ? { source: 'add-record' } : {},
+      params: { treatmentType: isVaccinationRecord ? 'vaccine' : 'medicine' },
     });
+  };
+
+  /**
+   * Clearing the treatment clears what it filled in with it — leaving a
+   * cleared vaccine's dose and withdrawal behind would quietly attach one
+   * product's figures to another.
+   */
+  const clearTreatment = () => {
+    setMedicine('');
+    setDose('');
+    setDoseUnit('ml');
+    setRoute('Injection');
+    setWithdrawal('');
+    setMilkWithdrawal('');
+    setBatchNumber('');
+    setExpiryDate('');
   };
 
   const handleAddImages = async () => {
@@ -1067,13 +1104,16 @@ export default function AddRecordScreen() {
       return;
     }
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-      Alert.alert('Permission required', 'Permission to access the photo library is required.');
-      return;
-    }
-
+    // No permission request before launching. launchImageLibraryAsync presents
+    // the system photo picker, which runs out of process and hands back only
+    // the chosen image — the app never gets library access, so none is needed
+    // (Expo SDK 57: "No permissions request is necessary for launching the
+    // image library"). Asking anyway cost an async round-trip before the picker
+    // could even start opening, and put a permission dialog in front of the
+    // very first photo. Worse, a user who had denied library access was refused
+    // outright here despite the picker working perfectly well without it.
+    //
+    // The documented exception is videos on iOS; these pickers are images only.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
@@ -1105,27 +1145,20 @@ export default function AddRecordScreen() {
   };
 
   return (
-    <CircularRevealView active={reveal === '1'}>
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
-        title={isEditing ? (isEditRoute ? 'Edit Record' : 'View Record') : 'Add Record'}
+        // Names which of the two near-identical Add Record screens this is:
+        // their type lists differ only by details like Death vs Deaths, so
+        // nothing else says which branch of the speed dial you took.
+        title={`${isEditing ? (isEditRoute ? 'Edit' : 'View') : 'Add'} Animal Record`}
         leftAction={{
           icon: 'back',
           accessibilityLabel: 'Back',
           onPress: () => router.back(),
         }}
-        actions={
-          isEditing
-            ? [
-                {
-                  icon: 'trash',
-                  accessibilityLabel: 'Delete record',
-                  onPress: handleDeleteRecord,
-                  size: 28,
-                },
-              ]
-            : []
-        }
+        // Deleting lives on View Record's three-dot menu, the same place an
+        // animal's and a herd's does — not here.
+        actions={[]}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.typeRow}>
@@ -1173,8 +1206,9 @@ export default function AddRecordScreen() {
             </Pressable>
           </View>
           {!isBirthRecord ? (
+            <>
             <View style={styles.block}>
-              <Text style={styles.label}>Animal(s) *</Text>
+              <Text style={styles.label}>{isOtherRecord ? 'Animal(s)' : 'Animal(s) *'}</Text>
               <Pressable
                 accessibilityLabel="Select animal"
                 accessibilityRole="button"
@@ -1185,11 +1219,10 @@ export default function AddRecordScreen() {
                       selectedAnimalIds: chosenAnimalIds.join(','),
                       recordType,
                       ...(isMovementRecord && fromFarm.trim() ? { fromFarm: fromFarm.trim() } : {}),
-                      ...(isMovementRecord && fromPaddock.trim() ? { fromPaddock: fromPaddock.trim() } : {}),
+                      ...(isMovementRecord && fromLocation.trim() ? { fromLocation: fromLocation.trim() } : {}),
                       ...(isMovementRecord ? { recordDate: storedDate } : {}),
                       ...(recordId ? { recordId } : {}),
                       draftRecord: draftRecordState,
-                      ...(reveal === '1' ? { source: 'add-record' } : {}),
                     },
                   })}
                 style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
@@ -1203,7 +1236,9 @@ export default function AddRecordScreen() {
                   {animals.length === 0
                     ? 'No animals available'
                     : selectedAnimals.length === 0
-                      ? `${animals.length} ${animals.length === 1 ? 'animal' : 'animals'} available`
+                      ? isOtherRecord
+                        ? 'Optional — leave blank for a farm-wide record'
+                        : `${animals.length} ${animals.length === 1 ? 'animal' : 'animals'} available`
                     : selectedAnimals.length === 1
                       ? (selectedAnimals[0].name.trim()
                           ? `${selectedAnimals[0].name.trim()} (${selectedAnimals[0].id})`
@@ -1219,44 +1254,43 @@ export default function AddRecordScreen() {
                   {selectedAnimals.map((animal) => animal.name).join(', ')}
                 </Text>
               ) : null}
+            </View>
+            <View style={styles.helperLinkRow}>
+              <Pressable
+                accessibilityLabel="Add animal"
+                accessibilityRole="button"
+                hitSlop={12}
+                onPress={() =>
+                  router.push({
+                    pathname: '/add-animal',
+                    params: {
+                      returnToRecordSelector: '1',
+                      recordSelectorSelectedAnimalIds: chosenAnimalIds.join(','),
+                      ...(recordId ? { recordSelectorRecordId: recordId } : {}),
+                      recordSelectorDraftRecord: draftRecordState,
+                      ...(recordType ? { recordSelectorRecordType: recordType } : {}),
+                      ...(isMovementRecord && fromFarm.trim() ? { recordSelectorFromFarm: fromFarm.trim() } : {}),
+                      ...(isMovementRecord && fromLocation.trim() ? { recordSelectorFromLocation: fromLocation.trim() } : {}),
+                    },
+                  })
+                }
+                style={({ pressed }) => [pressed && styles.pressed]}
+              >
+                <Text style={styles.helperLinkCompact}>+ Add</Text>
+              </Pressable>
               {selectedAnimals.length > 0 ? (
                 <Pressable
                   accessibilityLabel="Clear selected animals"
                   accessibilityRole="button"
-                  hitSlop={10}
+                  hitSlop={12}
                   onPress={() => setChosenAnimalIds([])}
-                  style={({ pressed }) => [styles.helperLinkStandalone, pressed && styles.pressed]}
+                  style={({ pressed }) => [pressed && styles.pressed]}
                 >
-                  <Text style={styles.helperLinkCompact}>Clear Animals</Text>
+                  <Text style={styles.helperLinkCompact}>Clear</Text>
                 </Pressable>
               ) : null}
-              {animals.length === 0 ? (
-                <View style={styles.helperRow}>
-                  <Pressable
-                    accessibilityLabel="Add animal"
-                    accessibilityRole="button"
-                    hitSlop={10}
-                    onPress={() =>
-                      router.push({
-                        pathname: '/add-animal',
-                        params: {
-                          returnToRecordSelector: '1',
-                          recordSelectorSelectedAnimalIds: chosenAnimalIds.join(','),
-                          ...(recordId ? { recordSelectorRecordId: recordId } : {}),
-                          recordSelectorDraftRecord: draftRecordState,
-                          ...(recordType ? { recordSelectorRecordType: recordType } : {}),
-                          ...(isMovementRecord && fromFarm.trim() ? { recordSelectorFromFarm: fromFarm.trim() } : {}),
-                          ...(isMovementRecord && fromPaddock.trim() ? { recordSelectorFromPaddock: fromPaddock.trim() } : {}),
-                          ...(reveal === '1' ? { recordSelectorSource: 'add-record' } : {}),
-                        },
-                      })
-                    }
-                  >
-                    <Text style={styles.helperLink}>+ Add Animal</Text>
-                  </Pressable>
-                </View>
-              ) : null}
             </View>
+            </>
           ) : null}
           {isBirthRecord ? (
             <View style={styles.birthBlock}>
@@ -1289,7 +1323,6 @@ export default function AddRecordScreen() {
                         draftRecord: draftRecordState,
                         birthSpecies,
                         ...(motherUid ? { selectedMotherUid: motherUid } : {}),
-                        ...(reveal === '1' ? { source: 'add-record' } : {}),
                       },
                     })}
                   style={({ pressed }) => [
@@ -1311,6 +1344,22 @@ export default function AddRecordScreen() {
                   </View>
                 </Pressable>
               </View>
+              {motherUid || motherName ? (
+                <View style={styles.helperLinkRow}>
+                  <Pressable
+                    accessibilityLabel="Clear mother"
+                    accessibilityRole="button"
+                    hitSlop={12}
+                    onPress={() => {
+                      setMotherUid('');
+                      setMotherName('');
+                    }}
+                    style={({ pressed }) => [pressed && styles.pressed]}
+                  >
+                    <Text style={styles.helperLinkCompact}>Clear</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               {inheritedMother || isEditing ? (
                 <View style={styles.inheritedLocationRow}>
                   <AppIcon name="pin" size={17} color={tokens.colors.textSoft} />
@@ -1395,16 +1444,35 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <Pressable accessibilityLabel="Add medicine" accessibilityRole="button" hitSlop={10} onPress={openMedicinesScreen}>
-                <Text style={styles.helperLink}>+ Add Medicine</Text>
-              </Pressable>
+              <View style={styles.helperLinkRow}>
+                <Pressable
+                  accessibilityLabel="Add medicine"
+                  accessibilityRole="button"
+                  hitSlop={12}
+                  onPress={openMedicinesScreen}
+                  style={({ pressed }) => [pressed && styles.pressed]}
+                >
+                  <Text style={styles.helperLinkCompact}>+ Add</Text>
+                </Pressable>
+                {medicine ? (
+                  <Pressable
+                    accessibilityLabel="Clear medicine"
+                    accessibilityRole="button"
+                    hitSlop={12}
+                    onPress={clearTreatment}
+                    style={({ pressed }) => [pressed && styles.pressed]}
+                  >
+                    <Text style={styles.helperLinkCompact}>Clear</Text>
+                  </Pressable>
+                ) : null}
+              </View>
               <View style={styles.inlineRow}>
                 <View style={styles.inlineGrow}>
-                  <DesignField value={dose} label="Dose *" onChangeText={setDose} keyboardType="decimal-pad" />
+                  <DesignField value={dose} label="Dose Per Animal" placeholder="1" onChangeText={setDose} keyboardType="decimal-pad" />
                 </View>
                 <View style={styles.inlineUnit}>
                   <View style={styles.block}>
-                    <Text style={styles.label}>Unit *</Text>
+                    <Text style={styles.label}>Unit</Text>
                     <Pressable
                       accessibilityLabel="Select dose quantity type"
                       accessibilityRole="button"
@@ -1429,30 +1497,53 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <View style={styles.withdrawalBlock}>
-                <Text style={styles.label}>Withdrawal Period</Text>
-                <View style={styles.withdrawalField}>
-                  <TextInput
-                    accessibilityLabel="Withdrawal days"
-                    keyboardType="number-pad"
-                    placeholder="0"
-                    placeholderTextColor="#7a7a7a"
-                    style={styles.withdrawalInput}
-                    cursorColor="#000"
-                    selectionColor="#000"
-                    value={withdrawal}
-                    onChangeText={setWithdrawal}
-                  />
-                  <Text style={styles.withdrawalSuffix}>days</Text>
+              <View style={styles.inlineRow}>
+                <View style={styles.inlineGrow}>
+                  <View style={styles.withdrawalBlock}>
+                    <FieldLabel label="Meat Withdrawal (Days)" onInfoPress={showFieldNote('withdrawal')} />
+                    <View style={styles.withdrawalField}>
+                      <TextInput
+                        accessibilityLabel="Meat withdrawal days"
+                        keyboardType="number-pad"
+                        placeholder="0"
+                        placeholderTextColor="#7a7a7a"
+                        style={styles.withdrawalInput}
+                        cursorColor="#000"
+                        selectionColor="#000"
+                        value={withdrawal}
+                        onChangeText={setWithdrawal}
+                      />
+                      <Text style={styles.withdrawalSuffix}>days</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.inlineGrow}>
+                  <View style={styles.withdrawalBlock}>
+                    <FieldLabel label="Milk Withdrawal (Days)" onInfoPress={showFieldNote('withdrawal')} />
+                    <View style={styles.withdrawalField}>
+                      <TextInput
+                        accessibilityLabel="Milk withdrawal days"
+                        keyboardType="number-pad"
+                        placeholder="0"
+                        placeholderTextColor="#7a7a7a"
+                        style={styles.withdrawalInput}
+                        cursorColor="#000"
+                        selectionColor="#000"
+                        value={milkWithdrawal}
+                        onChangeText={setMilkWithdrawal}
+                      />
+                      <Text style={styles.withdrawalSuffix}>days</Text>
+                    </View>
+                  </View>
                 </View>
               </View>
               <View style={styles.inlineRow}>
                 <View style={styles.inlineGrow}>
-                  <DesignField value={batchNumber} label="Batch / Lot number" onChangeText={setBatchNumber} />
+                  <DesignField value={batchNumber} label="Batch / Lot No." placeholder="Batch number" onChangeText={setBatchNumber} />
                 </View>
                 <View style={styles.inlineGrow}>
                   <View style={styles.block}>
-                    <Text style={styles.label}>Expiry date</Text>
+                    <Text style={styles.label}>Expiry Date</Text>
                     <Pressable
                       accessibilityLabel="Select expiry date"
                       accessibilityRole="button"
@@ -1467,6 +1558,11 @@ export default function AddRecordScreen() {
                   </View>
                 </View>
               </View>
+              <ClearLink
+                label="Clear Expiry Date"
+                visible={Boolean(expiryDate)}
+                onPress={() => setExpiryDate('')}
+              />
             </>
           ) : isVaccinationRecord ? (
             <>
@@ -1490,16 +1586,35 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <Pressable accessibilityLabel="Add vaccine" accessibilityRole="button" hitSlop={10} onPress={openMedicinesScreen}>
-                <Text style={styles.helperLink}>+ Add Vaccine</Text>
-              </Pressable>
+              <View style={styles.helperLinkRow}>
+                <Pressable
+                  accessibilityLabel="Add vaccine"
+                  accessibilityRole="button"
+                  hitSlop={12}
+                  onPress={openMedicinesScreen}
+                  style={({ pressed }) => [pressed && styles.pressed]}
+                >
+                  <Text style={styles.helperLinkCompact}>+ Add</Text>
+                </Pressable>
+                {medicine ? (
+                  <Pressable
+                    accessibilityLabel="Clear vaccine"
+                    accessibilityRole="button"
+                    hitSlop={12}
+                    onPress={clearTreatment}
+                    style={({ pressed }) => [pressed && styles.pressed]}
+                  >
+                    <Text style={styles.helperLinkCompact}>Clear</Text>
+                  </Pressable>
+                ) : null}
+              </View>
               <View style={styles.inlineRow}>
                 <View style={styles.inlineGrow}>
-                  <DesignField value={dose} label="Dose *" onChangeText={setDose} keyboardType="decimal-pad" />
+                  <DesignField value={dose} label="Dose Per Animal" placeholder="1" onChangeText={setDose} keyboardType="decimal-pad" />
                 </View>
                 <View style={styles.inlineUnit}>
                   <View style={styles.block}>
-                    <Text style={styles.label}>Unit *</Text>
+                    <Text style={styles.label}>Unit</Text>
                     <Pressable
                       accessibilityLabel="Select dose quantity type"
                       accessibilityRole="button"
@@ -1524,30 +1639,53 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <View style={styles.withdrawalBlock}>
-                <Text style={styles.label}>Withdrawal Period</Text>
-                <View style={styles.withdrawalField}>
-                  <TextInput
-                    accessibilityLabel="Withdrawal period days"
-                    keyboardType="number-pad"
-                    placeholder="0"
-                    placeholderTextColor="#7a7a7a"
-                    style={styles.withdrawalInput}
-                    cursorColor="#000"
-                    selectionColor="#000"
-                    value={withdrawal}
-                    onChangeText={setWithdrawal}
-                  />
-                  <Text style={styles.withdrawalSuffix}>days</Text>
+              <View style={styles.inlineRow}>
+                <View style={styles.inlineGrow}>
+                  <View style={styles.withdrawalBlock}>
+                    <FieldLabel label="Meat Withdrawal (Days)" onInfoPress={showFieldNote('withdrawal')} />
+                    <View style={styles.withdrawalField}>
+                      <TextInput
+                        accessibilityLabel="Meat withdrawal days"
+                        keyboardType="number-pad"
+                        placeholder="0"
+                        placeholderTextColor="#7a7a7a"
+                        style={styles.withdrawalInput}
+                        cursorColor="#000"
+                        selectionColor="#000"
+                        value={withdrawal}
+                        onChangeText={setWithdrawal}
+                      />
+                      <Text style={styles.withdrawalSuffix}>days</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.inlineGrow}>
+                  <View style={styles.withdrawalBlock}>
+                    <FieldLabel label="Milk Withdrawal (Days)" onInfoPress={showFieldNote('withdrawal')} />
+                    <View style={styles.withdrawalField}>
+                      <TextInput
+                        accessibilityLabel="Milk withdrawal days"
+                        keyboardType="number-pad"
+                        placeholder="0"
+                        placeholderTextColor="#7a7a7a"
+                        style={styles.withdrawalInput}
+                        cursorColor="#000"
+                        selectionColor="#000"
+                        value={milkWithdrawal}
+                        onChangeText={setMilkWithdrawal}
+                      />
+                      <Text style={styles.withdrawalSuffix}>days</Text>
+                    </View>
+                  </View>
                 </View>
               </View>
               <View style={styles.inlineRow}>
                 <View style={styles.inlineGrow}>
-                  <DesignField value={batchNumber} label="Batch / Lot number" onChangeText={setBatchNumber} />
+                  <DesignField value={batchNumber} label="Batch / Lot No." placeholder="Batch number" onChangeText={setBatchNumber} />
                 </View>
                 <View style={styles.inlineGrow}>
                   <View style={styles.block}>
-                    <Text style={styles.label}>Expiry date</Text>
+                    <Text style={styles.label}>Expiry Date</Text>
                     <Pressable
                       accessibilityLabel="Select expiry date"
                       accessibilityRole="button"
@@ -1562,6 +1700,11 @@ export default function AddRecordScreen() {
                   </View>
                 </View>
               </View>
+              <ClearLink
+                label="Clear Expiry Date"
+                visible={Boolean(expiryDate)}
+                onPress={() => setExpiryDate('')}
+              />
             </>
           ) : isHealthCheckRecord ? (
             <>
@@ -1577,7 +1720,12 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
-              <DesignField value={conditionDiagnosis} label="Condition / Diagnosis" onChangeText={setConditionDiagnosis} />
+              <DesignField
+                value={conditionDiagnosis}
+                label="Condition / Diagnosis"
+                placeholder="What was found"
+                onChangeText={setConditionDiagnosis}
+              />
               <View style={styles.block}>
                 <Text style={styles.label}>Vet Seen</Text>
                 <View style={styles.radioRow}>
@@ -1588,25 +1736,27 @@ export default function AddRecordScreen() {
             </>
           ) : isSaleRecord ? (
             <>
-              <DesignField value={buyer} label="Buyer" onChangeText={setBuyer} />
               <DesignField
                 value={salePrice}
                 label="Sale Price *"
+                placeholder="Total received"
                 left={<Text style={styles.currencyPrefix}>{currencyPrefix}</Text>}
                 onChangeText={setSalePrice}
                 keyboardType="decimal-pad"
               />
+              <DesignField value={buyer} label="Buyer" placeholder="Who bought them" onChangeText={setBuyer} />
             </>
           ) : isPurchaseRecord ? (
             <>
-              <DesignField value={seller} label="Seller" onChangeText={setSeller} />
               <DesignField
                 value={purchasePrice}
                 label="Purchase Price *"
+                placeholder="Total paid"
                 left={<Text style={styles.currencyPrefix}>{currencyPrefix}</Text>}
                 onChangeText={setPurchasePrice}
                 keyboardType="decimal-pad"
               />
+              <DesignField value={seller} label="Seller" placeholder="Who sold them" onChangeText={setSeller} />
             </>
           ) : isMovementRecord ? (
             <>
@@ -1641,7 +1791,7 @@ export default function AddRecordScreen() {
                   onPress={() => openSetupScreen('/setup-farms', 'fromFarm')}
                   style={({ pressed }) => [pressed && styles.pressed]}
                 >
-                  <Text style={styles.helperLinkCompact}>+ Add Farm</Text>
+                  <Text style={styles.helperLinkCompact}>+ Add</Text>
                 </Pressable>
                 {fromFarm ? (
                   <Pressable
@@ -1650,58 +1800,58 @@ export default function AddRecordScreen() {
                     hitSlop={12}
                     onPress={() => {
                       setFromFarm('');
-                      setFromPaddock('');
+                      setFromLocation('');
                     }}
                     style={({ pressed }) => [pressed && styles.pressed]}
                   >
-                    <Text style={styles.helperLinkCompact}>Clear Farm</Text>
+                    <Text style={styles.helperLinkCompact}>Clear</Text>
                   </Pressable>
                 ) : null}
               </View>
               <View style={styles.block}>
-                <Text style={styles.label}>From Paddock</Text>
+                <Text style={styles.label}>From Location</Text>
                 <Pressable
-                  accessibilityLabel="Select from paddock"
+                  accessibilityLabel="Select from location"
                   accessibilityRole="button"
                   onPress={() => {
-                    if (fromPaddockOptions.length === 0) {
-                      openSetupScreen('/setup-paddocks', 'fromPaddock');
+                    if (fromLocationOptions.length === 0) {
+                      openSetupScreen('/setup-locations', 'fromLocation');
                       return;
                     }
 
-                    setActiveMovementPicker('fromPaddock');
+                    setActiveMovementPicker('fromLocation');
                   }}
                   style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
                 >
-                  <Text style={[styles.dateValue, (!fromPaddock || fromPaddockOptions.length === 0) && styles.placeholderValue]}>
-                    {fromPaddockOptions.length === 0
+                  <Text style={[styles.dateValue, (!fromLocation || fromLocationOptions.length === 0) && styles.placeholderValue]}>
+                    {fromLocationOptions.length === 0
                       ? fromFarm
-                        ? 'No paddocks for this farm'
-                        : 'No paddocks available'
-                      : fromPaddock || `${fromPaddockOptions.length} ${fromPaddockOptions.length === 1 ? 'paddock' : 'paddocks'} available`}
+                        ? 'No locations for this farm'
+                        : 'No locations available'
+                      : fromLocation || `${fromLocationOptions.length} ${fromLocationOptions.length === 1 ? 'location' : 'locations'} available`}
                   </Text>
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
               <View style={styles.helperLinkRow}>
                 <Pressable
-                  accessibilityLabel="Add paddock"
+                  accessibilityLabel="Add location"
                   accessibilityRole="button"
                   hitSlop={12}
-                  onPress={() => openSetupScreen('/setup-paddocks', 'fromPaddock')}
+                  onPress={() => openSetupScreen('/setup-locations', 'fromLocation')}
                   style={({ pressed }) => [pressed && styles.pressed]}
                 >
-                  <Text style={styles.helperLinkCompact}>+ Add Paddock</Text>
+                  <Text style={styles.helperLinkCompact}>+ Add</Text>
                 </Pressable>
-                {fromPaddock ? (
+                {fromLocation ? (
                   <Pressable
-                    accessibilityLabel="Clear from paddock"
+                    accessibilityLabel="Clear from location"
                     accessibilityRole="button"
                     hitSlop={12}
-                    onPress={() => setFromPaddock('')}
+                    onPress={() => setFromLocation('')}
                     style={({ pressed }) => [pressed && styles.pressed]}
                   >
-                    <Text style={styles.helperLinkCompact}>Clear Paddock</Text>
+                    <Text style={styles.helperLinkCompact}>Clear</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -1736,7 +1886,7 @@ export default function AddRecordScreen() {
                   onPress={() => openSetupScreen('/setup-farms', 'toFarm')}
                   style={({ pressed }) => [pressed && styles.pressed]}
                 >
-                  <Text style={styles.helperLinkCompact}>+ Add Farm</Text>
+                  <Text style={styles.helperLinkCompact}>+ Add</Text>
                 </Pressable>
                 {toFarm ? (
                   <Pressable
@@ -1745,58 +1895,58 @@ export default function AddRecordScreen() {
                     hitSlop={12}
                     onPress={() => {
                       setToFarm('');
-                      setToPaddock('');
+                      setToLocation('');
                     }}
                     style={({ pressed }) => [pressed && styles.pressed]}
                   >
-                    <Text style={styles.helperLinkCompact}>Clear Farm</Text>
+                    <Text style={styles.helperLinkCompact}>Clear</Text>
                   </Pressable>
                 ) : null}
               </View>
               <View style={styles.block}>
-                <Text style={styles.label}>To Paddock</Text>
+                <Text style={styles.label}>To Location</Text>
                 <Pressable
-                  accessibilityLabel="Select to paddock"
+                  accessibilityLabel="Select to location"
                   accessibilityRole="button"
                   onPress={() => {
-                    if (toPaddockOptions.length === 0) {
-                      openSetupScreen('/setup-paddocks', 'toPaddock');
+                    if (toLocationOptions.length === 0) {
+                      openSetupScreen('/setup-locations', 'toLocation');
                       return;
                     }
 
-                    setActiveMovementPicker('toPaddock');
+                    setActiveMovementPicker('toLocation');
                   }}
                   style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
                 >
-                  <Text style={[styles.dateValue, (!toPaddock || toPaddockOptions.length === 0) && styles.placeholderValue]}>
-                    {toPaddockOptions.length === 0
+                  <Text style={[styles.dateValue, (!toLocation || toLocationOptions.length === 0) && styles.placeholderValue]}>
+                    {toLocationOptions.length === 0
                       ? toFarm
-                        ? 'No paddocks for this farm'
-                        : 'No paddocks available'
-                      : toPaddock || `${toPaddockOptions.length} ${toPaddockOptions.length === 1 ? 'paddock' : 'paddocks'} available`}
+                        ? 'No locations for this farm'
+                        : 'No locations available'
+                      : toLocation || `${toLocationOptions.length} ${toLocationOptions.length === 1 ? 'location' : 'locations'} available`}
                   </Text>
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
               <View style={styles.helperLinkRow}>
                 <Pressable
-                  accessibilityLabel="Add paddock"
+                  accessibilityLabel="Add location"
                   accessibilityRole="button"
                   hitSlop={12}
-                  onPress={() => openSetupScreen('/setup-paddocks', 'toPaddock')}
+                  onPress={() => openSetupScreen('/setup-locations', 'toLocation')}
                   style={({ pressed }) => [pressed && styles.pressed]}
                 >
-                  <Text style={styles.helperLinkCompact}>+ Add Paddock</Text>
+                  <Text style={styles.helperLinkCompact}>+ Add</Text>
                 </Pressable>
-                {toPaddock ? (
+                {toLocation ? (
                   <Pressable
-                    accessibilityLabel="Clear to paddock"
+                    accessibilityLabel="Clear to location"
                     accessibilityRole="button"
                     hitSlop={12}
-                    onPress={() => setToPaddock('')}
+                    onPress={() => setToLocation('')}
                     style={({ pressed }) => [pressed && styles.pressed]}
                   >
-                    <Text style={styles.helperLinkCompact}>Clear Paddock</Text>
+                    <Text style={styles.helperLinkCompact}>Clear</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -1826,7 +1976,7 @@ export default function AddRecordScreen() {
           ) : isDeathRecord ? (
             <>
               <View style={styles.block}>
-                <Text style={styles.label}>Cause of Death *</Text>
+                <Text style={styles.label}>Cause of Death</Text>
                 <Pressable
                   accessibilityLabel="Select cause of death"
                   accessibilityRole="button"
@@ -1839,6 +1989,11 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
+              <ClearLink
+                label="Clear Cause"
+                visible={Boolean(causeOfDeath)}
+                onPress={() => setCauseOfDeath('')}
+              />
               <View style={styles.block}>
                 <Text style={styles.label}>Disposal Method</Text>
                 <Pressable
@@ -1853,13 +2008,31 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
                 </Pressable>
               </View>
+              <ClearLink
+                label="Clear Method"
+                visible={Boolean(disposalMethod)}
+                onPress={() => setDisposalMethod('')}
+              />
             </>
           ) : isOtherRecord ? (
-            <DesignField
-              value={recordTitle}
-              label="Title *"
-              onChangeText={setRecordTitle}
-            />
+            <>
+              <DesignField
+                value={recordTitle}
+                label="Title *"
+                placeholder="Bedding, fencing, water test…"
+                onChangeText={setRecordTitle}
+                onInfoPress={showFieldNote('otherTitle')}
+              />
+              <DesignField
+                value={cost}
+                label="Cost"
+                placeholder="What it cost"
+                left={<Text style={styles.currencyPrefix}>{currencyPrefix}</Text>}
+                keyboardType="decimal-pad"
+                onChangeText={setCost}
+                onInfoPress={showFieldNote('cost')}
+              />
+            </>
           ) : (
             <DesignField
               value={recordTitle}
@@ -1869,7 +2042,8 @@ export default function AddRecordScreen() {
           )}
             <DesignField
             value={details}
-            label={isOtherRecord ? 'Description' : isMedicationRecord || isVaccinationRecord || isMovementRecord || isWeightRecord || isDeathRecord || isBirthRecord || isHealthCheckRecord || isSaleRecord || isPurchaseRecord ? 'Notes' : 'Details'}
+            label="Notes"
+            placeholder="Anything worth remembering"
             large
             onChangeText={setDetails}
           />
@@ -1939,56 +2113,6 @@ export default function AddRecordScreen() {
       <Modal
         animationType="fade"
         transparent
-        visible={showDeleteConfirm}
-        onRequestClose={() => setShowDeleteConfirm(false)}
-      >
-        <Pressable style={styles.centeredModalBackdrop} onPress={() => setShowDeleteConfirm(false)}>
-          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
-            <Text style={styles.deleteConfirmTitle}>Delete record?</Text>
-            <Text style={styles.deleteConfirmText}>This action cannot be undone.</Text>
-            {editingRecord?.type === 'Birth' ? (
-              <Text style={styles.deleteConfirmText}>
-                {editingBirthAnimal
-                  ? `${editingBirthAnimal.name.trim() || editingBirthAnimal.id} (${editingBirthAnimal.id}) will stay in your Animals list, but will no longer be linked to a birth or mother record.`
-                  : 'The animal this record created (if it still exists) will stay in your Animals list, but will no longer be linked to a birth or mother record.'}
-              </Text>
-            ) : null}
-            {deleteImpact.length > 0 ? (
-              <View style={styles.impactList}>
-                {deleteImpact.map((change, index) => (
-                  <Text key={`${change.animalUid}-${change.dimension}-${index}`} style={styles.impactLine}>
-                    {formatImpactLine(change)}
-                  </Text>
-                ))}
-              </View>
-            ) : null}
-            <View style={styles.deleteConfirmActions}>
-              <BouncyPressable
-                accessibilityLabel="Cancel delete"
-                accessibilityRole="button"
-                containerStyle={{ flex: 1 }}
-                onPress={() => setShowDeleteConfirm(false)}
-                style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}
-              >
-                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
-              </BouncyPressable>
-              <BouncyPressable
-                accessibilityLabel="Confirm delete record"
-                accessibilityRole="button"
-                containerStyle={{ flex: 1 }}
-                onPress={confirmDeleteRecord}
-                style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}
-              >
-                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
-              </BouncyPressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="fade"
-        transparent
         visible={showUpdateImpactConfirm}
         onRequestClose={cancelUpdateImpact}
       >
@@ -2030,7 +2154,7 @@ export default function AddRecordScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showDatePicker && Platform.OS === 'ios'}
         onRequestClose={() => setShowDatePicker(false)}
@@ -2059,7 +2183,7 @@ export default function AddRecordScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showExpiryDatePicker && Platform.OS === 'ios'}
         onRequestClose={() => setShowExpiryDatePicker(false)}
@@ -2094,7 +2218,7 @@ export default function AddRecordScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showDoseUnitPicker}
         onRequestClose={() => setShowDoseUnitPicker(false)}
@@ -2125,7 +2249,7 @@ export default function AddRecordScreen() {
                 >
                   {unit}
                 </Text>
-                {unit === doseUnit ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                {unit === doseUnit ? <AppIcon name="check" size={16} color="#fff" /> : null}
               </Pressable>
             ))}
           </AnimatedPopupCard>
@@ -2133,7 +2257,7 @@ export default function AddRecordScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showHealthStatusPicker}
         onRequestClose={() => setShowHealthStatusPicker(false)}
@@ -2164,7 +2288,7 @@ export default function AddRecordScreen() {
                 >
                   {status}
                 </Text>
-                {status === healthStatus ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                {status === healthStatus ? <AppIcon name="check" size={16} color="#fff" /> : null}
               </Pressable>
             ))}
           </AnimatedPopupCard>
@@ -2172,7 +2296,7 @@ export default function AddRecordScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showWeightUnitPicker}
         onRequestClose={() => setShowWeightUnitPicker(false)}
@@ -2203,7 +2327,7 @@ export default function AddRecordScreen() {
                 >
                   {unit}
                 </Text>
-                {unit === weightUnit ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                {unit === weightUnit ? <AppIcon name="check" size={16} color="#fff" /> : null}
               </Pressable>
             ))}
           </AnimatedPopupCard>
@@ -2211,7 +2335,7 @@ export default function AddRecordScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showBirthWeightUnitPicker}
         onRequestClose={() => setShowBirthWeightUnitPicker(false)}
@@ -2242,7 +2366,7 @@ export default function AddRecordScreen() {
                 >
                   {unit}
                 </Text>
-                {unit === birthWeightUnit ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                {unit === birthWeightUnit ? <AppIcon name="check" size={16} color="#fff" /> : null}
               </Pressable>
             ))}
           </AnimatedPopupCard>
@@ -2250,7 +2374,7 @@ export default function AddRecordScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showTreatmentPicker}
         onRequestClose={() => setShowTreatmentPicker(false)}
@@ -2276,7 +2400,7 @@ export default function AddRecordScreen() {
                     {entry.defaultDose ? `${entry.defaultDose} ${entry.doseUnit}` : entry.activeIngredient || (entry.treatmentType === 'vaccine' ? 'Vaccine' : 'Medicine')}
                   </Text>
                 </View>
-                {entry.name === medicine ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                {entry.name === medicine ? <AppIcon name="check" size={16} color="#fff" /> : null}
               </Pressable>
             ))}
           </AnimatedPopupCard>
@@ -2284,7 +2408,7 @@ export default function AddRecordScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showRoutePicker}
         onRequestClose={() => setShowRoutePicker(false)}
@@ -2315,7 +2439,7 @@ export default function AddRecordScreen() {
                 >
                   {option}
                 </Text>
-                {option === route ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                {option === route ? <AppIcon name="check" size={16} color="#fff" /> : null}
               </Pressable>
             ))}
           </AnimatedPopupCard>
@@ -2323,7 +2447,7 @@ export default function AddRecordScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showDisposalMethodPicker}
         onRequestClose={() => setShowDisposalMethodPicker(false)}
@@ -2354,7 +2478,7 @@ export default function AddRecordScreen() {
                 >
                   {option}
                 </Text>
-                {option === disposalMethod ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                {option === disposalMethod ? <AppIcon name="check" size={16} color="#fff" /> : null}
               </Pressable>
             ))}
           </AnimatedPopupCard>
@@ -2362,7 +2486,7 @@ export default function AddRecordScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showCauseOfDeathPicker}
         onRequestClose={() => setShowCauseOfDeathPicker(false)}
@@ -2393,7 +2517,7 @@ export default function AddRecordScreen() {
                 >
                   {option}
                 </Text>
-                {option === causeOfDeath ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                {option === causeOfDeath ? <AppIcon name="check" size={16} color="#fff" /> : null}
               </Pressable>
             ))}
           </AnimatedPopupCard>
@@ -2401,7 +2525,7 @@ export default function AddRecordScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showBirthSpeciesPicker}
         onRequestClose={() => setShowBirthSpeciesPicker(false)}
@@ -2458,7 +2582,7 @@ export default function AddRecordScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={activeMovementPicker !== null}
         onRequestClose={() => setActiveMovementPicker(null)}
@@ -2466,13 +2590,13 @@ export default function AddRecordScreen() {
         <Pressable style={styles.modalBackdrop} onPress={() => setActiveMovementPicker(null)}>
           <AnimatedPopupCard visible={activeMovementPicker !== null} style={styles.selectionCard} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>{getMovementPickerTitle(activeMovementPicker)}</Text>
-            {getMovementPickerOptions(activeMovementPicker, farms, fromPaddockOptions, toPaddockOptions).map((option) => {
+            {getMovementPickerOptions(activeMovementPicker, farms, fromLocationOptions, toLocationOptions).map((option) => {
               const activeValue = getMovementPickerValue(
                 activeMovementPicker,
                 fromFarm,
-                fromPaddock,
+                fromLocation,
                 toFarm,
-                toPaddock,
+                toLocation,
               );
 
               return (
@@ -2481,28 +2605,28 @@ export default function AddRecordScreen() {
                   accessibilityLabel={option}
                   accessibilityRole="button"
                   onPress={() => {
-                    // A farm with exactly one paddock has no real choice to
+                    // A farm with exactly one location has no real choice to
                     // make, so fill it in — still fully editable/clearable
                     // afterward if that's not what the user wants.
                     if (activeMovementPicker === 'fromFarm' && !equalsIgnoreCase(option, fromFarm)) {
-                      const matchingPaddocks = paddockEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
-                      setFromPaddock(matchingPaddocks.length === 1 ? matchingPaddocks[0].name : '');
+                      const matchingLocations = locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
+                      setFromLocation(matchingLocations.length === 1 ? matchingLocations[0].name : '');
                     }
                     if (activeMovementPicker === 'toFarm' && !equalsIgnoreCase(option, toFarm)) {
-                      const matchingPaddocks = paddockEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
-                      setToPaddock(matchingPaddocks.length === 1 ? matchingPaddocks[0].name : '');
+                      const matchingLocations = locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
+                      setToLocation(matchingLocations.length === 1 ? matchingLocations[0].name : '');
                     }
-                    // Picking a paddock before its farm (the paddock list is
+                    // Picking a location before its farm (the location list is
                     // unfiltered until a farm is chosen) shouldn't leave the
                     // farm blank or mismatched — fill it in to match.
-                    if (activeMovementPicker === 'fromPaddock') {
-                      const matchedFarm = paddockEntities.find((entry) => equalsIgnoreCase(entry.name, option))?.farm;
+                    if (activeMovementPicker === 'fromLocation') {
+                      const matchedFarm = locationEntities.find((entry) => equalsIgnoreCase(entry.name, option))?.farm;
                       if (matchedFarm && !equalsIgnoreCase(matchedFarm, fromFarm)) {
                         setFromFarm(matchedFarm);
                       }
                     }
-                    if (activeMovementPicker === 'toPaddock') {
-                      const matchedFarm = paddockEntities.find((entry) => equalsIgnoreCase(entry.name, option))?.farm;
+                    if (activeMovementPicker === 'toLocation') {
+                      const matchedFarm = locationEntities.find((entry) => equalsIgnoreCase(entry.name, option))?.farm;
                       if (matchedFarm && !equalsIgnoreCase(matchedFarm, toFarm)) {
                         setToFarm(matchedFarm);
                       }
@@ -2511,9 +2635,9 @@ export default function AddRecordScreen() {
                       activeMovementPicker,
                       option,
                       setFromFarm,
-                      setFromPaddock,
+                      setFromLocation,
                       setToFarm,
-                      setToPaddock,
+                      setToLocation,
                     );
                     setActiveMovementPicker(null);
                   }}
@@ -2531,15 +2655,21 @@ export default function AddRecordScreen() {
                   >
                     {option}
                   </Text>
-                  {option === activeValue ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                  {option === activeValue ? <AppIcon name="check" size={16} color="#fff" /> : null}
                 </Pressable>
               );
             })}
           </AnimatedPopupCard>
         </Pressable>
       </Modal>
+
+      <InfoModal
+        visible={fieldNote !== null}
+        onClose={() => setFieldNote(null)}
+        title={fieldNote?.title ?? ''}
+        description={fieldNote?.description ?? ''}
+      />
       </SafeAreaView>
-    </CircularRevealView>
   );
 }
 
@@ -2561,11 +2691,11 @@ const styles = StyleSheet.create({
   },
   typeChip: {
     borderRadius: 999,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
   },
   typeChipActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   typeChipIdle: {
     backgroundColor: '#F5F3F7',
@@ -2574,11 +2704,11 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   typeChipText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   typeChipTextActive: {
-    color: '#74423F',
+    color: '#fff',
   },
   typeChipTextIdle: {
     color: '#555',
@@ -2634,12 +2764,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  helperLink: {
-    color: tokens.colors.accent,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: -6,
-  },
   formCard: {
     borderRadius: 24,
     backgroundColor: '#F5F3F7',
@@ -2668,18 +2792,6 @@ const styles = StyleSheet.create({
   },
   placeholderValue: {
     color: '#7a7a7a',
-  },
-  helperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-    marginBottom: 10,
-  },
-  helperLinkStandalone: {
-    alignSelf: 'flex-start',
-    marginTop: -10,
-    paddingVertical: 4,
   },
   helperLinkRow: {
     flexDirection: 'row',
@@ -2716,13 +2828,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   suggestionText: {
-    color: '#74423F',
+    color: '#fff',
     fontSize: 13,
     fontWeight: '600',
   },
   withdrawalBlock: {
     gap: 8,
-    width: 156,
   },
   withdrawalField: {
     minHeight: 48,
@@ -2930,7 +3041,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   selectionRowActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   selectionCopy: {
     flex: 1,
@@ -2948,7 +3059,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   selectionTextActive: {
-    color: '#74423F',
+    color: '#fff',
   },
   speciesModalGrid: {
     flexDirection: 'row',
@@ -3008,7 +3119,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   sexOptionActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   sexOptionCopy: {
     flexDirection: 'row',
@@ -3022,7 +3133,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: tokens.colors.text,
   },
-  sexOptionTextActive: {},
+  sexOptionTextActive: { color: '#fff' },
   binaryOption: {
     flex: 1,
     minHeight: 52,
@@ -3033,14 +3144,14 @@ const styles = StyleSheet.create({
   },
   binaryOptionIdle: {},
   binaryOptionActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   binaryOptionText: {
     fontSize: 14,
     fontWeight: '500',
     color: tokens.colors.text,
   },
-  binaryOptionTextActive: {},
+  binaryOptionTextActive: { color: '#fff' },
   pressed: {
     opacity: 0.92,
   },
@@ -3062,34 +3173,20 @@ function getCombinedSpecies(
   return 'Mixed';
 }
 
-function isValidNonNegativeInteger(value: string) {
-  return /^\d+$/.test(value.trim());
-}
-
-function isValidPositiveNumber(value: string) {
-  const parsed = Number(value.trim());
-  return Number.isFinite(parsed) && parsed > 0;
-}
-
-function isValidNonNegativeNumber(value: string) {
-  const parsed = Number(value.trim());
-  return Number.isFinite(parsed) && parsed >= 0;
-}
-
-function formatMovementPlace(farm: string, paddock: string) {
-  return [farm.trim(), paddock.trim()].filter(Boolean).join(' / ');
+function formatMovementPlace(farm: string, location: string) {
+  return [farm.trim(), location.trim()].filter(Boolean).join(' / ');
 }
 
 function getMovementPickerTitle(picker: MovementPickerKey | null) {
   switch (picker) {
     case 'fromFarm':
       return 'Select from farm';
-    case 'fromPaddock':
-      return 'Select from paddock';
+    case 'fromLocation':
+      return 'Select from location';
     case 'toFarm':
       return 'Select to farm';
-    case 'toPaddock':
-      return 'Select to paddock';
+    case 'toLocation':
+      return 'Select to location';
     default:
       return 'Select option';
   }
@@ -3098,21 +3195,17 @@ function getMovementPickerTitle(picker: MovementPickerKey | null) {
 function getMovementPickerOptions(
   picker: MovementPickerKey | null,
   farms: string[],
-  fromPaddocks: string[],
-  toPaddocks: string[],
+  fromLocations: string[],
+  toLocations: string[],
 ) {
   if (picker === 'fromFarm' || picker === 'toFarm') {
     return farms;
   }
 
-  if (picker === 'fromPaddock') return fromPaddocks;
-  if (picker === 'toPaddock') return toPaddocks;
+  if (picker === 'fromLocation') return fromLocations;
+  if (picker === 'toLocation') return toLocations;
 
   return [];
-}
-
-function equalsIgnoreCase(left: string, right: string) {
-  return left.trim().toLowerCase() === right.trim().toLowerCase();
 }
 
 function formatImpactLine(change: RecordImpactChange) {
@@ -3122,15 +3215,15 @@ function formatImpactLine(change: RecordImpactChange) {
   return `${change.animalLabel}'s ${dimensionLabel} will change from ${change.before} to ${change.after}.`;
 }
 
-function formatAnimalLocation(animal: Animal | null, farms: FarmEntity[], paddocks: PaddockEntity[]) {
+function formatAnimalLocation(animal: Animal | null, farms: FarmEntity[], locations: LocationEntity[]) {
   if (!animal) {
     return '';
   }
 
   return [
     resolveAnimalFarmName(animal, farms),
-    resolveAnimalPaddockName(animal, paddocks),
-    animal.group.trim(),
+    resolveAnimalLocationName(animal, locations),
+    animal.labels.join(', '),
   ]
     .filter(Boolean)
     .join(' · ');
@@ -3149,19 +3242,19 @@ function formatAnimalReferences(animals: Array<{ id: string; name: string }>) {
 function getMovementPickerValue(
   picker: MovementPickerKey | null,
   fromFarm: string,
-  fromPaddock: string,
+  fromLocation: string,
   toFarm: string,
-  toPaddock: string,
+  toLocation: string,
 ) {
   switch (picker) {
     case 'fromFarm':
       return fromFarm;
-    case 'fromPaddock':
-      return fromPaddock;
+    case 'fromLocation':
+      return fromLocation;
     case 'toFarm':
       return toFarm;
-    case 'toPaddock':
-      return toPaddock;
+    case 'toLocation':
+      return toLocation;
     default:
       return '';
   }
@@ -3171,22 +3264,22 @@ function applyMovementSelection(
   picker: MovementPickerKey | null,
   value: string,
   setFromFarm: (value: string) => void,
-  setFromPaddock: (value: string) => void,
+  setFromLocation: (value: string) => void,
   setToFarm: (value: string) => void,
-  setToPaddock: (value: string) => void,
+  setToLocation: (value: string) => void,
 ) {
   switch (picker) {
     case 'fromFarm':
       setFromFarm(value);
       break;
-    case 'fromPaddock':
-      setFromPaddock(value);
+    case 'fromLocation':
+      setFromLocation(value);
       break;
     case 'toFarm':
       setToFarm(value);
       break;
-    case 'toPaddock':
-      setToPaddock(value);
+    case 'toLocation':
+      setToLocation(value);
       break;
   }
 }
@@ -3210,6 +3303,7 @@ type DraftRecordState = {
   seller: string;
   purchasePrice: string;
   sourceFarm: string;
+  cost: string;
   motherUid?: string;
   motherName: string;
   birthTagId: string;
@@ -3222,12 +3316,13 @@ type DraftRecordState = {
   doseUnit: (typeof DOSE_UNITS)[number];
   route: (typeof ROUTE_OPTIONS)[number];
   withdrawal: string;
+  milkWithdrawal: string;
   batchNumber: string;
   expiryDate: string;
   fromFarm: string;
-  fromPaddock: string;
+  fromLocation: string;
   toFarm: string;
-  toPaddock: string;
+  toLocation: string;
   details: string;
   chosenAnimalIds: string[];
   imageUris: string[];
@@ -3263,6 +3358,7 @@ type RecordFormState = {
   seller: string;
   purchasePrice: string;
   sourceFarm: string;
+  cost: string;
   motherUid: string;
   motherName: string;
   birthTagId: string;
@@ -3275,12 +3371,13 @@ type RecordFormState = {
   doseUnit: (typeof DOSE_UNITS)[number];
   route: (typeof ROUTE_OPTIONS)[number];
   withdrawal: string;
+  milkWithdrawal: string;
   batchNumber: string;
   expiryDate: string;
   fromFarm: string;
-  fromPaddock: string;
+  fromLocation: string;
   toFarm: string;
-  toPaddock: string;
+  toLocation: string;
   details: string;
   chosenAnimalIds: string[];
   imageUris: string[];
@@ -3290,7 +3387,7 @@ function buildFormStateFromRecord(
   record: RecordEntry,
   animals: ReturnType<typeof useAnimals>['animals'],
   farmEntities: FarmEntity[],
-  paddockEntities: PaddockEntity[],
+  locationEntities: LocationEntity[],
 ): RecordFormState {
   const recordType = isKnownRecordType(record.type) ? record.type : 'Other';
   const detailMap = parseDetailMap(record.details);
@@ -3314,6 +3411,7 @@ function buildFormStateFromRecord(
     seller: record.seller ?? detailMap['Seller'] ?? (recordType === 'Purchase' ? stripTypePrefix(record.title, record.type) : ''),
     purchasePrice: record.purchasePrice ?? extractNumericValue(detailMap['Purchase Price']) ?? '',
     sourceFarm: record.sourceFarm ?? detailMap['Source'] ?? '',
+    cost: record.cost ?? '',
     motherUid: record.motherUid ?? '',
     motherName: record.motherName ?? detailMap['Mother'] ?? '',
     birthTagId: record.birthTagId ?? detailMap['Tag / ID'] ?? (recordType === 'Birth' ? stripTypePrefix(record.title, record.type) : ''),
@@ -3326,24 +3424,25 @@ function buildFormStateFromRecord(
     doseUnit: normalizeDoseUnit(recordType === 'Weight' ? undefined : record.doseUnit),
     route: normalizeRoute(record.route),
     withdrawal: record.withdrawal ?? '0',
+    milkWithdrawal: record.milkWithdrawal ?? '',
     batchNumber: record.batchNumber ?? '',
     expiryDate: record.expiryDate ?? '',
     // Prefer resolving the live name via uid (so re-opening an old record
     // after a rename shows its current name, and re-saving naturally keeps
     // the uid link intact) — frozen text is only the fallback for a
-    // deleted farm/paddock, and title-parsing only for pre-uid records.
+    // deleted farm/location, and title-parsing only for pre-uid records.
     fromFarm: record.fromFarmUid
       ? resolveFarmName(record.fromFarmUid, record.fromFarm, farmEntities)
       : record.fromFarm ?? parsedMovement.fromFarm,
-    fromPaddock: record.fromPaddockUid
-      ? resolvePaddockName(record.fromPaddockUid, record.fromPaddock, paddockEntities)
-      : record.fromPaddock ?? parsedMovement.fromPaddock,
+    fromLocation: record.fromLocationUid
+      ? resolveLocationName(record.fromLocationUid, record.fromLocation, locationEntities)
+      : record.fromLocation ?? parsedMovement.fromLocation,
     toFarm: record.toFarmUid
       ? resolveFarmName(record.toFarmUid, record.toFarm, farmEntities)
       : record.toFarm ?? parsedMovement.toFarm,
-    toPaddock: record.toPaddockUid
-      ? resolvePaddockName(record.toPaddockUid, record.toPaddock, paddockEntities)
-      : record.toPaddock ?? parsedMovement.toPaddock,
+    toLocation: record.toLocationUid
+      ? resolveLocationName(record.toLocationUid, record.toLocation, locationEntities)
+      : record.toLocation ?? parsedMovement.toLocation,
     details: extractRecordNotes(record),
     chosenAnimalIds: resolveRecordAnimalUids(record, animals),
     imageUris: record.imageUris ?? [],
@@ -3414,6 +3513,9 @@ function buildBirthAnimalInput({
 
   return {
     id: tag,
+    // A newborn's electronic tag is applied later, so there is nothing to
+    // record at birth — it is filled in from the animal's own screen.
+    eid: '',
     species: birthSpecies.trim(),
     sex: birthSex,
     name: tag,
@@ -3426,10 +3528,12 @@ function buildBirthAnimalInput({
     status: 'Active',
     farmUid: mother?.farmUid,
     farm: mother?.farm ?? '',
-    paddockUid: mother?.paddockUid,
-    paddock: mother?.paddock ?? '',
-    groupUid: mother?.groupUid,
-    group: mother?.group ?? '',
+    locationUid: mother?.locationUid,
+    location: mother?.location ?? '',
+    // A calf inherits its mother's labels — she is already tagged with the
+    // mob it is born into.
+    labelUids: mother?.labelUids ?? [],
+    labels: mother?.labels ?? [],
     source: 'Born on farm',
     farmEntryDate: storedDate,
     notes: motherName.trim() ? `Mother: ${motherName.trim()}` : '',
@@ -3523,10 +3627,10 @@ function extractRecordNotes(record: RecordEntry) {
 function parseMovementTitle(title: string) {
   const movement = stripTypePrefix(title, 'Movement');
   const [fromPlace = '', toPlace = ''] = movement.split(/\s+to\s+/i);
-  const [fromFarm = '', fromPaddock = ''] = fromPlace.split(' / ').map((value) => value.trim());
-  const [toFarm = '', toPaddock = ''] = toPlace.split(' / ').map((value) => value.trim());
+  const [fromFarm = '', fromLocation = ''] = fromPlace.split(' / ').map((value) => value.trim());
+  const [toFarm = '', toLocation = ''] = toPlace.split(' / ').map((value) => value.trim());
 
-  return { fromFarm, fromPaddock, toFarm, toPaddock };
+  return { fromFarm, fromLocation, toFarm, toLocation };
 }
 
 function extractLeadingNumber(value?: string) {
@@ -3618,7 +3722,7 @@ function SexOption({ label, icon, active, onPress }: SexOptionProps) {
       ]}
     >
       <View style={styles.sexOptionCopy}>
-        <AppIcon name={icon} size={18} color={tokens.colors.text} />
+        <AppIcon name={icon} size={18} color={active ? '#fff' : tokens.colors.text} />
         <Text style={[styles.sexOptionText, active && styles.sexOptionTextActive]}>{label}</Text>
       </View>
     </Pressable>
@@ -3630,6 +3734,35 @@ type BinaryOptionProps = {
   active: boolean;
   onPress: () => void;
 };
+
+/**
+ * The Clear link under an optional dropdown. A picker can be re-picked but not
+ * un-picked, so anything that may legitimately be left blank needs a way back
+ * to blank. Dropdowns that always carry a value (units, route, status) have
+ * nothing to clear and get none.
+ */
+function ClearLink({ label, visible, onPress }: { label: string; visible: boolean; onPress: () => void }) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <View style={styles.helperLinkRow}>
+      <Pressable
+        accessibilityLabel={label}
+        accessibilityRole="button"
+        hitSlop={12}
+        onPress={onPress}
+        style={({ pressed }) => [pressed && styles.pressed]}
+      >
+        {/* The field above says what is being cleared, so the link only has to
+            say the verb. `label` still carries the full phrase for screen
+            readers, which have no such context. */}
+        <Text style={styles.helperLinkCompact}>Clear</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 function BinaryOption({ label, active, onPress }: BinaryOptionProps) {
   return (

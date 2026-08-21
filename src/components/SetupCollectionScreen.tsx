@@ -17,9 +17,9 @@ type SetupCollectionScreenProps = {
 
 export function SetupCollectionScreen({ title, icon, collection }: SetupCollectionScreenProps) {
   const router = useRouter();
-  const { paddocks, groups, medicines, addItem, removeItem } = useSetup();
+  const { locations, labels, medicines, addItem, removeItem } = useSetup();
   const [draftValue, setDraftValue] = useState('');
-  const itemsByCollection = { paddocks, groups, medicines } satisfies Record<Exclude<SetupCollectionKey, 'farms'>, string[]>;
+  const itemsByCollection = { locations, labels, medicines } satisfies Record<Exclude<SetupCollectionKey, 'farms'>, string[]>;
   const items = collection === 'farms' ? [] : itemsByCollection[collection];
   const handleAdd = async () => {
     const result = await addItem(collection, draftValue);

@@ -36,6 +36,7 @@ import ExportTabOutlineIcon from '../../assets/icons/svg/export-outline-tab.svg'
 import ExportFileDownloadOutlineIcon from '../../assets/icons/svg/export-file-download-outline.svg';
 import ExportFileOutlineIcon from '../../assets/icons/svg/export-file-outline.svg';
 import FilterListIcon from '../../assets/icons/svg/filter-list.svg';
+import FilterFunnelOutlineIcon from '../../assets/icons/svg/filter-funnel-outline.svg';
 import GoatFaceIcon from '../../assets/icons/goat.svg';
 import GoatFaceOutlineIcon from '../../assets/icons/goat-outline.svg';
 import GoatIcon from '../../assets/icons/svg/goat.svg';
@@ -48,6 +49,7 @@ import InfoIcon from '../../assets/icons/svg/info.svg';
 import LlamaIcon from '../../assets/icons/svg/llama.svg';
 import MedicineIcon from '../../assets/icons/svg/medicine.svg';
 import MenuIcon from '../../assets/icons/svg/menu.svg';
+import MoreVerticalIcon from '../../assets/icons/svg/more-vertical.svg';
 import OstrichIcon from '../../assets/icons/svg/ostrich.svg';
 import PigIcon from '../../assets/icons/svg/pig.svg';
 import Pig2Icon from '../../assets/icons/svg/pig2.svg';
@@ -131,6 +133,7 @@ const icons = {
   'enter-arrow': EnterArrowIcon,
   female: FemaleIcon,
   filter: MenuIcon,
+  'filter-funnel-outline': FilterFunnelOutlineIcon,
   'goat-face': GoatFaceIcon,
   'goat-face-outline': GoatFaceOutlineIcon,
   goat: GoatIcon,
@@ -146,6 +149,7 @@ const icons = {
   medal: MedalIcon,
   male: MaleIcon,
   medicine: MedicineIcon,
+  'more-vertical': MoreVerticalIcon,
   notebook: NotebookIcon,
   ostrich: OstrichIcon,
   pig: PigIcon,

@@ -5,7 +5,7 @@ import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
-import { motionDuration } from '../src/utils/motion';
+import { SHEET_ENTRANCE_DURATION } from '../src/utils/motion';
 
 const SPECIES: Array<{ icon: AppIconName; label: string }> = [
   { icon: 'cow-copy', label: 'Cattle' },
@@ -33,7 +33,7 @@ export default function SelectAnimalScreen() {
   useEffect(() => {
     Animated.timing(entrance, {
       toValue: 1,
-      duration: motionDuration(380),
+      duration: SHEET_ENTRANCE_DURATION,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();

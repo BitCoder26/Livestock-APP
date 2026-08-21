@@ -15,15 +15,15 @@ import { tokens } from '../src/theme/tokens';
 
 type PickerKey = 'farm' | null;
 
-export default function SetupPaddocksScreen() {
+export default function SetupLocationsScreen() {
   const router = useRouter();
   const { animals } = useAnimals();
   const {
     farms,
-    paddockEntities,
-    addPaddock,
-    updatePaddock,
-    removePaddock,
+    locationEntities,
+    addLocation,
+    updateLocation,
+    removeLocation,
     pendingSetupSelectionTarget,
     resolveSetupSelection,
   } = useSetup();
@@ -31,83 +31,83 @@ export default function SetupPaddocksScreen() {
   const [farm, setFarm] = useState('');
   const [notes, setNotes] = useState('');
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
-  const [paddockPendingDelete, setPaddockPendingDelete] = useState<string | null>(null);
+  const [locationPendingDelete, setLocationPendingDelete] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-  const [editingPaddockUid, setEditingPaddockUid] = useState<string | null>(null);
-  const isEditingPaddock = editingPaddockUid !== null;
+  const [editingLocationUid, setEditingLocationUid] = useState<string | null>(null);
+  const isEditingLocation = editingLocationUid !== null;
 
-  const resetPaddockForm = () => {
-    setEditingPaddockUid(null);
+  const resetLocationForm = () => {
+    setEditingLocationUid(null);
     setName('');
     setFarm('');
     setNotes('');
   };
 
-  const handleStartEditPaddock = (paddock: (typeof paddockEntities)[number]) => {
-    setEditingPaddockUid(paddock.uid ?? null);
-    setName(paddock.name);
-    setFarm(paddock.farm);
-    setNotes(paddock.notes);
+  const handleStartEditLocation = (location: (typeof locationEntities)[number]) => {
+    setEditingLocationUid(location.uid ?? null);
+    setName(location.name);
+    setFarm(location.farm);
+    setNotes(location.notes);
   };
 
-  const handleSavePaddock = async () => {
-    const nextPaddockName = name.trim();
+  const handleSaveLocation = async () => {
+    const nextLocationName = name.trim();
 
-    if (!nextPaddockName || !farm.trim()) {
-      Alert.alert('Required fields missing', 'Enter a paddock name and select its farm.');
+    if (!nextLocationName || !farm.trim()) {
+      Alert.alert('Required fields missing', 'Enter a location name and select its farm.');
       return;
     }
 
-    const result = editingPaddockUid
-      ? await updatePaddock(editingPaddockUid, { name: nextPaddockName, farm, notes })
-      : await addPaddock({ name: nextPaddockName, farm, notes });
+    const result = editingLocationUid
+      ? await updateLocation(editingLocationUid, { name: nextLocationName, farm, notes })
+      : await addLocation({ name: nextLocationName, farm, notes });
 
     if (!result.ok) {
       Alert.alert(
-        result.reason === 'duplicate' ? 'Paddock already exists' : 'Paddock could not be saved',
-        result.reason === 'duplicate' ? 'Use a different paddock name.' : 'Nothing was changed. Please try again.',
+        result.reason === 'duplicate' ? 'Location already exists' : 'Location could not be saved',
+        result.reason === 'duplicate' ? 'Use a different location name.' : 'Nothing was changed. Please try again.',
       );
       return;
     }
 
     if (
-      !editingPaddockUid &&
-      (pendingSetupSelectionTarget === 'fromPaddock' || pendingSetupSelectionTarget === 'toPaddock')
+      !editingLocationUid &&
+      (pendingSetupSelectionTarget === 'fromLocation' || pendingSetupSelectionTarget === 'toLocation')
     ) {
-      resolveSetupSelection(nextPaddockName);
+      resolveSetupSelection(nextLocationName);
       router.back();
       return;
     }
 
-    resetPaddockForm();
+    resetLocationForm();
   };
 
-  const confirmDeletePaddock = async () => {
-    if (!paddockPendingDelete) {
+  const confirmDeleteLocation = async () => {
+    if (!locationPendingDelete) {
       return;
     }
 
-    if (animals.some((animal) => animal.paddock.trim().toLowerCase() === paddockPendingDelete.trim().toLowerCase())) {
-      setPaddockPendingDelete(null);
-      Alert.alert('Paddock is in use', 'Move or edit the animals assigned to this paddock before deleting it.');
+    if (animals.some((animal) => animal.location.trim().toLowerCase() === locationPendingDelete.trim().toLowerCase())) {
+      setLocationPendingDelete(null);
+      Alert.alert('Location is in use', 'Move or edit the animals assigned to this location before deleting it.');
       return;
     }
 
-    const result = await removePaddock(paddockPendingDelete);
-    setPaddockPendingDelete(null);
+    const result = await removeLocation(locationPendingDelete);
+    setLocationPendingDelete(null);
 
     if (!result.ok) {
       Alert.alert(
-        result.reason === 'in-use' ? 'Paddock is in use' : 'Paddock could not be deleted',
+        result.reason === 'in-use' ? 'Location is in use' : 'Location could not be deleted',
         result.reason === 'in-use'
-          ? 'Remove this paddock from its groups before deleting it.'
+          ? 'Move the animals in this location elsewhere before deleting it.'
           : 'Nothing was changed. Please try again.',
       );
       return;
     }
 
-    if (equalsIgnoreCase(name, paddockPendingDelete)) {
-      resetPaddockForm();
+    if (equalsIgnoreCase(name, locationPendingDelete)) {
+      resetLocationForm();
     }
   };
 
@@ -116,21 +116,21 @@ export default function SetupPaddocksScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
-        title="Paddocks"
+        title="Locations"
         leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: () => router.back() }}
         actions={[
           {
             icon: 'help-circle',
-            accessibilityLabel: 'About paddocks',
+            accessibilityLabel: 'About locations',
             onPress: () => setShowHelp(true),
           },
         ]}
       />
-      <ScrollView contentContainerStyle={[styles.content, paddockEntities.length === 0 && styles.emptyContent]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, locationEntities.length === 0 && styles.emptyContent]} showsVerticalScrollIndicator={false}>
         <View style={styles.editorCard}>
-          <Text style={styles.sectionLabel}>{isEditingPaddock ? 'Edit paddock' : 'Paddocks'}</Text>
+          <Text style={styles.sectionLabel}>{isEditingLocation ? 'Edit location' : 'Locations'}</Text>
 
-          <DesignField value={name} label="Paddock name *" onChangeText={setName} />
+          <DesignField value={name} label="Location name *" onChangeText={setName} />
           <SelectionField
             label="Farm *"
             value={farm}
@@ -142,19 +142,19 @@ export default function SetupPaddocksScreen() {
           <View style={styles.editorActionsRow}>
             <BouncyPressable
               accessibilityRole="button"
-              accessibilityLabel={isEditingPaddock ? 'Save paddock changes' : 'Add paddock'}
+              accessibilityLabel={isEditingLocation ? 'Save location changes' : 'Add location'}
               containerStyle={styles.editorPrimaryButtonWrap}
-              onPress={handleSavePaddock}
+              onPress={handleSaveLocation}
               style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
             >
-              <AppIcon name={isEditingPaddock ? 'check' : 'plus'} size={16} color="#fff" />
-              <Text style={styles.addButtonText}>{isEditingPaddock ? 'Save Changes' : 'Add Paddock'}</Text>
+              <AppIcon name={isEditingLocation ? 'check' : 'plus'} size={16} color="#fff" />
+              <Text style={styles.addButtonText}>{isEditingLocation ? 'Save Changes' : 'Add Location'}</Text>
             </BouncyPressable>
-            {isEditingPaddock ? (
+            {isEditingLocation ? (
               <BouncyPressable
                 accessibilityRole="button"
-                accessibilityLabel="Cancel editing paddock"
-                onPress={resetPaddockForm}
+                accessibilityLabel="Cancel editing location"
+                onPress={resetLocationForm}
                 style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -163,35 +163,35 @@ export default function SetupPaddocksScreen() {
           </View>
         </View>
 
-        {paddockEntities.length === 0 ? (
+        {locationEntities.length === 0 ? (
           <View style={styles.emptyState}>
-            <AppIcon name="sprout" size={90} color="#E5E0E7" opacity={1} />
+            <AppIcon name="pin" size={90} color="#E5E0E7" opacity={1} />
             <Text style={styles.emptyTitle}>Empty</Text>
           </View>
         ) : (
           <View style={styles.list}>
-            {paddockEntities.map((paddock) => (
-              <View key={paddock.uid ?? paddock.name} style={styles.itemCard}>
+            {locationEntities.map((location) => (
+              <View key={location.uid ?? location.name} style={styles.itemCard}>
                 <View style={styles.itemHeader}>
                   <View style={styles.itemTitleRow}>
                     <View style={styles.itemIconBadge}>
-                      <AppIcon name="sprout" size={22} color="#171717" />
+                      <AppIcon name="pin" size={22} color="#171717" />
                     </View>
                     <View style={styles.itemHeadingCopy}>
-                      <Text style={styles.itemTitle}>{paddock.name}</Text>
-                      <Text style={styles.itemSubtitle}>{paddock.farm || 'No farm selected'}</Text>
+                      <Text style={styles.itemTitle}>{location.name}</Text>
+                      <Text style={styles.itemSubtitle}>{location.farm || 'No farm selected'}</Text>
                     </View>
                   </View>
                   <View style={styles.itemActionsRow}>
-                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Edit ${paddock.name}`} onPress={() => handleStartEditPaddock(paddock)} style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
+                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Edit ${location.name}`} onPress={() => handleStartEditLocation(location)} style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
                       <AppIcon name="edit" size={18} color="#171717" />
                     </BouncyPressable>
-                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Delete ${paddock.name}`} onPress={() => setPaddockPendingDelete(paddock.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                    <BouncyPressable accessibilityRole="button" accessibilityLabel={`Delete ${location.name}`} onPress={() => setLocationPendingDelete(location.name)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
                       <AppIcon name="trash" size={28} color="#fff" />
                     </BouncyPressable>
                   </View>
                 </View>
-                {paddock.notes ? <Text style={styles.itemNotes}>{paddock.notes}</Text> : null}
+                {location.notes ? <Text style={styles.itemNotes}>{location.notes}</Text> : null}
               </View>
             ))}
           </View>
@@ -201,20 +201,20 @@ export default function SetupPaddocksScreen() {
       <Modal
         transparent
         animationType="fade"
-        visible={paddockPendingDelete !== null}
-        onRequestClose={() => setPaddockPendingDelete(null)}
+        visible={locationPendingDelete !== null}
+        onRequestClose={() => setLocationPendingDelete(null)}
       >
-        <Pressable style={styles.centeredModalBackdrop} onPress={() => setPaddockPendingDelete(null)}>
+        <Pressable style={styles.centeredModalBackdrop} onPress={() => setLocationPendingDelete(null)}>
           <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
-            <Text style={styles.deleteConfirmTitle}>Delete paddock?</Text>
+            <Text style={styles.deleteConfirmTitle}>Delete location?</Text>
             <Text style={styles.deleteConfirmText}>
-              {paddockPendingDelete ? `Are you sure you want to delete ${paddockPendingDelete}?` : ''}
+              {locationPendingDelete ? `Are you sure you want to delete ${locationPendingDelete}?` : ''}
             </Text>
             <View style={styles.deleteConfirmActions}>
-              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={() => setPaddockPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
+              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={() => setLocationPendingDelete(null)} style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}>
                 <Text style={styles.deleteCancelButtonText}>Cancel</Text>
               </BouncyPressable>
-              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={confirmDeletePaddock} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
+              <BouncyPressable accessibilityRole="button" containerStyle={{ flex: 1 }} onPress={confirmDeleteLocation} style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}>
                 <Text style={styles.deleteConfirmButtonText}>Delete</Text>
               </BouncyPressable>
             </View>
@@ -222,7 +222,7 @@ export default function SetupPaddocksScreen() {
         </Pressable>
       </Modal>
 
-      <Modal transparent animationType="fade" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
+      <Modal transparent animationType="none" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
           <AnimatedPopupCard visible={activePicker !== null} style={styles.selectionCard} onPress={() => {}}>
             <Text style={styles.selectionTitle}>Select farm</Text>
@@ -241,7 +241,7 @@ export default function SetupPaddocksScreen() {
                       style={({ pressed }) => [styles.selectionRow, isSelected && styles.selectionRowActive, pressed && styles.pressed]}
                     >
                       <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{option}</Text>
-                      {isSelected ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                      {isSelected ? <AppIcon name="check" size={16} color="#fff" /> : null}
                     </Pressable>
                   );
                 })}
@@ -253,8 +253,8 @@ export default function SetupPaddocksScreen() {
       <InfoModal
         visible={showHelp}
         onClose={() => setShowHelp(false)}
-        title="Paddocks"
-        description="The fields or enclosures within a farm. Use paddocks to track where animals are kept or grazing and filter records by location."
+        title="Locations"
+        description="The fields or enclosures within a farm. Use locations to track where animals are kept or grazing and filter records by location."
       />
     </SafeAreaView>
   );
@@ -453,8 +453,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  selectionRowActive: { backgroundColor: '#FCE5E4' },
+  selectionRowActive: { backgroundColor: tokens.colors.accent },
   selectionText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
-  selectionTextActive: { color: '#74423F' },
+  selectionTextActive: { color: '#fff' },
   pressed: { opacity: 0.92 },
 });

@@ -21,23 +21,19 @@ import { AppIcon, type AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
-import { CircularRevealView } from '../src/components/CircularRevealView';
 import { DesignField } from '../src/components/DesignField';
 import { FloatingActionButton } from '../src/components/FloatingActionButton';
 import { SPECIES_OPTIONS } from '../src/constants/records';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
-import { FREE_ANIMAL_LIMIT } from '../src/constants/subscription';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
-import { useRecords } from '../src/context/RecordsContext';
 import { useSetup } from '../src/context/SetupContext';
 import { useSubscription } from '../src/context/SubscriptionContext';
 import type { AnimalAgeUnit, AnimalSex, AnimalSource, AnimalStatus, AnimalWeightUnit } from '../src/entities/animal';
 import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
 import { filterAccessibleImageUris, persistAnimalProfileImage } from '../src/utils/imageStorage';
-import { resolveRecordAnimalUids } from '../src/utils/recordAnimals';
-import { resolveAnimalFarmName, resolveAnimalPaddockName } from '../src/utils/recordLocations';
+import { resolveAnimalFarmName, resolveAnimalLocationName } from '../src/utils/recordLocations';
 
 const STATUS_OPTIONS: AnimalStatus[] = ['Active', 'Sold', 'Deceased'];
 const WEIGHT_UNITS: AnimalWeightUnit[] = ['kg', 'lb'];
@@ -47,7 +43,7 @@ const SPECIES_ICONS: Record<string, AppIconName> = Object.fromEntries(
   SPECIES_OPTIONS.map((item) => [item.label, item.icon]),
 ) as Record<string, AppIconName>;
 
-type PickerKey = 'status' | 'weightUnit' | 'farm' | 'paddock' | 'group' | 'source';
+type PickerKey = 'status' | 'weightUnit' | 'farm' | 'location' | 'label' | 'source';
 
 export function AddAnimalScreen() {
   const insets = useSafeAreaInsets();
@@ -56,7 +52,6 @@ export function AddAnimalScreen() {
     species,
     animalUid,
     animalId: selectedAnimalId,
-    reveal,
     openSpeciesPicker,
     returnToRecordSelector,
     recordSelectorSelectedAnimalIds,
@@ -65,12 +60,11 @@ export function AddAnimalScreen() {
     recordSelectorSource,
     recordSelectorRecordType,
     recordSelectorFromFarm,
-    recordSelectorFromPaddock,
+    recordSelectorFromLocation,
   } = useLocalSearchParams<{
     species?: string;
     animalUid?: string;
     animalId?: string;
-    reveal?: string;
     openSpeciesPicker?: string;
     returnToRecordSelector?: string;
     recordSelectorSelectedAnimalIds?: string;
@@ -79,25 +73,17 @@ export function AddAnimalScreen() {
     recordSelectorSource?: string;
     recordSelectorRecordType?: string;
     recordSelectorFromFarm?: string;
-    recordSelectorFromPaddock?: string;
+    recordSelectorFromLocation?: string;
   }>();
   const { profile } = useAccount();
   const { animals, addAnimal, updateAnimal } = useAnimals();
-  const { records } = useRecords();
-  const { farms, farmEntities, paddockEntities, groupEntities } = useSetup();
+  const { farms, farmEntities, locationEntities, labelEntities } = useSetup();
   const { isPro } = useSubscription();
   const existingAnimal = animalUid
     ? animals.find((animal) => animal.uid === animalUid)
     : selectedAnimalId
       ? animals.find((animal) => animal.id === selectedAnimalId)
       : undefined;
-  const existingAnimalRecordCount = useMemo(() => {
-    if (!existingAnimal) {
-      return 0;
-    }
-
-    return records.filter((record) => resolveRecordAnimalUids(record, animals).includes(existingAnimal.uid)).length;
-  }, [animals, existingAnimal, records]);
   const preferredWeightUnit: AnimalWeightUnit = profile.measurementUnits === 'Imperial' ? 'lb' : 'kg';
   const previousPreferredWeightUnit = useRef<AnimalWeightUnit>(preferredWeightUnit);
   const saveInProgress = useRef(false);
@@ -106,6 +92,7 @@ export function AddAnimalScreen() {
   const activeSpecies = selectedSpecies;
   const speciesIcon = SPECIES_ICONS[activeSpecies] ?? 'cow';
   const [animalId, setAnimalId] = useState(existingAnimal?.id ?? '');
+  const [eid, setEid] = useState(existingAnimal?.eid ?? '');
   const [name, setName] = useState(existingAnimal?.name ?? '');
   const [selectedSex, setSelectedSex] = useState<AnimalSex>(normalizeAnimalSex(existingAnimal?.sex));
   const [dateOfBirth, setDateOfBirth] = useState(existingAnimal?.dateOfBirth ?? '');
@@ -114,8 +101,8 @@ export function AddAnimalScreen() {
   const [weight, setWeight] = useState(existingAnimal?.weight ?? '');
   const [weightUnit, setWeightUnit] = useState<AnimalWeightUnit>(existingAnimal?.weightUnit ?? preferredWeightUnit);
   const [farm, setFarm] = useState(existingAnimal ? resolveAnimalFarmName(existingAnimal, farmEntities) : '');
-  const [paddock, setPaddock] = useState(existingAnimal ? resolveAnimalPaddockName(existingAnimal, paddockEntities) : '');
-  const [group, setGroup] = useState(existingAnimal?.group ?? '');
+  const [location, setLocation] = useState(existingAnimal ? resolveAnimalLocationName(existingAnimal, locationEntities) : '');
+  const [labels, setLabels] = useState<string[]>(existingAnimal?.labels ?? []);
   const [source, setSource] = useState<AnimalSource | ''>(existingAnimal?.source ?? '');
   // Defaults to today for a new animal — most animals join the farm "now",
   // and leaving it blank meant the field silently stayed empty unless the
@@ -133,12 +120,11 @@ export function AddAnimalScreen() {
   const [showEntryDatePicker, setShowEntryDatePicker] = useState(false);
   const [showSpeciesPicker, setShowSpeciesPicker] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerKey | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const availablePaddocks = useMemo(
-    () => paddockEntities.filter((entry) => equalsIgnoreCase(entry.farm, farm)).map((entry) => entry.name),
-    [farm, paddockEntities],
+  const availableLocations = useMemo(
+    () => locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, farm)).map((entry) => entry.name),
+    [farm, locationEntities],
   );
-  const availableGroups = useMemo(() => groupEntities.map((entry) => entry.name), [groupEntities]);
+  const availableLabels = useMemo(() => labelEntities.map((entry) => entry.name), [labelEntities]);
 
   useEffect(() => {
     if (openSpeciesPicker === '1') {
@@ -176,6 +162,20 @@ export function AddAnimalScreen() {
 
     return getDerivedAge(parsedDateOfBirth, new Date());
   }, [parsedDateOfBirth]);
+  // Highlights whichever button produced the current date, so a tap visibly
+  // sticks. A hand-picked date matches nothing and leaves them all unselected.
+  const activeAgeShortcut = useMemo(() => {
+    if (!dateOfBirth) {
+      return null;
+    }
+
+    const today = new Date();
+    return (
+      AGE_SHORTCUTS.find(
+        (shortcut) => formatDateForStorage(subtractYears(shortcut.years, today)) === dateOfBirth,
+      )?.years ?? null
+    );
+  }, [dateOfBirth]);
 
   const handleSave = async () => {
     if (saveInProgress.current) {
@@ -207,12 +207,12 @@ export function AddAnimalScreen() {
     }
 
     if (
-      paddock.trim() &&
-      !paddockEntities.some(
-        (entry) => equalsIgnoreCase(entry.name, paddock) && equalsIgnoreCase(entry.farm, farm),
+      location.trim() &&
+      !locationEntities.some(
+        (entry) => equalsIgnoreCase(entry.name, location) && equalsIgnoreCase(entry.farm, farm),
       )
     ) {
-      Alert.alert('Paddock does not match farm', 'Select a paddock belonging to the selected farm.');
+      Alert.alert('Location does not match farm', 'Select a location belonging to the selected farm.');
       return;
     }
 
@@ -220,6 +220,7 @@ export function AddAnimalScreen() {
 
     const payload = {
       id: animalId.trim(),
+      eid: eid.trim(),
       species: activeSpecies,
       sex: selectedSex,
       name: name.trim(),
@@ -240,12 +241,14 @@ export function AddAnimalScreen() {
         ? existingAnimal.farmUid
         : farmEntities.find((entry) => equalsIgnoreCase(entry.name, farm))?.uid,
       farm: existingAnimal ? existingAnimal.farm : farm.trim(),
-      paddockUid: existingAnimal
-        ? existingAnimal.paddockUid
-        : paddockEntities.find((entry) => equalsIgnoreCase(entry.name, paddock))?.uid,
-      paddock: existingAnimal ? existingAnimal.paddock : paddock.trim(),
-      groupUid: groupEntities.find((entry) => equalsIgnoreCase(entry.name, group))?.uid,
-      group: group.trim(),
+      locationUid: existingAnimal
+        ? existingAnimal.locationUid
+        : locationEntities.find((entry) => equalsIgnoreCase(entry.name, location))?.uid,
+      location: existingAnimal ? existingAnimal.location : location.trim(),
+      labelUids: labels
+        .map((name) => labelEntities.find((entry) => equalsIgnoreCase(entry.name, name))?.uid)
+        .filter((uid): uid is string => !!uid),
+      labels: labels.map((name) => name.trim()).filter(Boolean),
       source,
       farmEntryDate: farmEntryDate.trim(),
       notes: notes.trim(),
@@ -268,14 +271,6 @@ export function AddAnimalScreen() {
         params: { animalUid: existingAnimal.uid },
       });
     } else {
-      if (!isPro && animals.length >= FREE_ANIMAL_LIMIT) {
-        router.push({
-          pathname: '/upgrade-to-pro',
-          params: { limitType: 'animals' },
-        });
-        return;
-      }
-
       saveInProgress.current = true;
       const result = await addAnimal(payload);
 
@@ -299,7 +294,7 @@ export function AddAnimalScreen() {
             ...(recordSelectorSource ? { source: recordSelectorSource } : {}),
             ...(recordSelectorRecordType ? { recordType: recordSelectorRecordType } : {}),
             ...(recordSelectorFromFarm ? { fromFarm: recordSelectorFromFarm } : {}),
-            ...(recordSelectorFromPaddock ? { fromPaddock: recordSelectorFromPaddock } : {}),
+            ...(recordSelectorFromLocation ? { fromLocation: recordSelectorFromLocation } : {}),
           },
         });
         return;
@@ -362,13 +357,16 @@ export function AddAnimalScreen() {
       return;
     }
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-      Alert.alert('Permission required', 'Permission to access the photo library is required.');
-      return;
-    }
-
+    // No permission request before launching. launchImageLibraryAsync presents
+    // the system photo picker, which runs out of process and hands back only
+    // the chosen image — the app never gets library access, so none is needed
+    // (Expo SDK 57: "No permissions request is necessary for launching the
+    // image library"). Asking anyway cost an async round-trip before the picker
+    // could even start opening, and put a permission dialog in front of the
+    // very first photo. Worse, a user who had denied library access was refused
+    // outright here despite the picker working perfectly well without it.
+    //
+    // The documented exception is videos on iOS; these pickers are images only.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
@@ -400,37 +398,16 @@ export function AddAnimalScreen() {
     setShowImageOnCard(false);
   };
 
-  const pickerOptions = getPickerOptions(activePicker, farms, availablePaddocks, availableGroups);
+  const pickerOptions = getPickerOptions(activePicker, farms, availableLocations, availableLabels);
 
-  const openSetupScreen = (pathname: '/setup-farms' | '/setup-paddocks' | '/setup-groups') => {
+  const openSetupScreen = (pathname: '/setup-farms' | '/setup-locations' | '/setup-labels') => {
     router.push({
       pathname,
       params: { source: 'add-animal' },
     });
   };
 
-  const handleDeleteAnimal = () => {
-    if (!existingAnimal) {
-      return;
-    }
-
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDeleteAnimal = () => {
-    if (!existingAnimal) {
-      return;
-    }
-
-    setShowDeleteConfirm(false);
-    router.replace({
-      pathname: '/(tabs)/animals',
-      params: { deletingAnimalUid: existingAnimal.uid },
-    });
-  };
-
   return (
-    <CircularRevealView active={reveal === '1'}>
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
         title={existingAnimal ? 'Edit Animal' : 'Add Animal'}
@@ -439,23 +416,11 @@ export function AddAnimalScreen() {
           accessibilityLabel: 'Back',
           onPress: () => router.back(),
         }}
-        actions={
-          existingAnimal
-            ? [
-                {
-                  icon: 'trash',
-                  accessibilityLabel: 'Delete animal',
-                  onPress: handleDeleteAnimal,
-                  size: 28,
-                },
-              ]
-            : []
-        }
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.formCard}>
           <View style={styles.block}>
-            <Text style={styles.label}>Selected Species *</Text>
+            <Text style={styles.label}>Species *</Text>
             <Pressable
               accessibilityLabel="Select species"
               accessibilityRole="button"
@@ -470,9 +435,21 @@ export function AddAnimalScreen() {
             </Pressable>
           </View>
 
-          <DesignField value={animalId} label="Animal ID / Tag *" onChangeText={setAnimalId} />
+          <DesignField
+            value={animalId}
+            label="Animal ID / Tag *"
+            placeholder="Eartag or herd number"
+            onChangeText={setAnimalId}
+          />
 
-          <DesignField value={name} label="Name" onChangeText={setName} />
+          <DesignField
+            value={eid}
+            label="EID"
+            placeholder="Electronic tag or bolus number"
+            onChangeText={setEid}
+          />
+
+          <DesignField value={name} label="Name" placeholder="Daisy" onChangeText={setName} />
 
           <View style={styles.block}>
             <Text style={styles.label}>Status *</Text>
@@ -522,10 +499,39 @@ export function AddAnimalScreen() {
             </View>
           </View>
 
-          <DesignField value={breed} label="Breed" onChangeText={setBreed} />
+          <DesignField value={breed} label="Breed" placeholder="Aberdeen Angus" onChangeText={setBreed} />
 
           <View style={styles.block}>
             <Text style={styles.label}>Date of Birth</Text>
+            <View style={styles.ageShortcutGroup}>
+              <Text style={styles.ageShortcutLabel}>Age in years</Text>
+              <View style={styles.ageShortcutRow}>
+                {AGE_SHORTCUTS.map((shortcut) => {
+                  const active = activeAgeShortcut === shortcut.years;
+
+                  return (
+                    <Pressable
+                      key={shortcut.years}
+                      accessibilityLabel={shortcut.spoken}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      onPress={() =>
+                        setDateOfBirth(formatDateForStorage(subtractYears(shortcut.years, new Date())))
+                      }
+                      style={({ pressed }) => [
+                        styles.ageShortcut,
+                        active && styles.ageShortcutActive,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text style={[styles.ageShortcutText, active && styles.ageShortcutTextActive]}>
+                        {shortcut.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
             <Pressable
               accessibilityLabel="Select date of birth"
               accessibilityRole="button"
@@ -567,6 +573,7 @@ export function AddAnimalScreen() {
               <DesignField
                 value={existingAnimal ? existingAnimal.weight : weight}
                 label="Weight"
+                placeholder={existingAnimal ? undefined : '650'}
                 onChangeText={existingAnimal ? undefined : setWeight}
                 editable={!existingAnimal}
                 keyboardType="decimal-pad"
@@ -624,7 +631,7 @@ export function AddAnimalScreen() {
                 onPress={() => openSetupScreen('/setup-farms')}
                 style={({ pressed }) => [pressed && styles.pressed]}
               >
-                <Text style={styles.helperLink}>+ Add Farm</Text>
+                <Text style={styles.helperLink}>+ Add</Text>
               </BouncyPressable>
               {farm ? (
                 <BouncyPressable
@@ -632,97 +639,103 @@ export function AddAnimalScreen() {
                   accessibilityRole="button"
                   onPress={() => {
                     setFarm('');
-                    setPaddock('');
+                    setLocation('');
                   }}
                   style={({ pressed }) => [pressed && styles.pressed]}
                 >
-                  <Text style={styles.helperLink}>Clear Farm</Text>
+                  <Text style={styles.helperLink}>Clear</Text>
                 </BouncyPressable>
               ) : null}
             </View>
           )}
 
           <SelectionField
-            label="Paddock"
-            value={paddock}
+            label="Location"
+            value={location}
             disabled={Boolean(existingAnimal)}
-            emptyLabel={!farm ? 'Select farm first' : availablePaddocks.length === 0 ? 'No paddocks for this farm' : 'Select paddock'}
+            emptyLabel={!farm ? 'Select farm first' : availableLocations.length === 0 ? 'No locations for this farm' : 'Select location'}
             onPress={() => {
               if (existingAnimal || !farm) {
                 return;
               }
 
-              if (availablePaddocks.length === 0) {
-                openSetupScreen('/setup-paddocks');
+              if (availableLocations.length === 0) {
+                openSetupScreen('/setup-locations');
                 return;
               }
 
-              setActivePicker('paddock');
+              setActivePicker('location');
             }}
           />
           {existingAnimal ? (
             <Text style={styles.helperText}>
-              Farm and paddock update automatically from the animal's Movement records. Add a Movement record to change them.
+              Farm and location update automatically from the animal's Movement records. Add a Movement record to change them.
             </Text>
           ) : null}
           {existingAnimal ? null : (
             <View style={styles.helperLinkRow}>
               <BouncyPressable
-                accessibilityLabel="Add paddock"
+                accessibilityLabel="Add location"
                 accessibilityRole="button"
-                onPress={() => openSetupScreen('/setup-paddocks')}
+                onPress={() => openSetupScreen('/setup-locations')}
                 style={({ pressed }) => [pressed && styles.pressed]}
               >
-                <Text style={styles.helperLink}>+ Add Paddock</Text>
+                <Text style={styles.helperLink}>+ Add</Text>
               </BouncyPressable>
-              {paddock ? (
+              {location ? (
                 <BouncyPressable
-                  accessibilityLabel="Clear paddock"
+                  accessibilityLabel="Clear location"
                   accessibilityRole="button"
-                  onPress={() => setPaddock('')}
+                  onPress={() => setLocation('')}
                   style={({ pressed }) => [pressed && styles.pressed]}
                 >
-                  <Text style={styles.helperLink}>Clear Paddock</Text>
+                  <Text style={styles.helperLink}>Clear</Text>
                 </BouncyPressable>
               ) : null}
             </View>
           )}
 
           <SelectionField
-            label="Group"
-            value={group}
-            emptyLabel={availableGroups.length === 0 ? 'No matching groups available' : 'Select group'}
+            label="Labels"
+            value={formatLabelSelection(labels)}
+            emptyLabel={availableLabels.length === 0 ? 'No labels set up yet' : 'Select labels'}
             onPress={() => {
-              if (availableGroups.length === 0) {
-                openSetupScreen('/setup-groups');
+              if (availableLabels.length === 0) {
+                openSetupScreen('/setup-labels');
                 return;
               }
 
-              setActivePicker('group');
+              setActivePicker('label');
             }}
           />
           <View style={styles.helperLinkRow}>
             <BouncyPressable
-              accessibilityLabel="Add group"
+              accessibilityLabel="Add label"
               accessibilityRole="button"
-              onPress={() => openSetupScreen('/setup-groups')}
+              onPress={() => openSetupScreen('/setup-labels')}
               style={({ pressed }) => [pressed && styles.pressed]}
             >
-              <Text style={styles.helperLink}>+ Add Group</Text>
+              <Text style={styles.helperLink}>+ Add</Text>
             </BouncyPressable>
-            {group ? (
+            {labels.length > 0 ? (
               <BouncyPressable
-                accessibilityLabel="Clear group"
+                accessibilityLabel="Clear labels"
                 accessibilityRole="button"
-                onPress={() => setGroup('')}
+                onPress={() => setLabels([])}
                 style={({ pressed }) => [pressed && styles.pressed]}
               >
-                <Text style={styles.helperLink}>Clear Group</Text>
+                <Text style={styles.helperLink}>Clear</Text>
               </BouncyPressable>
             ) : null}
           </View>
 
-          <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
+          <DesignField
+            value={notes}
+            label="Notes"
+            placeholder="Anything worth remembering"
+            large
+            onChangeText={setNotes}
+          />
 
           <Pressable
             accessibilityLabel="Add profile picture"
@@ -767,6 +780,7 @@ export function AddAnimalScreen() {
                   <Text style={styles.cardImagePreferenceText}>Otherwise, the species icon will be shown.</Text>
                 </View>
                 <Switch
+                  style={styles.cardImagePreferenceSwitch}
                   accessibilityLabel="Show image on animal card"
                   accessibilityRole="switch"
                   ios_backgroundColor="#E5E0E7"
@@ -808,45 +822,7 @@ export function AddAnimalScreen() {
       ) : null}
 
       <Modal
-        animationType="fade"
-        transparent
-        visible={showDeleteConfirm}
-        onRequestClose={() => setShowDeleteConfirm(false)}
-      >
-        <Pressable style={styles.centeredModalBackdrop} onPress={() => setShowDeleteConfirm(false)}>
-          <Pressable style={styles.deleteConfirmCard} onPress={() => undefined}>
-            <Text style={styles.deleteConfirmTitle}>Delete animal?</Text>
-            <Text style={styles.deleteConfirmText}>
-              {existingAnimalRecordCount > 0
-                ? `This animal has ${existingAnimalRecordCount} ${existingAnimalRecordCount === 1 ? 'record' : 'records'}. They'll stay in your Records list as history, but won't be linked to a live animal anymore. This action cannot be undone.`
-                : 'This action cannot be undone.'}
-            </Text>
-            <View style={styles.deleteConfirmActions}>
-              <BouncyPressable
-                accessibilityLabel="Cancel delete"
-                accessibilityRole="button"
-                containerStyle={{ flex: 1 }}
-                onPress={() => setShowDeleteConfirm(false)}
-                style={({ pressed }) => [styles.deleteCancelButton, pressed && styles.pressed]}
-              >
-                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
-              </BouncyPressable>
-              <BouncyPressable
-                accessibilityLabel="Confirm delete animal"
-                accessibilityRole="button"
-                containerStyle={{ flex: 1 }}
-                onPress={confirmDeleteAnimal}
-                style={({ pressed }) => [styles.deleteConfirmButton, pressed && styles.pressed]}
-              >
-                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
-              </BouncyPressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showSpeciesPicker}
         onRequestClose={() => setShowSpeciesPicker(false)}
@@ -899,7 +875,7 @@ export function AddAnimalScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showDatePicker && Platform.OS === 'ios'}
         onRequestClose={() => setShowDatePicker(false)}
@@ -935,7 +911,7 @@ export function AddAnimalScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showEntryDatePicker && Platform.OS === 'ios'}
         onRequestClose={() => setShowEntryDatePicker(false)}
@@ -966,7 +942,7 @@ export function AddAnimalScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={activePicker !== null}
         onRequestClose={() => setActivePicker(null)}
@@ -975,7 +951,13 @@ export function AddAnimalScreen() {
           <AnimatedPopupCard visible={activePicker !== null} style={styles.selectionCard} onPress={() => undefined}>
             <Text style={styles.selectionTitle}>{getPickerTitle(activePicker)}</Text>
             {pickerOptions.map((option) => {
-              const activeValue = getPickerValue(activePicker, status, weightUnit, farm, paddock, group, source);
+              const isLabelPicker = activePicker === 'label';
+              // Labels are the one multi-select picker — an animal can carry
+              // several — so a row here toggles membership and the sheet stays
+              // open. Every other picker is a single choice that closes on tap.
+              const active = isLabelPicker
+                ? labels.includes(option)
+                : option === getPickerValue(activePicker, status, weightUnit, farm, location, source);
 
               return (
                 <Pressable
@@ -983,34 +965,43 @@ export function AddAnimalScreen() {
                   accessibilityLabel={option}
                   accessibilityRole="button"
                   onPress={() => {
+                    if (isLabelPicker) {
+                      setLabels((current) =>
+                        current.includes(option)
+                          ? current.filter((entry) => entry !== option)
+                          : [...current, option],
+                      );
+                      return;
+                    }
+
                     if (activePicker === 'farm') {
                       setFarm(option);
-                      const currentPaddock = paddockEntities.find((entry) => equalsIgnoreCase(entry.name, paddock));
-                      // A farm with exactly one paddock has no real choice to
+                      const currentLocation = locationEntities.find((entry) => equalsIgnoreCase(entry.name, location));
+                      // A farm with exactly one location has no real choice to
                       // make, so fill it in — still fully editable/clearable
                       // afterward if that's not what the user wants.
-                      const matchingPaddocks = paddockEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
+                      const matchingLocations = locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
 
-                      if (currentPaddock && !equalsIgnoreCase(currentPaddock.farm, option)) {
-                        setPaddock(matchingPaddocks.length === 1 ? matchingPaddocks[0].name : '');
-                      } else if (!paddock.trim() && matchingPaddocks.length === 1) {
-                        setPaddock(matchingPaddocks[0].name);
+                      if (currentLocation && !equalsIgnoreCase(currentLocation.farm, option)) {
+                        setLocation(matchingLocations.length === 1 ? matchingLocations[0].name : '');
+                      } else if (!location.trim() && matchingLocations.length === 1) {
+                        setLocation(matchingLocations[0].name);
                       }
                     } else {
-                      applyPickerSelection(option, activePicker, setStatus, setWeightUnit, setFarm, setPaddock, setGroup, setSource);
+                      applyPickerSelection(option, activePicker, setStatus, setWeightUnit, setFarm, setLocation, setSource);
                     }
                     setActivePicker(null);
                   }}
                   style={({ pressed }) => [
                     styles.selectionRow,
-                    option === activeValue && styles.selectionRowActive,
+                    active && styles.selectionRowActive,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <Text style={[styles.selectionText, option === activeValue && styles.selectionTextActive]}>
+                  <Text style={[styles.selectionText, active && styles.selectionTextActive]}>
                     {option}
                   </Text>
-                  {option === activeValue ? <AppIcon name="check" size={16} color={tokens.colors.accent} /> : null}
+                  {active ? <AppIcon name="check" size={16} color="#fff" /> : null}
                 </Pressable>
               );
             })}
@@ -1018,7 +1009,6 @@ export function AddAnimalScreen() {
         </Pressable>
       </Modal>
       </SafeAreaView>
-    </CircularRevealView>
   );
 }
 
@@ -1120,6 +1110,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  ageShortcutGroup: {
+    gap: 6,
+  },
+  ageShortcutLabel: {
+    color: tokens.colors.textSoft,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  ageShortcutRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  ageShortcut: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  ageShortcutActive: {
+    backgroundColor: tokens.colors.accent,
+  },
+  ageShortcutText: {
+    color: tokens.colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  ageShortcutTextActive: { color: '#fff' },
   sexOption: {
     flex: 1,
     minHeight: 52,
@@ -1131,7 +1150,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   sexOptionActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   sexOptionCopy: {
     flexDirection: 'row',
@@ -1145,7 +1164,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: tokens.colors.text,
   },
-  sexOptionTextActive: {},
+  sexOptionTextActive: { color: '#fff' },
   speciesModalGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1232,6 +1251,9 @@ const styles = StyleSheet.create({
   cardImagePreferenceCopy: {
     gap: 4,
   },
+  cardImagePreferenceSwitch: {
+    alignSelf: 'flex-start',
+  },
   cardImagePreferenceTitle: {
     color: tokens.colors.text,
     fontSize: 14,
@@ -1271,72 +1293,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.28)',
     justifyContent: 'flex-end',
-  },
-  centeredModalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.46)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  deleteConfirmCard: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: 26,
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    paddingBottom: 18,
-    shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
-  },
-  deleteConfirmTitle: {
-    color: tokens.colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  deleteConfirmText: {
-    marginTop: 8,
-    color: tokens.colors.textSoft,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  deleteConfirmActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 18,
-  },
-  deleteCancelButton: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 24,
-    backgroundColor: '#E5E0E7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteCancelButtonText: {
-    color: '#544F49',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  deleteConfirmButton: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 24,
-    backgroundColor: tokens.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteConfirmButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
   },
   modalCard: {
     borderTopLeftRadius: 28,
@@ -1387,7 +1343,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   selectionRowActive: {
-    backgroundColor: '#FCE5E4',
+    backgroundColor: tokens.colors.accent,
   },
   selectionText: {
     color: tokens.colors.text,
@@ -1395,7 +1351,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   selectionTextActive: {
-    color: '#74423F',
+    color: '#fff',
   },
   pressed: {
     opacity: 0.92,
@@ -1423,7 +1379,7 @@ function SexOption({ label, icon, active, onPress }: SexOptionProps) {
       ]}
     >
       <View style={styles.sexOptionCopy}>
-        <AppIcon name={icon} size={18} color={tokens.colors.text} />
+        <AppIcon name={icon} size={18} color={active ? '#fff' : tokens.colors.text} />
         <Text style={[styles.sexOptionText, active && styles.sexOptionTextActive]}>{label}</Text>
       </View>
     </Pressable>
@@ -1437,6 +1393,15 @@ type SelectionFieldProps = {
   onPress: () => void;
   disabled?: boolean;
 };
+
+function formatLabelSelection(labels: string[]) {
+  if (labels.length === 0) {
+    return '';
+  }
+
+  // Two still fit on one line; beyond that the names are wider than the field.
+  return labels.length <= 2 ? labels.join(', ') : `${labels.length} labels selected`;
+}
 
 function SelectionField({ label, value, emptyLabel, onPress, disabled = false }: SelectionFieldProps) {
   return (
@@ -1454,6 +1419,26 @@ function SelectionField({ label, value, emptyLabel, onPress, disabled = false }:
       </Pressable>
     </View>
   );
+}
+
+// Quick age buttons above the date-of-birth picker. Each one simply subtracts
+// its number of years from today — a farmer buying store stock usually knows
+// "she's a three-year-old" and not the birth date. The picker is still there
+// for anyone who does know it.
+const AGE_SHORTCUTS: { label: string; spoken: string; years: number }[] = [
+  { label: '0–1', spoken: 'Up to 1 year old', years: 1 },
+  { label: '2', spoken: '2 years old', years: 2 },
+  { label: '3', spoken: '3 years old', years: 3 },
+  { label: '4', spoken: '4 years old', years: 4 },
+  { label: '5', spoken: '5 years old', years: 5 },
+  { label: '6', spoken: '6 years old', years: 6 },
+  { label: '7+', spoken: '7 or more years old', years: 7 },
+];
+
+function subtractYears(years: number, from: Date) {
+  const date = new Date(from);
+  date.setFullYear(date.getFullYear() - years);
+  return date;
 }
 
 function equalsIgnoreCase(left: string, right: string) {
@@ -1520,10 +1505,10 @@ function getPickerTitle(picker: PickerKey | null) {
       return 'Select unit';
     case 'farm':
       return 'Select farm';
-    case 'paddock':
-      return 'Select paddock';
-    case 'group':
-      return 'Select group';
+    case 'location':
+      return 'Select location';
+    case 'label':
+      return 'Select labels';
     case 'source':
       return 'Select source';
     default:
@@ -1531,7 +1516,7 @@ function getPickerTitle(picker: PickerKey | null) {
   }
 }
 
-function getPickerOptions(picker: PickerKey | null, farms: string[], paddocks: string[], groups: string[]) {
+function getPickerOptions(picker: PickerKey | null, farms: string[], locations: string[], labels: string[]) {
   switch (picker) {
     case 'status':
       return STATUS_OPTIONS;
@@ -1539,10 +1524,10 @@ function getPickerOptions(picker: PickerKey | null, farms: string[], paddocks: s
       return WEIGHT_UNITS;
     case 'farm':
       return farms;
-    case 'paddock':
-      return paddocks;
-    case 'group':
-      return groups;
+    case 'location':
+      return locations;
+    case 'label':
+      return labels;
     case 'source':
       return SOURCE_OPTIONS;
     default:
@@ -1555,8 +1540,7 @@ function getPickerValue(
   status: AnimalStatus,
   weightUnit: AnimalWeightUnit,
   farm: string,
-  paddock: string,
-  group: string,
+  location: string,
   source: AnimalSource | '',
 ) {
   switch (picker) {
@@ -1566,10 +1550,9 @@ function getPickerValue(
       return weightUnit;
     case 'farm':
       return farm;
-    case 'paddock':
-      return paddock;
-    case 'group':
-      return group;
+    case 'location':
+      return location;
+
     case 'source':
       return source;
     default:
@@ -1583,8 +1566,7 @@ function applyPickerSelection(
   setStatus: (value: AnimalStatus) => void,
   setWeightUnit: (value: AnimalWeightUnit) => void,
   setFarm: (value: string) => void,
-  setPaddock: (value: string) => void,
-  setGroup: (value: string) => void,
+  setLocation: (value: string) => void,
   setSource: (value: AnimalSource | '') => void,
 ) {
   switch (picker) {
@@ -1597,12 +1579,10 @@ function applyPickerSelection(
     case 'farm':
       setFarm(option);
       break;
-    case 'paddock':
-      setPaddock(option);
+    case 'location':
+      setLocation(option);
       break;
-    case 'group':
-      setGroup(option);
-      break;
+
     case 'source':
       setSource(option as AnimalSource);
       break;

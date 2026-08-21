@@ -9,13 +9,13 @@ import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
 import { InfoModal } from '../src/components/InfoModal';
 import { useAnimals } from '../src/context/AnimalsContext';
-import { type FarmEntity, type PaddockEntity, useSetup } from '../src/context/SetupContext';
+import { type FarmEntity, type LocationEntity, useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
 
 export default function SetupFarmsScreen() {
   const router = useRouter();
   const { animals } = useAnimals();
-  const { farmEntities, paddockEntities, addFarm, updateFarm, removeFarm, pendingSetupSelectionTarget, resolveSetupSelection } = useSetup();
+  const { farmEntities, locationEntities, addFarm, updateFarm, removeFarm, pendingSetupSelectionTarget, resolveSetupSelection } = useSetup();
   const [farmName, setFarmName] = useState('');
   const [holdingId, setHoldingId] = useState('');
   const [notes, setNotes] = useState('');
@@ -85,7 +85,7 @@ export default function SetupFarmsScreen() {
       Alert.alert(
         result.reason === 'in-use' ? 'Farm is in use' : 'Farm could not be deleted',
         result.reason === 'in-use'
-          ? 'Delete or reassign the paddocks and groups belonging to this farm first.'
+          ? 'Delete or reassign the locations belonging to this farm first.'
           : 'Nothing was changed. Please try again.',
       );
       return;
@@ -156,24 +156,24 @@ export default function SetupFarmsScreen() {
 
         {farmEntities.length === 0 ? (
           <View style={styles.emptyState}>
-            <AppIcon name="pin" size={90} color="#E5E0E7" opacity={1} />
+            <AppIcon name="sprout" size={90} color="#E5E0E7" opacity={1} />
             <Text style={styles.emptyTitle}>Empty</Text>
           </View>
         ) : (
           <View style={styles.list}>
             {farmEntities.map((farm) => {
-              const paddockCount = getFarmPaddockCount(farm, paddockEntities);
+              const locationCount = getFarmLocationCount(farm, locationEntities);
 
               return (
               <View key={farm.uid ?? farm.name} style={styles.itemCard}>
                 <View style={styles.itemHeader}>
                   <View style={styles.itemTitleRow}>
                     <View style={styles.itemIconBadge}>
-                      <AppIcon name="pin" size={24} color="#171717" />
+                      <AppIcon name="sprout" size={24} color="#171717" />
                     </View>
                     <View style={styles.itemHeadingCopy}>
                       <Text style={styles.itemTitle}>{farm.name}</Text>
-                      <Text style={styles.itemSubtitle}>{paddockCount} {paddockCount === 1 ? 'paddock' : 'paddocks'}</Text>
+                      <Text style={styles.itemSubtitle}>{locationCount} {locationCount === 1 ? 'location' : 'locations'}</Text>
                       {farm.holdingId ? <Text style={styles.itemSubtitle}>{farm.holdingId}</Text> : null}
                     </View>
                   </View>
@@ -240,7 +240,7 @@ export default function SetupFarmsScreen() {
         visible={showHelp}
         onClose={() => setShowHelp(false)}
         title="Farms"
-        description="The properties where you keep your livestock. Assign animals and paddocks to farms so you can track and filter records by location."
+        description="The properties where you keep your livestock. Assign animals and locations to farms so you can track and filter records by location."
       />
     </SafeAreaView>
   );
@@ -250,9 +250,9 @@ function equalsIgnoreCase(left: string, right: string) {
   return left.trim().toLowerCase() === right.trim().toLowerCase();
 }
 
-function getFarmPaddockCount(farm: FarmEntity, paddocks: PaddockEntity[]) {
-  return paddocks.filter(
-    (paddock) => (farm.uid && paddock.farmUid === farm.uid) || equalsIgnoreCase(paddock.farm, farm.name),
+function getFarmLocationCount(farm: FarmEntity, locations: LocationEntity[]) {
+  return locations.filter(
+    (location) => (farm.uid && location.farmUid === farm.uid) || equalsIgnoreCase(location.farm, farm.name),
   ).length;
 }
 

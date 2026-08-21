@@ -8,13 +8,17 @@ import {
   type CreateAnimalInput,
   useAnimals,
 } from './AnimalsContext';
+import { COLLECTIVES_STORAGE_KEY, useCollectives } from './CollectivesContext';
+import { LEGACY_RECORD_TYPE_RENAMES } from '../constants/records';
 import type { Animal } from '../entities/animal';
+import type { Collective } from '../entities/collective';
 import type { RecordEntry, RecordSpeciesTone } from '../entities/record';
 import { createUuid } from '../utils/createLocalId';
 import { parseStoredDate } from '../utils/dateFormat';
 import { findRecordAnimals, resolveRecordAnimalUids } from '../utils/recordAnimals';
-import { resolveFarmName, resolvePaddockName } from '../utils/recordLocations';
-import { type FarmEntity, type PaddockEntity, useSetup } from './SetupContext';
+import { filterAccessibleImageUris } from '../utils/imageStorage';
+import { resolveFarmName, resolveLocationName } from '../utils/recordLocations';
+import { type FarmEntity, type LocationEntity, useSetup } from './SetupContext';
 
 export type CreateRecordInput = Omit<RecordEntry, 'id' | 'speciesTone'>;
 
@@ -43,25 +47,28 @@ export type RecordImpactChange = {
 // date. 'found' means an actual prior Movement record was located. The two
 // "nothing found" cases are deliberately distinguished because they call for
 // different fallbacks: an animal with no Movement history at all has never
-// had its farm/paddock overwritten by rebuildAnimalsState, so its current
-// `farm`/`paddock` fields still hold the true original value — safe to use
+// had its farm/location overwritten by rebuildAnimalsState, so its current
+// `farm`/`location` fields still hold the true original value — safe to use
 // as the answer. An animal that *does* have Movement history, just none
 // dated on/before the date in question, has no reliable answer at all (its
 // pre-history location was already overwritten by whichever Movement came
 // first) — callers should treat that as "can't verify" rather than guess.
 export type AnimalLocationAsOfResult =
-  | { status: 'found'; farm: string; paddock: string }
+  | { status: 'found'; farm: string; location: string }
   | { status: 'no-prior-movement' }
   | { status: 'no-movement-history' };
 
+/** Whether to show records for individual animals, for groups, or both. */
+export type RecordKindFilter = 'all' | 'individual' | 'collective';
+
 export type RecordFilters = {
-  searchQuery: string;
+  kind: RecordKindFilter;
   startDate: string | null;
   endDate: string | null;
   species: string[];
   recordTypes: string[];
   farms: string[];
-  paddocks: string[];
+  locations: string[];
   animalIdQuery: string;
   animalNameQuery: string;
 };
@@ -106,19 +113,19 @@ const RecordsContext = createContext<RecordsContextValue | null>(null);
 export const RECORDS_STORAGE_KEY = 'livestockbook.records.v1';
 
 export const DEFAULT_RECORD_FILTERS: RecordFilters = {
-  searchQuery: '',
+  kind: 'all',
   startDate: null,
   endDate: null,
   species: [],
   recordTypes: [],
   farms: [],
-  paddocks: [],
+  locations: [],
   animalIdQuery: '',
   animalNameQuery: '',
 };
 
 export function RecordsProvider({ children }: PropsWithChildren) {
-  const { farmEntities, paddockEntities } = useSetup();
+  const { farmEntities, locationEntities } = useSetup();
   const {
     animals,
     isLoaded: animalsLoaded,
@@ -127,6 +134,7 @@ export function RecordsProvider({ children }: PropsWithChildren) {
     prepareAnimalUpdate,
     replaceAnimalsFromTransaction,
   } = useAnimals();
+  const { getCollectivesSnapshot, replaceCollectivesFromTransaction } = useCollectives();
   const [records, setRecords] = useState<RecordEntry[]>([]);
   const recordsRef = useRef<RecordEntry[]>([]);
   const hasStartedRestore = useRef(false);
@@ -150,13 +158,26 @@ export function RecordsProvider({ children }: PropsWithChildren) {
           const parsedRecords: unknown = JSON.parse(storedRecords);
 
           if (Array.isArray(parsedRecords)) {
-            const validRecords = ensureUniqueRecordIds(parsedRecords.filter(isStoredRecord)).map((record) => {
-              if (record.animalUids) {
-                return record;
+            const validRecords = backfillRecordCreatedAt(
+              migrateLegacyRecordLocations(
+                migrateLegacyRecordTypes(ensureUniqueRecordIds(parsedRecords.filter(isStoredRecord))),
+              ),
+            ).map((record) => {
+              // Photo paths are re-pointed at the current app container on
+              // every load — see resolveStoredImageUri. Records are read
+              // straight off this array (View Record renders imageUris[0]
+              // directly), so the repair has to happen here rather than at the
+              // point of display.
+              const repaired = record.imageUris
+                ? { ...record, imageUris: filterAccessibleImageUris(record.imageUris) }
+                : record;
+
+              if (repaired.animalUids) {
+                return repaired;
               }
 
-              const animalUids = resolveRecordAnimalUids(record, animals);
-              return animalUids.length > 0 ? { ...record, animalUids } : record;
+              const animalUids = resolveRecordAnimalUids(repaired, animals);
+              return animalUids.length > 0 ? { ...repaired, animalUids } : repaired;
             });
             recordsRef.current = validRecords;
             setRecords(validRecords);
@@ -319,12 +340,20 @@ export function RecordsProvider({ children }: PropsWithChildren) {
             nextRecords,
             getAnimalsSnapshot(),
             farmEntities,
-            paddockEntities,
+            locationEntities,
+          );
+          const nextCollectives = rebuildCollectivesState(
+            nextRecord.collectiveUid ? [nextRecord.collectiveUid] : [],
+            nextRecords,
+            getCollectivesSnapshot(),
+            farmEntities,
+            locationEntities,
           );
 
           try {
             await AsyncStorage.multiSet([
               [ANIMALS_STORAGE_KEY, JSON.stringify(nextAnimals)],
+              [COLLECTIVES_STORAGE_KEY, JSON.stringify(nextCollectives)],
               [RECORDS_STORAGE_KEY, JSON.stringify(nextRecords)],
             ]);
           } catch {
@@ -333,6 +362,7 @@ export function RecordsProvider({ children }: PropsWithChildren) {
           }
 
           replaceAnimalsFromTransaction(nextAnimals);
+          replaceCollectivesFromTransaction(nextCollectives);
           replaceRecords(nextRecords);
           recordTransactionInProgress.current = false;
           return { ok: true, record: nextRecord };
@@ -364,12 +394,30 @@ export function RecordsProvider({ children }: PropsWithChildren) {
             nextRecords,
             getAnimalsSnapshot(),
             farmEntities,
-            paddockEntities,
+            locationEntities,
+          );
+          // Same union rule for the group side: a record moved from one flock
+          // to another has to leave the first one as its remaining records say,
+          // not as this record last left it.
+          const affectedCollectiveUids = Array.from(
+            new Set(
+              [existingRecord.collectiveUid, nextRecord.collectiveUid].filter(
+                (uid): uid is string => Boolean(uid),
+              ),
+            ),
+          );
+          const nextCollectives = rebuildCollectivesState(
+            affectedCollectiveUids,
+            nextRecords,
+            getCollectivesSnapshot(),
+            farmEntities,
+            locationEntities,
           );
 
           try {
             await AsyncStorage.multiSet([
               [ANIMALS_STORAGE_KEY, JSON.stringify(nextAnimals)],
+              [COLLECTIVES_STORAGE_KEY, JSON.stringify(nextCollectives)],
               [RECORDS_STORAGE_KEY, JSON.stringify(nextRecords)],
             ]);
           } catch {
@@ -378,6 +426,7 @@ export function RecordsProvider({ children }: PropsWithChildren) {
           }
 
           replaceAnimalsFromTransaction(nextAnimals);
+          replaceCollectivesFromTransaction(nextCollectives);
           replaceRecords(nextRecords);
           recordTransactionInProgress.current = false;
           return { ok: true, record: nextRecord };
@@ -399,12 +448,33 @@ export function RecordsProvider({ children }: PropsWithChildren) {
             nextRecords,
             getAnimalsSnapshot(),
             farmEntities,
-            paddockEntities,
+            locationEntities,
+          );
+          // The head count has to go with the record wherever the delete was
+          // triggered from. The Add Record screen already calls
+          // syncRecordCountEvent(id, null) itself, but a swipe-delete in the
+          // records list comes straight here — without this it would leave the
+          // flock permanently short by whatever a since-deleted Sale removed.
+          // Stripping by recordId is idempotent, so doing both is harmless.
+          const strippedCollectives = getCollectivesSnapshot().map((collective) => {
+            const countEvents = collective.countEvents.filter((event) => event.recordId !== recordId);
+
+            return countEvents.length === collective.countEvents.length
+              ? collective
+              : { ...collective, countEvents };
+          });
+          const nextCollectives = rebuildCollectivesState(
+            existingRecord.collectiveUid ? [existingRecord.collectiveUid] : [],
+            nextRecords,
+            strippedCollectives,
+            farmEntities,
+            locationEntities,
           );
 
           try {
             await AsyncStorage.multiSet([
               [ANIMALS_STORAGE_KEY, JSON.stringify(nextAnimals)],
+              [COLLECTIVES_STORAGE_KEY, JSON.stringify(nextCollectives)],
               [RECORDS_STORAGE_KEY, JSON.stringify(nextRecords)],
             ]);
           } catch {
@@ -413,6 +483,7 @@ export function RecordsProvider({ children }: PropsWithChildren) {
           }
 
           replaceAnimalsFromTransaction(nextAnimals);
+          replaceCollectivesFromTransaction(nextCollectives);
           replaceRecords(nextRecords);
           recordTransactionInProgress.current = false;
           return { ok: true };
@@ -440,7 +511,7 @@ export function RecordsProvider({ children }: PropsWithChildren) {
             new Set([...(existingRecord.animalUids ?? []), ...(nextRecord.animalUids ?? [])]),
           );
 
-          return computeRecordMutationImpact(affectedUids, nextRecords, getAnimalsSnapshot(), farmEntities, paddockEntities);
+          return computeRecordMutationImpact(affectedUids, nextRecords, getAnimalsSnapshot(), farmEntities, locationEntities);
         },
         previewAnimalLocationAsOf: (animalUid, date, excludeRecordId) => {
           const targetTimestamp = parseStoredDate(date)?.getTime() ?? 0;
@@ -483,7 +554,7 @@ export function RecordsProvider({ children }: PropsWithChildren) {
             return {
               status: 'found',
               farm: resolveFarmName(foundRecord.toFarmUid, foundRecord.toFarm, farmEntities),
-              paddock: resolvePaddockName(foundRecord.toPaddockUid, foundRecord.toPaddock, paddockEntities),
+              location: resolveLocationName(foundRecord.toLocationUid, foundRecord.toLocation, locationEntities),
             };
           }
 
@@ -502,7 +573,7 @@ export function RecordsProvider({ children }: PropsWithChildren) {
             nextRecords,
             getAnimalsSnapshot(),
             farmEntities,
-            paddockEntities,
+            locationEntities,
           );
         },
       };
@@ -514,7 +585,7 @@ export function RecordsProvider({ children }: PropsWithChildren) {
       getAnimalsSnapshot,
       prepareAnimalAddition,
       prepareAnimalUpdate,
-      paddockEntities,
+      locationEntities,
       replaceAnimalsFromTransaction,
       sortedRecords,
       hasLoadedStoredRecords,
@@ -538,6 +609,9 @@ function buildRecord(record: CreateRecordInput, id: string): RecordEntry {
   return {
     ...record,
     id,
+    // Only stamped when the caller has not supplied one, so editing a record
+    // (which rebuilds it through here) keeps the time it was first entered.
+    createdAt: record.createdAt ?? new Date().toISOString(),
     speciesTone: inferRecordSpeciesTone(record.species),
   };
 }
@@ -563,7 +637,7 @@ function rebuildAnimalsState(
   records: RecordEntry[],
   animals: Animal[],
   farms: FarmEntity[],
-  paddocks: PaddockEntity[],
+  locations: LocationEntity[],
 ): Animal[] {
   if (animalUids.length === 0) {
     return animals;
@@ -589,25 +663,25 @@ function rebuildAnimalsState(
 
     const latestMovementRecord = findLatestDimensionRecord(records, animal.uid, 'location');
     if (latestMovementRecord) {
-      // Prefer the uid link so a farm/paddock rename is picked up here too —
-      // frozen toFarm/toPaddock text is only the fallback, for records
+      // Prefer the uid link so a farm/location rename is picked up here too —
+      // frozen toFarm/toLocation text is only the fallback, for records
       // saved before the uid fields existed or a since-deleted farm.
       const destinationFarm = latestMovementRecord.toFarmUid
         ? farms.find((farm) => farm.uid === latestMovementRecord.toFarmUid)
         : farms.find((farm) => equalsIgnoreCase(farm.name, latestMovementRecord.toFarm ?? ''));
-      const destinationPaddock = latestMovementRecord.toPaddockUid
-        ? paddocks.find((paddock) => paddock.uid === latestMovementRecord.toPaddockUid)
-        : paddocks.find(
-            (paddock) =>
-              equalsIgnoreCase(paddock.name, latestMovementRecord.toPaddock ?? '') &&
-              (!destinationFarm?.uid || paddock.farmUid === destinationFarm.uid),
+      const destinationLocation = latestMovementRecord.toLocationUid
+        ? locations.find((location) => location.uid === latestMovementRecord.toLocationUid)
+        : locations.find(
+            (location) =>
+              equalsIgnoreCase(location.name, latestMovementRecord.toLocation ?? '') &&
+              (!destinationFarm?.uid || location.farmUid === destinationFarm.uid),
           );
       next = {
         ...next,
         farmUid: destinationFarm?.uid,
         farm: destinationFarm?.name ?? latestMovementRecord.toFarm?.trim() ?? '',
-        paddockUid: destinationPaddock?.uid,
-        paddock: destinationPaddock?.name ?? latestMovementRecord.toPaddock?.trim() ?? '',
+        locationUid: destinationLocation?.uid,
+        location: destinationLocation?.name ?? latestMovementRecord.toLocation?.trim() ?? '',
       };
     }
 
@@ -630,6 +704,99 @@ function rebuildAnimalsState(
 
     return next;
   });
+}
+
+/**
+ * The collective equivalent of `rebuildAnimalsState`, and recomputed the same
+ * way: from scratch, from whichever record is genuinely latest, so a backdated
+ * Movement or a deleted Weight lands correctly with no undo path to keep in
+ * step.
+ *
+ * Head count is deliberately absent — it is a ledger of dated events owned by
+ * `CollectivesContext`, not a value derived here, and status follows from that
+ * count rather than from any one record. A group's Sale is partial by nature:
+ * selling twenty of a hundred does not close the flock, which is why the
+ * individual animal's "latest Sale means Sold" rule cannot be reused.
+ */
+function rebuildCollectivesState(
+  collectiveUids: string[],
+  records: RecordEntry[],
+  collectives: Collective[],
+  farms: FarmEntity[],
+  locations: LocationEntity[],
+): Collective[] {
+  if (collectiveUids.length === 0) {
+    return collectives;
+  }
+
+  const targetUids = new Set(collectiveUids);
+
+  return collectives.map((collective): Collective => {
+    if (!targetUids.has(collective.uid)) {
+      return collective;
+    }
+
+    let next = collective;
+
+    const latestWeightRecord = findLatestCollectiveRecord(records, collective.uid, 'weight');
+    if (latestWeightRecord?.weight?.trim()) {
+      next = {
+        ...next,
+        averageWeight: latestWeightRecord.weight.trim(),
+        weightUnit: latestWeightRecord.weightUnit === 'lb' ? 'lb' : 'kg',
+      };
+    }
+
+    const latestMovementRecord = findLatestCollectiveRecord(records, collective.uid, 'location');
+    if (latestMovementRecord) {
+      // Prefer the uid link so a farm/location rename is picked up here too —
+      // the frozen toFarm/toLocation text is only the fallback.
+      const destinationFarm = latestMovementRecord.toFarmUid
+        ? farms.find((farm) => farm.uid === latestMovementRecord.toFarmUid)
+        : farms.find((farm) => equalsIgnoreCase(farm.name, latestMovementRecord.toFarm ?? ''));
+      const destinationLocation = latestMovementRecord.toLocationUid
+        ? locations.find((location) => location.uid === latestMovementRecord.toLocationUid)
+        : locations.find(
+            (location) =>
+              equalsIgnoreCase(location.name, latestMovementRecord.toLocation ?? '') &&
+              (!destinationFarm?.uid || location.farmUid === destinationFarm.uid),
+          );
+      next = {
+        ...next,
+        farmUid: destinationFarm?.uid,
+        farm: destinationFarm?.name ?? latestMovementRecord.toFarm?.trim() ?? '',
+        locationUid: destinationLocation?.uid,
+        location: destinationLocation?.name ?? latestMovementRecord.toLocation?.trim() ?? '',
+      };
+    }
+
+    return next;
+  });
+}
+
+/** `findLatestDimensionRecord`, addressed by collective instead of by animal. */
+function findLatestCollectiveRecord(
+  records: RecordEntry[],
+  collectiveUid: string,
+  dimension: NonNullable<ReturnType<typeof getRecordEffectDimension>>,
+) {
+  let latest: RecordEntry | null = null;
+  let latestTime = Number.NEGATIVE_INFINITY;
+
+  records.forEach((record) => {
+    if (record.collectiveUid !== collectiveUid || getRecordEffectDimension(record.type) !== dimension) {
+      return;
+    }
+
+    const time = parseStoredDate(record.date)?.getTime() ?? Number.NEGATIVE_INFINITY;
+
+    if (time > latestTime) {
+      latest = record;
+      latestTime = time;
+    }
+  });
+
+  return latest as RecordEntry | null;
 }
 
 // Among all records tying this animal to the given dimension, returns the
@@ -684,14 +851,14 @@ function computeRecordMutationImpact(
   nextRecords: RecordEntry[],
   animals: Animal[],
   farms: FarmEntity[],
-  paddocks: PaddockEntity[],
+  locations: LocationEntity[],
 ): RecordImpactChange[] {
   if (affectedUids.length === 0) {
     return [];
   }
 
   const targetUids = new Set(affectedUids);
-  const afterAnimals = rebuildAnimalsState(affectedUids, nextRecords, animals, farms, paddocks);
+  const afterAnimals = rebuildAnimalsState(affectedUids, nextRecords, animals, farms, locations);
   const changes: RecordImpactChange[] = [];
 
   animals.forEach((animal) => {
@@ -725,7 +892,7 @@ function formatDimensionValue(animal: Animal, dimension: 'weight' | 'location' |
   }
 
   if (dimension === 'location') {
-    return [animal.farm.trim(), animal.paddock.trim()].filter(Boolean).join(' • ') || 'Not set';
+    return [animal.farm.trim(), animal.location.trim()].filter(Boolean).join(' • ') || 'Not set';
   }
 
   return animal.status;
@@ -743,6 +910,131 @@ export function isStoredRecord(value: unknown): value is RecordEntry {
     typeof record.type === 'string' &&
     typeof record.animalTag === 'string'
   );
+}
+
+function isValidCreatedAt(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0 && !Number.isNaN(Date.parse(value));
+}
+
+/**
+ * Records stored before `createdAt` existed have no real entry time, which
+ * would collapse them all into one bucket under "Recently added". Derive one
+ * from position instead: storage is always newest-first (addRecord unshifts),
+ * so index 0 gets the latest synthetic time and the last index the earliest,
+ * preserving the order that is already there. The values are tiny next to a
+ * real Date.now() timestamp, so any record with a genuine createdAt still
+ * sorts as more recent than any backfilled one. Mirrors synthesizeCreatedAt
+ * in AnimalsContext.
+ */
+export function backfillRecordCreatedAt(records: RecordEntry[]): RecordEntry[] {
+  return records.map((record, index) =>
+    isValidCreatedAt(record.createdAt)
+      ? record
+      : { ...record, createdAt: new Date((records.length - index) * 1000).toISOString() },
+  );
+}
+
+/**
+ * Maps types that were renamed after they shipped in a build onto their
+ * current names, so a record saved as `Average Weight` loads as `Weight` and
+ * filters, Reports and View Record all see one canonical set. The stored
+ * `title` carries the old type as a `Type: detail` prefix, which View Record
+ * strips by matching `type` — so the prefix has to be rewritten with it or the
+ * headline keeps the dead name.
+ */
+export function migrateLegacyRecordTypes(records: RecordEntry[]): RecordEntry[] {
+  return records.map((record) => {
+    const renamedType = LEGACY_RECORD_TYPE_RENAMES[record.type];
+
+    if (!renamedType) {
+      return record;
+    }
+
+    const prefix = `${record.type}:`;
+
+    return {
+      ...record,
+      type: renamedType,
+      title: record.title.startsWith(prefix)
+        ? `${renamedType}:${record.title.slice(prefix.length)}`
+        : record.title,
+    };
+  });
+}
+
+/**
+ * Locations were called Paddocks, and a record carries four frozen location
+ * keys plus its own. Without this, every stored Movement record would keep its
+ * from/to under dead names and read as though it went nowhere — the fields are
+ * display snapshots, so nothing else would have rebuilt them.
+ *
+ * Each record migrates once, on the first load after updating; the renamed
+ * shape is what gets written back to storage.
+ */
+export function migrateLegacyRecordLocations(records: RecordEntry[]): RecordEntry[] {
+  const RENAMES: [string, string][] = [
+    ['fromPaddock', 'fromLocation'],
+    ['fromPaddockUid', 'fromLocationUid'],
+    ['toPaddock', 'toLocation'],
+    ['toPaddockUid', 'toLocationUid'],
+  ];
+
+  // `animalStateBefore` holds a per-animal snapshot that carries the same two
+  // keys, so it needs the same treatment or an undo/edit would restore an
+  // animal to nowhere.
+  const SNAPSHOT_RENAMES: [string, string][] = [
+    ['paddock', 'location'],
+    ['paddockUid', 'locationUid'],
+  ];
+
+  const rename = (source: Record<string, unknown>, pairs: [string, string][]) => {
+    let next: Record<string, unknown> | null = null;
+
+    for (const [oldKey, newKey] of pairs) {
+      const value = source[oldKey];
+
+      // Only fills a gap — anything already carrying the new key keeps it.
+      if (typeof value !== 'string' || !value.trim() || source[newKey] !== undefined) {
+        continue;
+      }
+
+      next = { ...(next ?? source), [newKey]: value };
+    }
+
+    if (!next) {
+      return null;
+    }
+
+    // Drop the dead keys so rewritten storage does not carry both.
+    for (const [oldKey] of pairs) {
+      delete next[oldKey];
+    }
+
+    return next;
+  };
+
+  return records.map((record) => {
+    const migrated = rename(record as unknown as Record<string, unknown>, RENAMES);
+    const snapshots = record.animalStateBefore;
+    let migratedSnapshots: Record<string, unknown> | null = null;
+
+    for (const [animalUid, snapshot] of Object.entries(snapshots ?? {})) {
+      const next = rename(snapshot as unknown as Record<string, unknown>, SNAPSHOT_RENAMES);
+
+      if (next) {
+        migratedSnapshots = { ...(migratedSnapshots ?? snapshots), [animalUid]: next };
+      }
+    }
+
+    if (!migrated && !migratedSnapshots) {
+      return record;
+    }
+
+    return {
+      ...(migrated ?? record),
+      ...(migratedSnapshots ? { animalStateBefore: migratedSnapshots } : {}),
+    } as RecordEntry;
+  });
 }
 
 export function ensureUniqueRecordIds(records: RecordEntry[]) {
@@ -795,22 +1087,27 @@ function recordMatchesFilters(
   animals: Animal[],
   lookup: AnimalLookup,
 ) {
-  const searchQuery = filters.searchQuery.trim().toLowerCase();
   const animalIdQuery = filters.animalIdQuery.trim().toLowerCase();
   const animalNameQuery = filters.animalNameQuery.trim().toLowerCase();
   const recordDate = parseRecordDate(record.date);
   const startDate = filters.startDate ? parseRecordDate(filters.startDate) : null;
   const endDate = filters.endDate ? parseRecordDate(filters.endDate) : null;
 
-  if (searchQuery && !record.title.toLowerCase().includes(searchQuery)) {
-    return false;
-  }
-
   if (startDate && recordDate && recordDate < startDate) {
     return false;
   }
 
   if (endDate && recordDate && recordDate > endDate) {
+    return false;
+  }
+
+  // Defaults applied rather than read straight off `filters`: this same
+  // matcher runs against filter objects built elsewhere (and against ones
+  // held across a hot reload), where a newer key may simply be absent — and
+  // an absent kind must mean "all", not "match nothing".
+  const kind = filters.kind ?? 'all';
+
+  if (kind !== 'all' && recordKind(record) !== kind) {
     return false;
   }
 
@@ -827,7 +1124,7 @@ function recordMatchesFilters(
   // lookups), and most filter passes (plain search, date range, species,
   // record type) never need it at all.
   const needsRelatedAnimals =
-    Boolean(animalIdQuery) || Boolean(animalNameQuery) || filters.farms.length > 0 || filters.paddocks.length > 0;
+    Boolean(animalIdQuery) || Boolean(animalNameQuery) || filters.farms.length > 0 || filters.locations.length > 0;
   const relatedAnimals = needsRelatedAnimals ? findRelatedAnimals(record, animals, lookup) : [];
 
   if (
@@ -854,8 +1151,8 @@ function recordMatchesFilters(
   }
 
   if (
-    filters.paddocks.length > 0 &&
-    !relatedAnimals.some((animal) => filters.paddocks.some((paddock) => equalsIgnoreCase(paddock, animal.paddock)))
+    filters.locations.length > 0 &&
+    !relatedAnimals.some((animal) => filters.locations.some((location) => equalsIgnoreCase(location, animal.location)))
   ) {
     return false;
   }
@@ -890,6 +1187,24 @@ function findRelatedAnimals(record: RecordEntry, animals: Animal[], lookup: Anim
   // backfilled on restore (see restoreRecords above). Falls back to the
   // general, slower name/tag matching resolver.
   return findRecordAnimals(record, animals);
+}
+
+function recordKind(record: RecordEntry): Exclude<RecordKindFilter, 'all'> {
+  return record.collectiveUid ? 'collective' : 'individual';
+}
+
+/**
+ * Whether any filter differs from its default. Not a truthiness sweep over the
+ * values: `kind` defaults to the non-empty string 'all', which a plain
+ * `Boolean(value)` check would read as an active filter forever.
+ */
+export function hasActiveRecordFilters(filters: RecordFilters) {
+  return (Object.keys(filters) as Array<keyof RecordFilters>).some((key) => {
+    const value = filters[key];
+    const fallback = DEFAULT_RECORD_FILTERS[key];
+
+    return Array.isArray(value) ? value.length > 0 : (value ?? fallback) !== fallback;
+  });
 }
 
 function equalsIgnoreCase(left: string, right: string) {

@@ -118,48 +118,32 @@ function AppDataGate() {
                           gestureEnabled: false,
                         }}
                       />
+                      {/* The add screens open with no transition at all: the
+                          circular reveal that used to cover this handover was
+                          removed, and a push slide in its place would only put
+                          a different wait in front of the form. */}
                       <Stack.Screen
                         name="add-record"
-                        options={({ route }) =>
-                          (route.params as { reveal?: string } | undefined)?.reveal === '1'
-                            ? {
-                                animation: 'none',
-                                contentStyle: { backgroundColor: 'transparent' },
-                                presentation: 'transparentModal',
-                              }
-                            : {
-                                animation: 'simple_push',
-                                animationDuration: 280,
-                              }
-                        }
+                        options={{ animation: 'none' }}
                       />
                       <Stack.Screen
+                        name="add-collective"
+                        options={{ animation: 'none' }}
+                      />
+                      <Stack.Screen
+                        name="add-collective-record"
+                        options={{ animation: 'none' }}
+                      />
+                      {/* Reached from the Animals tab or from a record's
+                          animal selector — either way it is the same add
+                          screen, so it appears the same way the other add
+                          screens do. It used to open as a fullScreenModal from
+                          the selector, which slid up from the bottom and read
+                          as a different kind of screen than the one the same
+                          button opens everywhere else. */}
+                      <Stack.Screen
                         name="add-animal"
-                        options={({ route }) => {
-                          const params = route.params as
-                            | { reveal?: string; returnToRecordSelector?: string }
-                            | undefined;
-
-                          if (params?.returnToRecordSelector === '1') {
-                            return {
-                              animation: 'simple_push',
-                              animationDuration: 280,
-                              contentStyle: { backgroundColor: '#F7F5F6' },
-                              presentation: 'fullScreenModal',
-                            };
-                          }
-
-                          return params?.reveal === '1'
-                            ? {
-                                animation: 'none',
-                                contentStyle: { backgroundColor: 'transparent' },
-                                presentation: 'transparentModal',
-                              }
-                            : {
-                                animation: 'simple_push',
-                                animationDuration: 280,
-                              };
-                        }}
+                        options={{ animation: 'none' }}
                       />
                       <Stack.Screen
                         name="view-record"
@@ -228,7 +212,7 @@ function AppDataGate() {
                         })}
                       />
                       <Stack.Screen
-                        name="setup-paddocks"
+                        name="setup-locations"
                         options={({ route }) => ({
                           animation: 'none',
                           contentStyle: { backgroundColor: '#F7F5F6' },
@@ -241,7 +225,7 @@ function AppDataGate() {
                         })}
                       />
                       <Stack.Screen
-                        name="setup-groups"
+                        name="setup-labels"
                         options={({ route }) => ({
                           animation: 'none',
                           contentStyle: { backgroundColor: '#F7F5F6' },

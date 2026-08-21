@@ -18,21 +18,21 @@ const FEEDBACK_CARD_DISMISSED_KEY = 'setupFeedbackCardDismissed';
 const SETUP_ITEMS: Array<{
   title: string;
   icon: AppIconName;
-  route: '/setup-farms' | '/setup-paddocks' | '/setup-groups' | '/setup-medicines';
-  collection: 'farms' | 'paddocks' | 'groups' | 'medicines';
+  route: '/setup-farms' | '/setup-locations' | '/setup-labels' | '/setup-medicines';
+  collection: 'farms' | 'locations' | 'labels' | 'medicines';
 }> = [
-  { title: 'Farms', icon: 'pin', route: '/setup-farms', collection: 'farms' },
-  { title: 'Paddocks', icon: 'sprout', route: '/setup-paddocks', collection: 'paddocks' },
-  { title: 'Groups', icon: 'tag', route: '/setup-groups', collection: 'groups' },
+  { title: 'Farms', icon: 'sprout', route: '/setup-farms', collection: 'farms' },
+  { title: 'Locations', icon: 'pin', route: '/setup-locations', collection: 'locations' },
+  { title: 'Labels', icon: 'tag', route: '/setup-labels', collection: 'labels' },
   { title: 'Medicines & Vaccines', icon: 'medicine', route: '/setup-medicines', collection: 'medicines' },
 ];
 
 export default function SetupScreen() {
   const router = useRouter();
-  const { farms, paddocks, groups, medicines } = useSetup();
+  const { farms, locations, labels, medicines } = useSetup();
   const { step } = useOnboarding();
   const isFocused = useIsFocused();
-  const counts = { farms: farms.length, paddocks: paddocks.length, groups: groups.length, medicines: medicines.length };
+  const counts = { farms: farms.length, locations: locations.length, labels: labels.length, medicines: medicines.length };
 
   const farmCardRef = useRef<View>(null);
   useSpotlightTarget('setup', step === 'setup' && isFocused, farmCardRef);
