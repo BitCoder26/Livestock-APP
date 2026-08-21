@@ -195,3 +195,37 @@ if (canHover) {
 
   observer.observe(demo);
 })();
+
+// The app screens rise into place as they are reached, rather than being
+// there already when the section scrolls into view.
+(function () {
+  var screens = document.querySelectorAll('.feature-screen-image, .reports-graphic img');
+
+  if (!screens.length || !window.IntersectionObserver) {
+    return;
+  }
+
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return;
+  }
+
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) {
+        return;
+      }
+
+      entry.target.classList.add('is-revealed');
+      // Each screen rises once; coming back to it should find it in place.
+      observer.unobserve(entry.target);
+    });
+  }, { threshold: 0.15 });
+
+  Array.prototype.forEach.call(screens, function (screen) {
+    // The hidden state is added here, not in the stylesheet: a reader whose
+    // script never ran would otherwise be left with blank space where the
+    // screens should be.
+    screen.classList.add('reveal');
+    observer.observe(screen);
+  });
+})();
