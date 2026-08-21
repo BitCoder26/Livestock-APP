@@ -548,16 +548,14 @@ h2,
    pointer events fall through to the links underneath. */
 .hero-usp {
   position: relative;
-  aspect-ratio: 35 / 24;
   pointer-events: none;
 }
 
-.hero-blob {
-  position: absolute;
-  top: -6%;
-  right: 7.2%;
-  z-index: 2;
-  width: 48.4%;
+.hero-blob,
+.hero-blob img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .hero-phone {
@@ -569,10 +567,8 @@ h2,
   height: auto;
 }
 
-.hero-blob img {
-  display: block;
-  width: 100%;
-  height: auto;
+.hero-phone-new {
+  z-index: 2;
 }
 
 .hero-animal {
@@ -2569,6 +2565,10 @@ h2,
   }
 
   .hero-blob {
+    order: 2;
+  }
+
+  .hero-phone {
     position: static;
     order: 1;
     width: 94%;
@@ -2576,18 +2576,11 @@ h2,
     margin: -4% auto -6%;
   }
 
-  .hero-usp {
-    aspect-ratio: auto;
-  }
-
-  .hero-phone {
+  .hero-phone-new {
     position: absolute;
     top: -4%;
     left: 3%;
-    z-index: 1;
-    width: 94%;
-    max-width: 430px;
-    height: auto;
+    z-index: 2;
   }
 
   /* The phone artwork already carries its animals, so the separate hero
