@@ -687,6 +687,7 @@ h2,
 }
 
 .flow-step {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -725,6 +726,25 @@ h2,
   font-weight: 600;
   /* The icon canvases carry padding; pull the label up toward the artwork. */
   margin-top: -30px;
+}
+
+/* Answers the "so I would have to type them all in" the first step invites,
+   at the moment it is invited. Set under the label in smaller, softer type:
+   an aside to the step, not a fifth step. */
+/* Hung below the step rather than added to it: the row centres its steps on
+   one another, so a taller first step would lift its icon and label out of
+   line with the three beside it. */
+.flow-note {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+  color: #4a4442;
+  font-size: 0.92rem;
+  font-weight: 500;
+  font-style: italic;
+  white-space: nowrap;
 }
 
 .flow-num {
