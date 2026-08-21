@@ -221,7 +221,7 @@ h2,
    third underline in the column once the jump link arrived below it; the
    weight carries the emphasis instead. */
 .hero-highlight {
-  color: var(--banner-red);
+  color: #f3a90a;
   font-weight: 800;
 }
 
@@ -651,6 +651,27 @@ h2,
   gap: 20px;
 }
 
+/* The same pill the FAQ list ends on, so the two reads-more sit in one
+   family; left-aligned here because the copy above it is. */
+.how-guide-link {
+  display: inline-block;
+  margin-top: 18px;
+  padding: 13px 26px;
+  border-radius: 999px;
+  border: 2px solid #c95656;
+  background: #c95656;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.how-guide-link:hover {
+  background: transparent;
+  color: #c95656;
+}
+
 .how-flow {
   display: flex;
   align-items: center;
@@ -721,9 +742,9 @@ h2,
 .flow-arrow {
   display: block;
   flex: 0 0 auto;
-  width: 104px;
+  width: 92px;
   height: auto;
-  margin: -30px -35px 0;
+  margin: -26px -31px 0;
 }
 
 
@@ -1136,7 +1157,7 @@ h2,
   position: absolute;
   /* Off the top right corner of the row, below the copy: the arrow runs down
      into the cards and the word sits above its tail. */
-  top: 206px;
+  top: 178px;
   left: 88%;
   display: flex;
   flex-direction: column;
@@ -1149,7 +1170,7 @@ h2,
 .hover-hint-word {
   align-self: flex-start;
   /* Up and in from the arrow's tail rather than sitting square on it. */
-  margin: -26px 0 0 66px;
+  margin: -34px 0 0 66px;
   color: #f3a90a;
   font-size: clamp(1rem, 1.6vw, 1.6rem);
   font-weight: 800;
@@ -1490,9 +1511,9 @@ h2,
   display: inline-block;
   padding: 13px 26px;
   border-radius: 999px;
-  border: 2px solid #f3a90a;
-  background: #f3a90a;
-  color: #ffffff;
+  border: 2px solid #ffffff;
+  background: #ffffff;
+  color: #c95656;
   font-weight: 700;
   font-size: 0.95rem;
   text-decoration: none;
@@ -1502,7 +1523,7 @@ h2,
 /* Hollow on hover: the fill drops away and the outline and label carry it. */
 .community-banner-link:hover {
   background: transparent;
-  color: #f3a90a;
+  color: #ffffff;
 }
 
 .faq-view-all {
@@ -2129,7 +2150,7 @@ h2,
 }
 
 .footer-col a:hover {
-  color: #000000;
+  color: #f3a90a;
 }
 
 /* The artwork carries white sky above and a white strip below the ground;
