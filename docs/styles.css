@@ -2569,22 +2569,7 @@ h2,
   }
 
   .hero-phone {
-    position: static;
-    order: 1;
-    width: 94%;
-    max-width: 430px;
-    margin: -4% auto -6%;
-  }
-
-  .hero-phone:not(.hero-phone-new) {
     display: none;
-  }
-
-  .hero-phone-new {
-    position: absolute;
-    top: -4%;
-    left: 3%;
-    z-index: 2;
   }
 
   /* The phone artwork already carries its animals, so the separate hero
