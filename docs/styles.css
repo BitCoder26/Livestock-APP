@@ -548,24 +548,20 @@ h2,
    pointer events fall through to the links underneath. */
 .hero-usp {
   position: relative;
+  aspect-ratio: 35 / 24;
   pointer-events: none;
 }
 
-.hero-blob,
-.hero-blob img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-/* The phone and animals sit inside the blob; percentages track the blob
-   image so they scale with it. Their canvases carry large transparent
-   margins, hence the generous widths. */
-.hero-phone {
+.hero-blob {
   position: absolute;
   top: -6%;
   right: 7.2%;
   width: 48.4%;
+}
+
+.hero-blob img {
+  display: block;
+  width: 100%;
   height: auto;
 }
 
@@ -2563,7 +2559,15 @@ h2,
   }
 
   .hero-blob {
-    order: 2;
+    position: static;
+    order: 1;
+    width: 94%;
+    max-width: 430px;
+    margin: -4% auto -6%;
+  }
+
+  .hero-usp {
+    aspect-ratio: auto;
   }
 
   /* The phone artwork already carries its animals, so the separate hero
@@ -2592,19 +2596,6 @@ h2,
     margin-right: calc(50% - 50vw);
     margin-top: -56px;
     margin-bottom: -24px;
-  }
-
-  /* Out of the blob and into the flow beneath it, at a size a phone screen
-     can actually read. */
-  .hero-phone {
-    position: static;
-    order: 1;
-    width: 94%;
-    /* Phone-sized on a phone; the cap keeps it sane on tablet widths, which
-       this breakpoint also covers. */
-    max-width: 430px;
-    /* The negative bottom draws the blob up under the mockups. */
-    margin: -4% auto -6%;
   }
 
   /* The list picks up 22px of side padding from the panel rule it shares
