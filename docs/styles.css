@@ -1148,7 +1148,8 @@ h2,
 
 .hover-hint-word {
   align-self: flex-start;
-  margin-left: 26px;
+  /* Up and in from the arrow's tail rather than sitting square on it. */
+  margin: -14px 0 0 44px;
   color: #f3a90a;
   font-size: clamp(1rem, 1.6vw, 1.6rem);
   font-weight: 800;
