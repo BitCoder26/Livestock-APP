@@ -229,10 +229,10 @@ if (canHover) {
       var box = screen.getBoundingClientRect();
 
       // Starts as the top edge clears the bottom of the window, finishes when
-      // it has travelled a third of the window up from there — a long enough
-      // run that the screen is still arriving while it is being read.
+      // it has travelled half a window up from there — a long enough run that
+      // the screen is still arriving while it is being read.
       var travelled = height - box.top;
-      var distance = height / 3 + box.height / 4;
+      var distance = height / 2 + box.height / 4;
       // A window with no height is a window drawing nothing; leave the screen
       // showing rather than dividing by it.
       var progress = distance > 0 ? travelled / distance : 1;
