@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from 'react-native';
 import { Text } from '../theme/text';
@@ -7,6 +7,10 @@ import { AppIcon } from './AppIcon';
 import { BouncyPressable } from './BouncyPressable';
 import { tokens } from '../theme/tokens';
 import { FAST_AMBIENT_MOTION_DURATION, FAST_MOTION_DURATION } from '../utils/motion';
+
+const UPGRADE_SHIMMER_DURATION = FAST_AMBIENT_MOTION_DURATION * 4;
+const UPGRADE_SHIMMER_FADE_DURATION = FAST_MOTION_DURATION * 3;
+const UPGRADE_SHIMMER_HOLD_DURATION = UPGRADE_SHIMMER_DURATION - UPGRADE_SHIMMER_FADE_DURATION * 2;
 
 // Lives here rather than on the Account screen because the drawer shows the
 // same card — one plan card, drawn from one place.
@@ -104,8 +108,8 @@ function ProPlanCard({
 
 function UpgradeButton({ onPress, tone }: { onPress: () => void; tone: PlanCardTone }) {
   const isAccent = tone === 'accent';
-  const shimmerX = useRef(new Animated.Value(-54)).current;
-  const shimmerOpacity = useRef(new Animated.Value(0)).current;
+  const [shimmerX] = useState(() => new Animated.Value(-54));
+  const [shimmerOpacity] = useState(() => new Animated.Value(0));
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -140,20 +144,20 @@ function UpgradeButton({ onPress, tone }: { onPress: () => void; tone: PlanCardT
       return Animated.parallel([
         Animated.timing(shimmerX, {
           toValue: 270,
-          duration: FAST_AMBIENT_MOTION_DURATION,
+          duration: UPGRADE_SHIMMER_DURATION,
           easing: Easing.inOut(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.sequence([
           Animated.timing(shimmerOpacity, {
             toValue: 0.24,
-            duration: FAST_MOTION_DURATION,
+            duration: UPGRADE_SHIMMER_FADE_DURATION,
             useNativeDriver: true,
           }),
-          Animated.delay(FAST_MOTION_DURATION * 2),
+          Animated.delay(UPGRADE_SHIMMER_HOLD_DURATION),
           Animated.timing(shimmerOpacity, {
             toValue: 0,
-            duration: FAST_MOTION_DURATION,
+            duration: UPGRADE_SHIMMER_FADE_DURATION,
             useNativeDriver: true,
           }),
         ]),
