@@ -4,7 +4,7 @@
     "owner": "diogenistom",
     "slug": "livestock-app",
     "scheme": "app.livestockbook",
-    "version": "2.2",
+    "version": "2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -25,7 +25,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 4,
+      "versionCode": 5,
       "package": "app.livestockbook"
     },
     "web": {
