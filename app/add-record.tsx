@@ -2,8 +2,9 @@ import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Image, Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, Image, Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../src/theme/text';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
@@ -32,7 +33,7 @@ import { useSubscription } from '../src/context/SubscriptionContext';
 import { formatCurrencyAmount, formatCurrencyPrefix } from '../src/entities/account';
 import type { Animal, AnimalAgeUnit, AnimalSex, AnimalWeightUnit } from '../src/entities/animal';
 import type { RecordEntry } from '../src/entities/record';
-import { tokens } from '../src/theme/tokens';
+import { TAB_ALIGNED_FAB_BOTTOM_OFFSET, tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
 import { filterAccessibleImageUris, persistRecordImage } from '../src/utils/imageStorage';
 import { findRecordAnimals, resolveRecordAnimalUids } from '../src/utils/recordAnimals';
@@ -94,7 +95,6 @@ const FIELD_NOTES: Record<string, { title: string; description: string }> = {
 type MovementPickerKey = (typeof MOVEMENT_PICKERS)[number];
 
 export default function AddRecordScreen() {
-  const insets = useSafeAreaInsets();
   const [fieldNote, setFieldNote] = useState<(typeof FIELD_NOTES)[string] | null>(null);
   const showFieldNote = (key: keyof typeof FIELD_NOTES) => () => setFieldNote(FIELD_NOTES[key]);
   const router = useRouter();
@@ -2087,7 +2087,7 @@ export default function AddRecordScreen() {
       <FloatingActionButton
         accessibilityLabel={isEditing ? 'Save record changes' : 'Save record'}
         icon="check"
-        bottomOffset={insets.bottom + 78}
+        bottomOffset={TAB_ALIGNED_FAB_BOTTOM_OFFSET}
         onPress={handleSave}
       />
 
@@ -2111,7 +2111,7 @@ export default function AddRecordScreen() {
       ) : null}
 
       <Modal
-        animationType="fade"
+        animationType="none"
         transparent
         visible={showUpdateImpactConfirm}
         onRequestClose={cancelUpdateImpact}
@@ -2541,7 +2541,7 @@ export default function AddRecordScreen() {
                 onPress={() => setShowBirthSpeciesPicker(false)}
                 style={styles.speciesModalClose}
               >
-                <AppIcon name="close" size={16} color={tokens.colors.text} />
+                <AppIcon name="close" size={26} color={tokens.colors.text} />
               </Pressable>
             </View>
 
@@ -2698,7 +2698,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.accent,
   },
   typeChipIdle: {
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
   },
   typeChipDisabled: {
     opacity: 0.45,
@@ -2766,7 +2766,7 @@ const styles = StyleSheet.create({
   },
   formCard: {
     borderRadius: 24,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     padding: 16,
     gap: 18,
   },
@@ -3034,7 +3034,7 @@ const styles = StyleSheet.create({
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3091,7 +3091,7 @@ const styles = StyleSheet.create({
     width: '48%',
     minHeight: 74,
     borderRadius: 16,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',

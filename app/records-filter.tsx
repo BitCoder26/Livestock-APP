@@ -1,18 +1,8 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Animated,
-  Easing,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
@@ -20,6 +10,12 @@ import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { SPECIES_OPTIONS } from '../src/constants/records';
 import { deriveRecordTypeOptions } from '../src/utils/recordTypeOptions';
+import {
+  DATE_RANGE_PRESETS,
+  matchDateRangePreset,
+  resolveDateRangePreset,
+  type DateRangePresetKey,
+} from '../src/utils/dateRangePresets';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
 import {
@@ -36,7 +32,7 @@ import { SHEET_ENTRANCE_DURATION } from '../src/utils/motion';
 type MultiSelectKey = 'species' | 'recordTypes' | 'farms' | 'locations';
 type DateFieldKey = 'startDate' | 'endDate';
 
-const FILTER_FIELD_SURFACE = '#F5F3F7';
+const FILTER_FIELD_SURFACE = '#EFECF0';
 
 const KIND_OPTIONS: Array<{ value: RecordKindFilter; label: string }> = [
   { value: 'all', label: 'All' },
@@ -61,6 +57,19 @@ export default function RecordsFilterScreen() {
   const [focusedField, setFocusedField] = useState<'animalId' | 'animalName' | null>(null);
   const [activeMultiSelect, setActiveMultiSelect] = useState<MultiSelectKey | null>(null);
   const [activeDateField, setActiveDateField] = useState<DateFieldKey | null>(null);
+
+  // Highlighted only while the range still equals what the preset produces, so
+  // editing either date by hand quietly deselects the chip rather than leaving
+  // it claiming a range it no longer describes.
+  const activeDatePreset = useMemo(
+    () => matchDateRangePreset({ startDate: draftFilters.startDate, endDate: draftFilters.endDate }),
+    [draftFilters.endDate, draftFilters.startDate],
+  );
+
+  function applyDatePreset(key: DateRangePresetKey) {
+    const range = resolveDateRangePreset(key);
+    setDraftFilters((current) => ({ ...current, startDate: range.startDate, endDate: range.endDate }));
+  }
   const entrance = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -222,7 +231,7 @@ export default function RecordsFilterScreen() {
               onPress={() => router.back()}
               style={styles.closeButton}
             >
-              <AppIcon name="close" size={22} color="#000" />
+              <AppIcon name="close" size={26} color="#000" />
             </Pressable>
           </View>
 
@@ -257,6 +266,30 @@ export default function RecordsFilterScreen() {
 
             <View style={styles.block}>
               <Text style={styles.label}>By Date</Text>
+              <View style={styles.chipRow}>
+                {DATE_RANGE_PRESETS.map((preset) => (
+                  <Pressable
+                    key={preset.key}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: activeDatePreset === preset.key }}
+                    onPress={() => applyDatePreset(preset.key)}
+                    style={({ pressed }) => [
+                      styles.presetChip,
+                      activeDatePreset === preset.key && styles.presetChipActive,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.presetChipText,
+                        activeDatePreset === preset.key && styles.presetChipTextActive,
+                      ]}
+                    >
+                      {preset.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
               <View style={styles.dualRow}>
                 <Pressable
                   accessibilityLabel="Select start date"
@@ -314,18 +347,24 @@ export default function RecordsFilterScreen() {
             </View>
 
             <View style={styles.block}>
-              <Text style={styles.label}>By Animal</Text>
+              <Text style={styles.label}>By animal ID or name</Text>
               <View style={styles.dualRow}>
                 <View
                   style={[styles.searchFieldHalf, focusedField === 'animalId' && styles.searchFieldFocused]}
                 >
                   <AppIcon name="search" size={18} color="#6f6f6f" />
                   <TextInput
-                    placeholder="Search ID"
+                    accessibilityLabel="Search by animal ID"
+                    placeholder="e.g. UK1234"
                     placeholderTextColor="#7a7a7a"
                     style={styles.searchInput}
                     value={draftFilters.animalIdQuery}
                     onChangeText={(value) => updateFilter('animalIdQuery', value)}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    clearButtonMode="while-editing"
+                    returnKeyType="search"
                     onFocus={() => setFocusedField('animalId')}
                     onBlur={() => setFocusedField(null)}
                   />
@@ -335,11 +374,17 @@ export default function RecordsFilterScreen() {
                 >
                   <AppIcon name="search" size={18} color="#6f6f6f" />
                   <TextInput
-                    placeholder="Search name"
+                    accessibilityLabel="Search by animal name"
+                    placeholder="e.g. Bess"
                     placeholderTextColor="#7a7a7a"
                     style={styles.searchInput}
                     value={draftFilters.animalNameQuery}
                     onChangeText={(value) => updateFilter('animalNameQuery', value)}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    clearButtonMode="while-editing"
+                    returnKeyType="search"
                     onFocus={() => setFocusedField('animalName')}
                     onBlur={() => setFocusedField(null)}
                   />
@@ -559,7 +604,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   sheetHeaderSpacer: {
-    width: 30,
+    width: 34,
   },
   sheetTitle: {
     color: tokens.colors.text,
@@ -567,23 +612,42 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   closeButton: {
-    width: 30,
-    height: 30,
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sheetContent: {
-    gap: 16,
+    gap: 10,
     paddingBottom: 24,
   },
   block: {
-    gap: 8,
+    gap: 6,
   },
   label: {
     fontSize: 14,
     fontWeight: '500',
     color: tokens.colors.text,
   },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  // Matches the "By Kind" segments above — same surface, radius and type — but
+  // hugs its label instead of splitting the row four ways, which at four
+  // options would squeeze "Last 12 months" to nothing.
+  presetChip: {
+    minHeight: 36,
+    borderRadius: 18,
+    backgroundColor: FILTER_FIELD_SURFACE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  presetChipActive: { backgroundColor: tokens.colors.accent },
+  presetChipText: { color: '#544F49', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  presetChipTextActive: { color: '#fff' },
   dualRow: {
     flexDirection: 'row',
     gap: 12,
@@ -645,12 +709,12 @@ const styles = StyleSheet.create({
   clearFilterButton: {
     minHeight: 52,
     borderRadius: 26,
-    backgroundColor: FILTER_FIELD_SURFACE,
+    backgroundColor: 'rgba(221, 101, 96, 0.14)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   clearFilterText: {
-    color: tokens.colors.text,
+    color: tokens.colors.accentDeep,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -726,7 +790,7 @@ const styles = StyleSheet.create({
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',

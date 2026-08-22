@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../theme/text';
 
 type RecordKindChipProps = {
   /** Title-cased kind: Individual, Herd, Flock, Batch… */

@@ -18,6 +18,7 @@ import CheckCircleIcon from '../../assets/icons/svg/check-circle.svg';
 import CheckIcon from '../../assets/icons/svg/check.svg';
 import ChickenIcon from '../../assets/icons/svg/chicken.svg';
 import ChevronDownIcon from '../../assets/icons/svg/chevron-down.svg';
+import ChevronRightBoldIcon from '../../assets/icons/svg/chevron-right-bold.svg';
 import ChevronRightIcon from '../../assets/icons/svg/chevron-right.svg';
 import ChevronRightMinimalIcon from '../../assets/icons/svg/chevron-right-minimal.svg';
 import CloseIcon from '../../assets/icons/svg/close.svg';
@@ -48,6 +49,7 @@ import HorseIcon from '../../assets/icons/svg/horse.svg';
 import InfoIcon from '../../assets/icons/svg/info.svg';
 import LlamaIcon from '../../assets/icons/svg/llama.svg';
 import MedicineIcon from '../../assets/icons/svg/medicine.svg';
+import HamburgerIcon from '../../assets/icons/svg/hamburger.svg';
 import MenuIcon from '../../assets/icons/svg/menu.svg';
 import MoreVerticalIcon from '../../assets/icons/svg/more-vertical.svg';
 import OstrichIcon from '../../assets/icons/svg/ostrich.svg';
@@ -87,6 +89,7 @@ import WebPortalIcon from '../../assets/icons/svg/web_portal.svg';
 import NotebookIcon from '../../assets/icons/svg/notebook.svg';
 import SaveIcon from '../../assets/icons/svg/save.svg';
 import ImageAddIcon from '../../assets/icons/svg/image-add.svg';
+import FacebookIcon from '../../assets/icons/svg/facebook.svg';
 import FemaleIcon from '../../assets/icons/svg/female.svg';
 import MaleIcon from '../../assets/icons/svg/male.svg';
 import ArrowRightCircleIconFilled from '../../assets/icons/svg/arrow-right-circle.svg';
@@ -112,6 +115,7 @@ const icons = {
   chicken: ChickenIcon,
   'chevron-down': ChevronDownIcon,
   'chevron-right': ChevronRightIcon,
+  'chevron-right-bold': ChevronRightBoldIcon,
   'chevron-right-minimal': ChevronRightMinimalIcon,
   close: CloseIcon,
   cow3: Cow3Icon,
@@ -131,6 +135,7 @@ const icons = {
   'export-download-outline': ExportFileDownloadOutlineIcon,
   'export-outline': ExportFileOutlineIcon,
   'enter-arrow': EnterArrowIcon,
+  facebook: FacebookIcon,
   female: FemaleIcon,
   filter: MenuIcon,
   'filter-funnel-outline': FilterFunnelOutlineIcon,
@@ -147,6 +152,7 @@ const icons = {
   llama: LlamaIcon,
   mail: MailIcon,
   medal: MedalIcon,
+  menu: HamburgerIcon,
   male: MaleIcon,
   medicine: MedicineIcon,
   'more-vertical': MoreVerticalIcon,

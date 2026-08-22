@@ -1,10 +1,12 @@
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../../src/theme/text';
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../src/components/AppIcon';
+import { useAppDrawer } from '../../src/components/AppDrawer';
 import { AppTopBar } from '../../src/components/AppTopBar';
 import { AnimatedPopupCard } from '../../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../../src/components/BouncyPressable';
@@ -24,7 +26,13 @@ import { useAnimals } from '../../src/context/AnimalsContext';
 import { useOnboarding, useSpotlightTarget } from '../../src/context/OnboardingContext';
 import { useSetup } from '../../src/context/SetupContext';
 import type { Animal, AnimalTone } from '../../src/entities/animal';
-import { tokens } from '../../src/theme/tokens';
+import { SegmentedToggle } from '../../src/components/SegmentedToggle';
+import {
+  ANIMAL_CARD_AVATAR_ICON_SIZE,
+  ANIMAL_CARD_AVATAR_RADIUS,
+  ANIMAL_CARD_AVATAR_SIZE,
+  tokens,
+} from '../../src/theme/tokens';
 import { MODAL_SHEET_ENTRANCE_DURATION, motionDuration } from '../../src/utils/motion';
 import { useThumbnailUri } from '../../src/utils/useThumbnailUri';
 
@@ -120,19 +128,19 @@ function sortCollectives(list: Collective[], sort: SortOption): Collective[] {
   }
 }
 
-// Holds the new card back until the save-time circular reveal has all but
-// finished, so it lands on a settled screen rather than sliding in behind the
-// mask. This is the *return* reveal in (tabs)/_layout.tsx — the forward one on
-// the add buttons was removed — so it tracks REVEAL_DURATION, 650 on iOS.
-const NEW_ANIMAL_CARD_ENTRANCE_DELAY = 580;
+// Saving now returns directly to the list, so the new card can enter at once.
+const NEW_ANIMAL_CARD_ENTRANCE_DELAY = 0;
 const ANIMAL_CARD_ENTRANCE_DURATION = motionDuration(260);
 // Removal is a response to a tap, so it runs shorter than the entrance and
 // without any delay at all — see the exit effect.
 const ANIMAL_CARD_EXIT_DURATION = motionDuration(200);
 let lastAnimatedAnimalUid: string | null = null;
 
+const CARD_CHEVRON_COLOR = tokens.colors.text;
+
 export default function AnimalsScreen() {
   const router = useRouter();
+  const { openDrawer } = useAppDrawer();
   const { newAnimalUid, deletingAnimalUid } = useLocalSearchParams<{
     newAnimalUid?: string;
     deletingAnimalUid?: string;
@@ -284,6 +292,11 @@ export default function AnimalsScreen() {
       <TabSwipeView>
         <AppTopBar
         title="Animals"
+        leftAction={{
+          icon: 'menu',
+          accessibilityLabel: 'Open menu',
+          onPress: openDrawer,
+        }}
         actions={[
           {
             icon: 'sort',
@@ -297,44 +310,21 @@ export default function AnimalsScreen() {
             onPress: openFilters,
             badge: hasActiveFilters,
           },
-          {
-            icon: 'profile',
-            accessibilityLabel: 'Open account',
-            onPress: () => router.push('/account'),
-          },
         ]}
       />
-      <ScrollView
-        contentContainerStyle={[styles.content, filteredAnimals.length === 0 && styles.emptyContent]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.segmentRow}>
-          {(['individual', 'collectives'] as const).map((option) => {
-            const selected = animalView === option;
-            return (
-              <Pressable
-                key={option}
-                accessibilityLabel={option === 'individual' ? 'Individual animals' : 'Herds and flocks'}
-                accessibilityRole="button"
-                onPress={() => setAnimalView(option)}
-                style={({ pressed }) => [
-                  styles.segmentButton,
-                  selected ? styles.segmentButtonActive : styles.segmentButtonIdle,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.85}
-                  numberOfLines={1}
-                  style={[styles.segmentText, selected ? styles.segmentTextActive : styles.segmentTextIdle]}
-                >
-                  {option === 'individual' ? 'Individual animals' : 'Herds & flocks'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+      <View style={styles.body}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+        <SegmentedToggle<'individual' | 'collectives'>
+          options={[
+            { key: 'individual', label: 'Individual', accessibilityLabel: 'Individual animals', count: animals.length },
+            { key: 'collectives', label: 'Herds & flocks', accessibilityLabel: 'Herds and flocks', count: collectives.length },
+          ]}
+          value={animalView}
+          onChange={setAnimalView}
+        />
         <ImportPromptBubble onPress={() => router.push('/import-animals')} />
         <Text style={styles.countText}>
           {animalView === 'collectives'
@@ -345,13 +335,7 @@ export default function AnimalsScreen() {
           <Text>{` · ${getSortLabel(appliedSort)}`}</Text>
         </Text>
         {animalView === 'collectives' ? (
-          collectives.length === 0 ? (
-            <View style={styles.emptyState}>
-              <AppIcon name="animals3" size={78} color="#E5E0E7" opacity={1} />
-              <Text style={styles.emptyTitle}>Empty</Text>
-              <Text style={styles.emptyText}>Add a herd or flock below</Text>
-            </View>
-          ) : (
+          collectives.length === 0 ? null : (
             <>
               {sortedCollectives.map((collective) => {
                 const term = collectiveTermForSpecies(collective.species);
@@ -427,19 +411,13 @@ export default function AnimalsScreen() {
                         </View>
                       </View>
                     </View>
-                    <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
+                    <AppIcon name="chevron-right-bold" size={22} color={CARD_CHEVRON_COLOR} />
                   </BouncyPressable>
                 );
               })}
             </>
           )
-        ) : filteredAnimals.length === 0 ? (
-          <View style={styles.emptyState}>
-            <AppIcon name="goat-face" size={78} color="#E5E0E7" opacity={1} />
-            <Text style={styles.emptyTitle}>Empty</Text>
-            <Text style={styles.emptyText}>{animals.length === 0 ? 'Add below' : 'No animals match your filters'}</Text>
-          </View>
-        ) : (
+        ) : filteredAnimals.length === 0 ? null : (
           sortedAnimals.map((animal) => {
             const theme = getSpeciesThemeByTone(animal.tone);
 
@@ -516,13 +494,37 @@ export default function AnimalsScreen() {
                     </View>
                   </View>
                 </View>
-                <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
+                <AppIcon name="chevron-right-bold" size={22} color={CARD_CHEVRON_COLOR} />
                 </BouncyPressable>
               </AnimalCardMotion>
             );
           })
         )}
-      </ScrollView>
+        </ScrollView>
+        {animalView === 'collectives' && collectives.length === 0 ? (
+          <View pointerEvents="none" style={styles.emptyState}>
+            <Image
+              source={require('../../assets/herd.png')}
+              resizeMode="contain"
+              style={styles.emptyEntityIcon}
+            />
+            <Text style={styles.emptyTitle}>Empty</Text>
+            <Text style={styles.emptyText}>Add a herd or flock below</Text>
+          </View>
+        ) : animalView === 'individual' && filteredAnimals.length === 0 ? (
+          <View pointerEvents="none" style={styles.emptyState}>
+            <Image
+              source={require('../../assets/individual.png')}
+              resizeMode="contain"
+              style={styles.emptyEntityIcon}
+            />
+            <Text style={styles.emptyTitle}>Empty</Text>
+            <Text style={styles.emptyText}>
+              {animals.length === 0 ? 'Add below' : 'No animals match your filters'}
+            </Text>
+          </View>
+        ) : null}
+      </View>
       <FabSpeedDial
         accessibilityLabel="Add animal"
         positionerRef={fabRef}
@@ -582,22 +584,29 @@ export default function AnimalsScreen() {
                 onPress={() => setShowFilterSheet(false)}
                 style={styles.closeButton}
               >
-                <AppIcon name="close" size={22} color="#000" />
+                <AppIcon name="close" size={26} color="#000" />
               </Pressable>
             </View>
 
             <ScrollView contentContainerStyle={styles.filterContent} showsVerticalScrollIndicator={false}>
               <View style={styles.filterBlock}>
-                <Text style={styles.filterLabel}>Search</Text>
+                <Text style={styles.filterLabel}>Search ID or name</Text>
                 <View style={[styles.searchField, searchFocused && styles.searchFieldFocused]}>
                   <AppIcon name="search" size={18} color="#6f6f6f" />
                   <TextInput
                     accessibilityLabel="Search by ID or name"
-                    placeholder="Search by ID or name"
+                    // The label above says what is searchable; the hint here is
+                    // a disposable example, so it can go once typing starts.
+                    placeholder="e.g. UK1234 or Bess"
                     placeholderTextColor="#7a7a7a"
                     style={styles.searchInput}
                     value={draftSearchQuery}
                     onChangeText={setDraftSearchQuery}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    clearButtonMode="while-editing"
+                    returnKeyType="search"
                     onFocus={() => setSearchFocused(true)}
                     onBlur={() => setSearchFocused(false)}
                   />
@@ -813,7 +822,7 @@ export default function AnimalsScreen() {
                 onPress={() => setShowSortSheet(false)}
                 style={styles.closeButton}
               >
-                <AppIcon name="close" size={22} color="#000" />
+                <AppIcon name="close" size={26} color="#000" />
               </Pressable>
             </View>
 
@@ -833,6 +842,7 @@ export default function AnimalsScreen() {
                     }}
                     style={({ pressed }) => [
                       styles.selectionRow,
+                      styles.sortRow,
                       isSelected && styles.sortRowActive,
                       pressed && styles.pressed,
                     ]}
@@ -956,11 +966,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  body: {
+    flex: 1,
+  },
   content: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 18,
     paddingBottom: 120,
-    gap: 8,
+    gap: 5,
   },
   viewToggle: {
     flexDirection: 'row',
@@ -970,64 +983,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     gap: 3,
   },
-  // Matches the Export tab's segmented control: two standalone pills rather
-  // than options inside a track.
-  segmentRow: {
-    flexDirection: 'row',
-    alignSelf: 'flex-start',
-    justifyContent: 'flex-start',
-    gap: 10,
-    // No extra margin — the content container's own gap is the only spacing
-    // between the toggle and the import card, keeping them visually paired.
-    marginBottom: 0,
-  },
-  // No flex: each button is only as wide as its own label, so the pair sits at
-  // the start of the row instead of splitting the screen in half.
-  // The two labels together are wide for one row on a small screen, and these
-  // buttons hug their text rather than flexing — so let them give ground before
-  // the text does.
-  segmentButton: {
-    flexShrink: 1,
-    minWidth: 0,
-    minHeight: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  segmentButtonActive: {
-    backgroundColor: tokens.colors.accent,
-  },
-  segmentButtonIdle: {
-    backgroundColor: '#F5F3F7',
-  },
-  segmentText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  segmentTextActive: {
-    color: '#fff',
-  },
-  segmentTextIdle: {
-    color: '#8A7F87',
-  },
   countText: {
     color: '#8A7F87',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     marginBottom: 4,
   },
-  emptyContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
   emptyState: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 28,
-    paddingTop: 72,
-    paddingBottom: 0,
+  },
+  emptyEntityIcon: {
+    width: 86,
+    height: 86,
+    tintColor: '#E5E0E7',
   },
   emptyTitle: {
     marginTop: 18,
@@ -1041,20 +1016,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
+  // A hairline instead of a drop shadow: the list reads as a set of tiles
+  // rather than a stack of floating slabs, and nothing bleeds between rows.
   card: {
     backgroundColor: tokens.colors.surface,
     borderRadius: 18,
-    minHeight: 84,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    minHeight: 74,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#DDD5D3',
+    // Far softer than the original 0.16 / 7 / 4: the border does the defining
+    // and this only warms the edge underneath. Brown rather than black so it
+    // sits in the same family as the border it falls behind.
+    shadowColor: '#3B2B28',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   cardPressed: {
     opacity: 0.92,
@@ -1088,7 +1070,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   sheetHeaderSpacer: {
-    width: 30,
+    width: 34,
   },
   sheetTitle: {
     color: tokens.colors.text,
@@ -1096,8 +1078,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   closeButton: {
-    width: 30,
-    height: 30,
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1119,7 +1101,7 @@ const styles = StyleSheet.create({
   searchField: {
     minHeight: 48,
     borderRadius: 24,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     borderWidth: 2,
     borderColor: 'transparent',
     paddingHorizontal: 18,
@@ -1141,7 +1123,7 @@ const styles = StyleSheet.create({
   pickerField: {
     minHeight: 48,
     borderRadius: 24,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1197,7 +1179,7 @@ const styles = StyleSheet.create({
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1209,6 +1191,9 @@ const styles = StyleSheet.create({
   },
   // Sort is a single choice, so the selected row is filled solid rather than
   // washed — the check mark and label go white to sit on it.
+  sortRow: {
+    borderRadius: 999,
+  },
   sortRowActive: {
     backgroundColor: tokens.colors.accent,
   },
@@ -1231,7 +1216,7 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     borderRadius: 999,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
@@ -1257,12 +1242,12 @@ const styles = StyleSheet.create({
   clearFilterButton: {
     minHeight: 52,
     borderRadius: 26,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: 'rgba(221, 101, 96, 0.14)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   clearFilterText: {
-    color: tokens.colors.text,
+    color: tokens.colors.accentDeep,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1286,9 +1271,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   speciesIconBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: ANIMAL_CARD_AVATAR_SIZE,
+    height: ANIMAL_CARD_AVATAR_SIZE,
+    borderRadius: ANIMAL_CARD_AVATAR_RADIUS,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -1300,7 +1285,7 @@ const styles = StyleSheet.create({
   },
   cardCopy: {
     flex: 1,
-    gap: 4,
+    gap: 1,
     minWidth: 0,
   },
   headerRow: {
@@ -1359,7 +1344,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   speciesChipText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
   },
   metaText: {
@@ -1377,14 +1362,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#E4EB92',
   },
   statusSold: {
-    backgroundColor: '#F1CF4B',
+    backgroundColor: tokens.colors.upgradeGold,
   },
   statusDeceased: {
     backgroundColor: '#F16A6A',
   },
   statusText: {
     color: '#333',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
 });
@@ -1413,7 +1398,7 @@ function AnimalCardAvatar({ animal }: { animal: Animal }) {
       ) : (
         <AppIcon
           name={getSpeciesIconName(animal.species, animal.tone)}
-          size={24}
+          size={ANIMAL_CARD_AVATAR_ICON_SIZE}
           color={theme.icon}
         />
       )}
@@ -1443,7 +1428,7 @@ function CollectiveCardAvatar({ collective, tone }: { collective: Collective; to
       ) : (
         <AppIcon
           name={getSpeciesIconName(collective.species, tone)}
-          size={24}
+          size={ANIMAL_CARD_AVATAR_ICON_SIZE}
           color={theme.icon}
         />
       )}
@@ -1506,4 +1491,3 @@ function getToneFallback(tone: AnimalTone) {
       return 'cow-copy';
   }
 }
-

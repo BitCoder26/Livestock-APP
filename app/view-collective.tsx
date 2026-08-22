@@ -1,18 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  Dimensions,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Dimensions, Image, Modal, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
@@ -336,7 +326,7 @@ export default function ViewCollectiveScreen() {
                   icon: 'more-vertical',
                   accessibilityLabel: `${capitalize(term)} options`,
                   onPress: openActionsMenu,
-                  size: 24,
+                  size: 28,
                   anchorRef: moreRef,
                 },
               ]
@@ -1101,16 +1091,18 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.surface,
     borderRadius: 18,
     minHeight: 84,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#DDD5D3',
+    shadowColor: '#3B2B28',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   recordCopy: { flex: 1, gap: 4 },
   recordTitle: { color: tokens.colors.text, fontSize: 16, fontWeight: '700' },

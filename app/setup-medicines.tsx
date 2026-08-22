@@ -1,7 +1,8 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
@@ -310,7 +311,7 @@ export default function SetupMedicinesScreen() {
                 <View style={styles.itemHeader}>
                   <View style={styles.itemTitleRow}>
                     <View style={styles.itemIconBadge}>
-                      <AppIcon name="medicine" size={22} color="#171717" />
+                      <AppIcon name="medicine" size={32} color="#171717" />
                     </View>
                     <View style={styles.itemHeadingCopy}>
                       <Text style={styles.itemTitle}>{medicine.name}</Text>
@@ -342,7 +343,7 @@ export default function SetupMedicinesScreen() {
 
       <Modal
         transparent
-        animationType="fade"
+        animationType="none"
         visible={treatmentPendingDelete !== null}
         onRequestClose={() => setTreatmentPendingDelete(null)}
       >
@@ -476,7 +477,7 @@ const styles = StyleSheet.create({
   typeChipText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
   typeChipTextActive: { color: '#fff' },
   emptyContent: { flexGrow: 1, justifyContent: 'center' },
-  editorCard: { borderRadius: 24, backgroundColor: '#F5F3F7', padding: 16, gap: 14 },
+  editorCard: { borderRadius: 24, backgroundColor: '#EFECF0', padding: 16, gap: 14 },
   block: { gap: 8 },
   label: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
   dateField: {
@@ -505,8 +506,17 @@ const styles = StyleSheet.create({
   addButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   editorActionsRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 12 },
   editorPrimaryButtonWrap: { flex: 1 },
-  cancelButton: { minHeight: 50, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
-  cancelButtonText: { color: tokens.colors.textSoft, fontSize: 14, fontWeight: '700' },
+  // Same translucent red as Clear filter: a secondary action that belongs to
+  // the accent family without competing with the solid Save button.
+  cancelButton: {
+    minHeight: 50,
+    paddingHorizontal: 22,
+    borderRadius: 25,
+    backgroundColor: 'rgba(221, 101, 96, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: { color: tokens.colors.accentDeep, fontSize: 14, fontWeight: '700' },
   list: { gap: 10 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingTop: 72 },
   emptyTitle: { marginTop: 18, color: '#E5E0E7', fontSize: 29, fontWeight: '700' },
@@ -525,16 +535,16 @@ const styles = StyleSheet.create({
   itemHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   itemTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, flex: 1 },
   itemIconBadge: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
+    width: 60,
+    height: 60,
+    borderRadius: 19,
     backgroundColor: '#FCE5E4',
     alignItems: 'center',
     justifyContent: 'center',
   },
   itemHeadingCopy: { flex: 1, gap: 2, minWidth: 0 },
   itemTitle: { color: tokens.colors.text, fontSize: 16, fontWeight: '700' },
-  itemSubtitle: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '600' },
+  itemSubtitle: { color: tokens.colors.text, fontSize: 12, fontWeight: '600' },
   itemActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   editButton: {
     width: 38,
@@ -558,7 +568,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F6F9',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    color: '#fff',
+    color: tokens.colors.text,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -656,7 +666,7 @@ const styles = StyleSheet.create({
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',

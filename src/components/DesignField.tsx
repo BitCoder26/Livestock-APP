@@ -1,5 +1,6 @@
 import { ReactNode, useRef, useState } from 'react';
-import { KeyboardTypeOptions, Pressable, StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
+import { KeyboardTypeOptions, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Text, TextInput } from '../theme/text';
 
 import { AppIcon, AppIconName } from './AppIcon';
 import { FieldLabel } from './FieldLabel';
@@ -16,6 +17,15 @@ type DesignFieldProps = {
    *  behaviour of echoing `value`, so existing callers are unaffected. */
   placeholder?: string;
   keyboardType?: KeyboardTypeOptions;
+  /**
+   * Turns the field into a search box: no autocorrect or auto-capitalisation,
+   * a clear button while editing, and a Search key on the keyboard.
+   *
+   * Autocorrect matters more here than it looks — livestock tags are
+   * alphanumeric strings like `UK123456700001`, and iOS will cheerfully
+   * "correct" one into something that matches nothing.
+   */
+  search?: boolean;
   onChangeText?: (value: string) => void;
   fieldStyle?: StyleProp<ViewStyle>;
   editable?: boolean;
@@ -32,6 +42,7 @@ export function DesignField({
   large = false,
   placeholder,
   keyboardType,
+  search = false,
   onChangeText,
   fieldStyle,
   editable = true,
@@ -65,6 +76,11 @@ export function DesignField({
             multiline={large}
             textAlignVertical={large ? 'top' : 'center'}
             keyboardType={keyboardType}
+            autoCorrect={search ? false : undefined}
+            autoCapitalize={search ? 'none' : undefined}
+            spellCheck={search ? false : undefined}
+            clearButtonMode={search ? 'while-editing' : undefined}
+            returnKeyType={search ? 'search' : undefined}
             cursorColor="#000"
             selectionColor="#000"
             value={onChangeText ? value : undefined}

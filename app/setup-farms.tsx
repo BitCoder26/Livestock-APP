@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
@@ -169,7 +170,7 @@ export default function SetupFarmsScreen() {
                 <View style={styles.itemHeader}>
                   <View style={styles.itemTitleRow}>
                     <View style={styles.itemIconBadge}>
-                      <AppIcon name="sprout" size={24} color="#171717" />
+                      <AppIcon name="sprout" size={32} color="#171717" />
                     </View>
                     <View style={styles.itemHeadingCopy}>
                       <Text style={styles.itemTitle}>{farm.name}</Text>
@@ -205,7 +206,7 @@ export default function SetupFarmsScreen() {
       </ScrollView>
       <Modal
         transparent
-        animationType="fade"
+        animationType="none"
         visible={farmPendingDelete !== null}
         onRequestClose={() => setFarmPendingDelete(null)}
       >
@@ -273,7 +274,7 @@ const styles = StyleSheet.create({
   },
   editorCard: {
     borderRadius: 24,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     padding: 16,
     gap: 14,
   },
@@ -306,14 +307,18 @@ const styles = StyleSheet.create({
   editorPrimaryButtonWrap: {
     flex: 1,
   },
+  // Same translucent red as Clear filter: a secondary action that belongs to
+  // the accent family without competing with the solid Save button.
   cancelButton: {
     minHeight: 50,
-    paddingHorizontal: 16,
+    paddingHorizontal: 22,
+    borderRadius: 25,
+    backgroundColor: 'rgba(221, 101, 96, 0.14)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButtonText: {
-    color: tokens.colors.textSoft,
+    color: tokens.colors.accentDeep,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -359,9 +364,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemIconBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 60,
+    height: 60,
+    borderRadius: 19,
     backgroundColor: '#FCE5E4',
     alignItems: 'center',
     justifyContent: 'center',

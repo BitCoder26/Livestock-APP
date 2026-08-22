@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, type TextStyle } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View, type TextStyle } from 'react-native';
+import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppTopBar } from '../src/components/AppTopBar';
-import { BouncyPressable } from '../src/components/BouncyPressable';
+import { SegmentedToggle } from '../src/components/SegmentedToggle';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useCollectives } from '../src/context/CollectivesContext';
@@ -109,7 +110,7 @@ export default function ReportsScreen() {
       return;
     }
 
-    router.replace('/account');
+    router.replace('/(tabs)/records');
   };
 
   const handleShare = async () => {
@@ -154,7 +155,14 @@ export default function ReportsScreen() {
 
       {!isLoaded ? null : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <PeriodControl value={period} onChange={setPeriod} />
+          <SegmentedToggle<ReportPeriod>
+            options={REPORT_PERIOD_OPTIONS.map((option) => ({
+              key: option.value,
+              label: option.label,
+            }))}
+            value={period}
+            onChange={setPeriod}
+          />
 
           <Section title="Individual Animals">
             {herdOverview.totalActive === 0 && herdOverview.soldCount === 0 && herdOverview.deceasedCount === 0 ? (
@@ -402,30 +410,6 @@ export default function ReportsScreen() {
         </ScrollView>
       )}
     </SafeAreaView>
-  );
-}
-
-function PeriodControl({ value, onChange }: { value: ReportPeriod; onChange: (value: ReportPeriod) => void }) {
-  return (
-    <View style={styles.periodTrack}>
-      {REPORT_PERIOD_OPTIONS.map((option) => {
-        const isActive = option.value === value;
-
-        return (
-          <BouncyPressable
-            key={option.value}
-            accessibilityLabel={option.label}
-            accessibilityRole="button"
-            accessibilityState={{ selected: isActive }}
-            containerStyle={styles.periodOptionWrap}
-            onPress={() => onChange(option.value)}
-            style={[styles.periodOption, isActive && styles.periodOptionActive]}
-          >
-            <Text style={[styles.periodOptionText, isActive && styles.periodOptionTextActive]}>{option.label}</Text>
-          </BouncyPressable>
-        );
-      })}
-    </View>
   );
 }
 
@@ -981,31 +965,6 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 120,
     gap: 22,
-  },
-  periodTrack: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  periodOptionWrap: {
-    flex: 1,
-  },
-  periodOption: {
-    height: 44,
-    borderRadius: tokens.radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F5F3F7',
-  },
-  periodOptionActive: {
-    backgroundColor: tokens.colors.accent,
-  },
-  periodOptionText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#8A7F87',
-  },
-  periodOptionTextActive: {
-    color: '#FFFFFF',
   },
   section: {
     gap: 14,

@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../theme/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from './AppIcon';
@@ -28,7 +29,7 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.wrap, { paddingTop: insets.top + 6 }]}>
+    <View style={[styles.wrap, { paddingTop: insets.top + 16 }]}>
       <View style={styles.row}>
         <View style={styles.leftGroup}>
           {leftAction ? (
@@ -40,7 +41,7 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
               pressedScale={0.84}
               style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
             >
-              <AppIcon name={leftAction.icon} size={24} />
+              <AppIcon name={leftAction.icon} size={28} color={leftAction.color ?? '#fff'} />
             </BouncyPressable>
           ) : null}
           <Text style={styles.title}>{title}</Text>
@@ -58,7 +59,7 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
               >
                 <AppIcon
                   name={action.icon}
-                  size={action.size ?? 24}
+                  size={action.size ?? 28}
                   color={action.color ?? '#fff'}
                 />
                 {action.badge ? <View style={styles.badgeDot} accessible={false} /> : null}
@@ -83,7 +84,7 @@ export function AppTopBar({ title, leftAction, actions = [] }: AppTopBarProps) {
 
 const styles = StyleSheet.create({
   wrap: {
-    minHeight: 72,
+    minHeight: 82,
     backgroundColor: tokens.colors.accent,
     paddingHorizontal: 26,
     paddingBottom: 8,
@@ -107,12 +108,12 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 18,
+    gap: 26,
   },
   iconButton: {
     color: '#fff',
-    minWidth: 24,
-    minHeight: 24,
+    minWidth: 28,
+    minHeight: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -120,11 +121,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: tokens.colors.upgradeGold,
+    borderWidth: 1,
     borderColor: tokens.colors.accent,
   },
   pressed: {

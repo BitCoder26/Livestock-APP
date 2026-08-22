@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import type { PressableProps, StyleProp, ViewStyle } from 'react-native';
-import { Animated, Pressable } from 'react-native';
+import { Animated, Easing, Pressable } from 'react-native';
+
+import { FAST_MOTION_DURATION } from '../utils/motion';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -25,18 +27,10 @@ export function AnimatedPopupCard({
     }
 
     entrance.setValue(0);
-    // This spring is the popup's whole entrance. The Modals wrapping these
-    // cards are deliberately animationType="none": RN's Modal fade is a fixed
-    // ~300ms that used to play *before* this spring even started, so every
-    // dropdown cost the fade plus the spring. With the fade gone the card is
-    // the only thing animating, so it is tuned to arrive quickly and settle
-    // almost immediately — critically damped rather than bouncy, since a
-    // dropdown that overshoots reads as slower than one that simply appears.
-    Animated.spring(entrance, {
+    Animated.timing(entrance, {
       toValue: 1,
-      stiffness: 520,
-      damping: 38,
-      mass: 0.7,
+      duration: FAST_MOTION_DURATION,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
 

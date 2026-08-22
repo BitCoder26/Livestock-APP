@@ -2,19 +2,9 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Image,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '../src/theme/text';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
@@ -35,7 +25,7 @@ import {
   collectiveTermForSpecies,
   getCollectiveCount,
 } from '../src/entities/collective';
-import { tokens } from '../src/theme/tokens';
+import { TAB_ALIGNED_FAB_BOTTOM_OFFSET, tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
 import { filterAccessibleImageUris, persistCollectiveImage } from '../src/utils/imageStorage';
 
@@ -55,7 +45,6 @@ const BORN_OR_HATCHED_HELP =
 
 export default function AddCollectiveScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { collectiveUid } = useLocalSearchParams<{ collectiveUid?: string }>();
   const { collectives, addCollective, updateCollective } = useCollectives();
   const { farms, locationEntities, labelEntities } = useSetup();
@@ -812,7 +801,7 @@ export default function AddCollectiveScreen() {
       <FloatingActionButton
         accessibilityLabel={isEditing ? 'Save changes' : 'Add herd or flock'}
         icon="check"
-        bottomOffset={insets.bottom + 78}
+        bottomOffset={TAB_ALIGNED_FAB_BOTTOM_OFFSET}
         onPress={() => void handleSave()}
       />
 
@@ -837,7 +826,7 @@ export default function AddCollectiveScreen() {
                 onPress={() => setShowSpeciesPicker(false)}
                 style={styles.speciesModalClose}
               >
-                <AppIcon name="close" size={16} color={tokens.colors.text} />
+                <AppIcon name="close" size={26} color={tokens.colors.text} />
               </Pressable>
             </View>
             <ScrollView contentContainerStyle={styles.speciesModalGrid} showsVerticalScrollIndicator={false}>
@@ -919,13 +908,13 @@ function SelectionField({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: tokens.colors.background },
-  content: { paddingHorizontal: 26, paddingTop: 16, paddingBottom: 120, gap: 14 },
+  content: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 120, gap: 14 },
   pressed: { opacity: 0.85 },
   // Mirrors add-animal: fields are white pills inside a grey form card, rather
   // than grey inputs sitting directly on the page.
   formCard: {
     borderRadius: 24,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     padding: 16,
     gap: 14,
   },
@@ -1048,7 +1037,7 @@ const styles = StyleSheet.create({
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1106,7 +1095,7 @@ const styles = StyleSheet.create({
     height: 108,
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     position: 'relative',
   },
   imagePreview: {

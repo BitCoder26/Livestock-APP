@@ -4,10 +4,12 @@ import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../src/components/AppIcon';
+import { useAppDrawer } from '../../src/components/AppDrawer';
 import { AppTopBar } from '../../src/components/AppTopBar';
 import { FabSpeedDial } from '../../src/components/FabSpeedDial';
 import { PlanLimitGate } from '../../src/components/PlanLimitGate';
@@ -17,6 +19,13 @@ import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { DesignField } from '../../src/components/DesignField';
 import { SPECIES_OPTIONS } from '../../src/constants/records';
 import { deriveRecordTypeOptions } from '../../src/utils/recordTypeOptions';
+import { useDebouncedValue } from '../../src/utils/useDebouncedValue';
+import {
+  DATE_RANGE_PRESETS,
+  matchDateRangePreset,
+  resolveDateRangePreset,
+  type DateRangePresetKey,
+} from '../../src/utils/dateRangePresets';
 import { getSpeciesThemeByLabel } from '../../src/constants/speciesTheme';
 import { FREE_EXPORT_LIMIT } from '../../src/constants/subscription';
 import { useAccount } from '../../src/context/AccountContext';
@@ -36,6 +45,7 @@ import type { AccountProfile } from '../../src/entities/account';
 import type { Animal, AnimalStatus } from '../../src/entities/animal';
 import type { RecordEntry } from '../../src/entities/record';
 import type { AppIconName } from '../../src/components/AppIcon';
+import { SegmentedToggle } from '../../src/components/SegmentedToggle';
 import { tokens } from '../../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../../src/utils/dateFormat';
 import { buildPdfDocument, createPdfFile, escapeHtml, resolveBusinessBranding, sharePdf } from '../../src/utils/pdfExport';
@@ -49,21 +59,30 @@ import {
   resolveLocationName,
 } from '../../src/utils/recordLocations';
 
-type ExportTarget = 'animals' | 'records' | 'collectives';
+type ExportTarget = 'register' | 'records';
 type ExportFormat = 'pdf' | 'spreadsheet';
 type DateFieldKey = 'startDate' | 'endDate';
 type MultiSelectKey = 'statuses' | 'species' | 'recordTypes' | 'farms' | 'locations' | 'labels';
 
-type AnimalExportFilters = {
-  searchQuery: string;
-  statuses: string[];
-  species: string[];
-  farms: string[];
-  locations: string[];
-  labels: string[];
-};
+// One set of filters for the whole register. Individually identified animals
+// and herds and flocks are different entities, but a keeper filtering their
+// stock does not think in that split — "show me everything on the top farm" is
+// one question, and answering it twice was the old behaviour, not the intent.
+/**
+ * Which half of the register to export. The default carries both in one
+ * document, which is what most people want; the other two are for when a
+ * keeper deliberately wants just the flocks, or just the tagged animals.
+ */
+type RegisterScope = 'all' | 'individual' | 'collective';
 
-type CollectiveExportFilters = {
+const REGISTER_SCOPES: Array<{ key: RegisterScope; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'individual', label: 'Individual' },
+  { key: 'collective', label: 'Herds & flocks' },
+];
+
+type RegisterExportFilters = {
+  scope: RegisterScope;
   searchQuery: string;
   statuses: string[];
   species: string[];
@@ -82,19 +101,20 @@ type RecordExportFilters = {
   locations: string[];
 };
 
-const STATUS_OPTIONS: AnimalStatus[] = ['Active', 'Sold', 'Deceased'];
-const COLLECTIVE_STATUS_OPTIONS: CollectiveStatus[] = ['Active', 'Inactive'];
+// The union of both vocabularies, because the register holds both kinds.
+// They overlap only on Active: an individual animal is Sold or Deceased, while
+// a group is only ever Active or Inactive — animals leave it one at a time.
+// Picking a status that one kind cannot hold simply excludes that kind, which
+// is the behaviour a keeper expects from a filter.
+const REGISTER_STATUS_OPTIONS: Array<AnimalStatus | CollectiveStatus> = [
+  'Active',
+  'Sold',
+  'Deceased',
+  'Inactive',
+];
 
-const DEFAULT_ANIMAL_FILTERS: AnimalExportFilters = {
-  searchQuery: '',
-  statuses: [],
-  species: [],
-  farms: [],
-  locations: [],
-  labels: [],
-};
-
-const DEFAULT_COLLECTIVE_FILTERS: CollectiveExportFilters = {
+const DEFAULT_REGISTER_FILTERS: RegisterExportFilters = {
+  scope: 'all',
   searchQuery: '',
   statuses: [],
   species: [],
@@ -115,6 +135,7 @@ const DEFAULT_RECORD_FILTERS: RecordExportFilters = {
 
 export default function ExportScreen() {
   const router = useRouter();
+  const { openDrawer } = useAppDrawer();
   const { previewPdf, previewTarget } = useLocalSearchParams<{ previewPdf?: string; previewTarget?: string }>();
   const { profile, updateField } = useAccount();
   const { animals } = useAnimals();
@@ -123,15 +144,12 @@ export default function ExportScreen() {
   const { farms, farmEntities, locations, locationEntities, labels, labelEntities } = useSetup();
   const { isPro } = useSubscription();
   const [target, setTarget] = useState<ExportTarget>('records');
-  const [animalFilters, setAnimalFilters] = useState<AnimalExportFilters>(DEFAULT_ANIMAL_FILTERS);
+  const [registerFilters, setRegisterFilters] = useState<RegisterExportFilters>(DEFAULT_REGISTER_FILTERS);
   const [recordFilters, setRecordFilters] = useState<RecordExportFilters>(DEFAULT_RECORD_FILTERS);
-  const [collectiveFilters, setCollectiveFilters] =
-    useState<CollectiveExportFilters>(DEFAULT_COLLECTIVE_FILTERS);
   const [activeDateField, setActiveDateField] = useState<DateFieldKey | null>(null);
   const [activeMultiSelect, setActiveMultiSelect] = useState<MultiSelectKey | null>(null);
   const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(null);
-  const [showMoreAnimalFilters, setShowMoreAnimalFilters] = useState(false);
-  const [showMoreCollectiveFilters, setShowMoreCollectiveFilters] = useState(false);
+  const [showMoreRegisterFilters, setShowMoreRegisterFilters] = useState(false);
   const [showMoreRecordFilters, setShowMoreRecordFilters] = useState(false);
   const hasAutoPreviewed = useRef(false);
 
@@ -139,32 +157,68 @@ export default function ExportScreen() {
     () => getAvailableSpecies(animals, records),
     [animals, records],
   );
-  const availableFarms = useMemo(() => uniqueValues([...farms, ...animals.map((animal) => animal.farm)]), [animals, farms]);
+  // Groups are counted alongside animals here: a farm or location that holds
+  // only a flock still has to be offered, or its records cannot be filtered to.
+  const availableFarms = useMemo(
+    () => uniqueValues([...farms, ...animals.map((animal) => animal.farm), ...collectives.map((collective) => collective.farm)]),
+    [animals, collectives, farms],
+  );
   const availableLocations = useMemo(
-    () => uniqueValues([...locations, ...animals.map((animal) => animal.location)]),
-    [animals, locations],
+    () => uniqueValues([
+      ...locations,
+      ...animals.map((animal) => animal.location),
+      ...collectives.map((collective) => collective.location),
+    ]),
+    [animals, collectives, locations],
   );
   const availableLabels = useMemo(
-    () => uniqueValues([...labels, ...animals.flatMap((animal) => animal.labels)]),
-    [animals, labels],
+    () => uniqueValues([
+      ...labels,
+      ...animals.flatMap((animal) => animal.labels),
+      ...collectives.flatMap((collective) => collective.labels),
+    ]),
+    [animals, collectives, labels],
   );
   const recordTypeOptions = useMemo(
     () => deriveRecordTypeOptions(records, recordFilters.recordTypes),
     [recordFilters.recordTypes, records],
   );
 
+  // The search text is debounced before it reaches the filtering, so a long
+  // register does not re-scan on every keystroke. Every other filter is a tap
+  // and applies at once.
+  const debouncedRegisterQuery = useDebouncedValue(registerFilters.searchQuery);
+  const debouncedRecordQuery = useDebouncedValue(recordFilters.searchQuery);
+  const appliedRegisterFilters = useMemo(
+    () => ({ ...registerFilters, searchQuery: debouncedRegisterQuery }),
+    [debouncedRegisterQuery, registerFilters],
+  );
+  const appliedRecordFilters = useMemo(
+    () => ({ ...recordFilters, searchQuery: debouncedRecordQuery }),
+    [debouncedRecordQuery, recordFilters],
+  );
+
   const filteredAnimals = useMemo(
-    () => animals.filter((animal) => animalMatchesFilters(animal, animalFilters)),
-    [animalFilters, animals],
+    () =>
+      appliedRegisterFilters.scope === 'collective'
+        ? []
+        : animals.filter((animal) => animalMatchesFilters(animal, appliedRegisterFilters)),
+    [appliedRegisterFilters, animals],
   );
   const filteredCollectives = useMemo(
-    () => collectives.filter((collective) => collectiveMatchesFilters(collective, collectiveFilters)),
-    [collectiveFilters, collectives],
+    () =>
+      appliedRegisterFilters.scope === 'individual'
+        ? []
+        : collectives.filter((collective) => collectiveMatchesFilters(collective, appliedRegisterFilters)),
+    [appliedRegisterFilters, collectives],
   );
   const filteredRecords = useMemo(() => {
     const lookup = buildAnimalLookup(animals);
-    return records.filter((record) => recordMatchesFilters(record, recordFilters, animals, lookup));
-  }, [animals, recordFilters, records]);
+    const collectivesByUid = new Map(collectives.map((collective) => [collective.uid, collective]));
+    return records.filter((record) =>
+      recordMatchesFilters(record, appliedRecordFilters, animals, lookup, collectivesByUid),
+    );
+  }, [animals, appliedRecordFilters, collectives, records]);
 
   const selectedDate = useMemo(() => {
     const value = activeDateField === 'startDate' ? recordFilters.startDate : recordFilters.endDate;
@@ -174,7 +228,7 @@ export default function ExportScreen() {
   const multiSelectOptions = useMemo(() => {
     switch (activeMultiSelect) {
       case 'statuses':
-        return target === 'collectives' ? [...COLLECTIVE_STATUS_OPTIONS] : [...STATUS_OPTIONS];
+        return [...REGISTER_STATUS_OPTIONS];
       case 'species':
         return availableSpecies;
       case 'recordTypes':
@@ -190,29 +244,24 @@ export default function ExportScreen() {
     }
   }, [activeMultiSelect, availableFarms, availableLabels, availableLocations, availableSpecies, target]);
 
+  // The register exports both kinds in one document, so "is there anything to
+  // export" has to count both.
   const currentCount =
-    target === 'animals'
-      ? filteredAnimals.length
-      : target === 'collectives'
-        ? filteredCollectives.length
-        : filteredRecords.length;
-  const currentNoun =
-    target === 'animals' ? 'animals' : target === 'collectives' ? 'herds or flocks' : 'records';
+    target === 'register' ? filteredAnimals.length + filteredCollectives.length : filteredRecords.length;
+  const currentNoun = target === 'register' ? 'animals, herds or flocks' : 'records';
   const exportsUsed = profile.exportsUsed ?? 0;
   const currentSummary =
-    target === 'animals'
-      ? getAnimalFilterSummary(animalFilters)
-      : target === 'collectives'
-        ? getCollectiveFilterSummary(collectiveFilters)
-        : getRecordFilterSummary(recordFilters, profile.dateFormat);
+    target === 'register'
+      ? getRegisterFilterSummary(appliedRegisterFilters)
+      : getRecordFilterSummary(appliedRecordFilters, profile.dateFormat);
 
   useEffect(() => {
-    if (previewTarget === 'animals') {
-      setTarget('animals');
+    // `animals` and `collectives` both land on the register now, so links made
+    // before the two were merged still open the right thing.
+    if (previewTarget === 'animals' || previewTarget === 'collectives') {
+      setTarget('register');
     } else if (previewTarget === 'records') {
       setTarget('records');
-    } else if (previewTarget === 'collectives') {
-      setTarget('collectives');
     }
   }, [previewTarget]);
 
@@ -226,11 +275,17 @@ export default function ExportScreen() {
     const runPreview = async () => {
       try {
         const uri =
-          previewTarget === 'animals'
-            ? await createAnimalsPdf(filteredAnimals, animalFilters, profile, farmEntities, locationEntities, labelEntities)
-            : previewTarget === 'collectives'
-              ? await createCollectivesPdf(filteredCollectives, collectiveFilters, profile)
-              : await createRecordsPdf(filteredRecords, animals, recordFilters, profile, farmEntities, locationEntities);
+          previewTarget === 'animals' || previewTarget === 'collectives'
+            ? await createRegisterPdf(
+                filteredAnimals,
+                filteredCollectives,
+                appliedRegisterFilters,
+                profile,
+                farmEntities,
+                locationEntities,
+                labelEntities,
+              )
+            : await createRecordsPdf(filteredRecords, animals, appliedRecordFilters, profile, farmEntities, locationEntities);
 
         await Linking.openURL(uri);
       } catch (error) {
@@ -241,10 +296,11 @@ export default function ExportScreen() {
 
     void runPreview();
   }, [
-    animalFilters,
+    registerFilters,
     animals,
     farmEntities,
     filteredAnimals,
+    filteredCollectives,
     filteredRecords,
     labelEntities,
     locationEntities,
@@ -284,26 +340,36 @@ export default function ExportScreen() {
     setExportingFormat(format);
 
     try {
-      if (target === 'animals') {
+      if (target === 'register') {
         if (format === 'pdf') {
-          const uri = await createAnimalsPdf(filteredAnimals, animalFilters, profile, farmEntities, locationEntities, labelEntities);
+          const uri = await createRegisterPdf(
+            filteredAnimals,
+            filteredCollectives,
+            appliedRegisterFilters,
+            profile,
+            farmEntities,
+            locationEntities,
+            labelEntities,
+          );
           await sharePdf(uri);
         } else {
-          await exportAnimalsCsv(filteredAnimals, profile.dateFormat, farmEntities, locationEntities, labelEntities);
-        }
-      } else if (target === 'collectives') {
-        if (format === 'pdf') {
-          const uri = await createCollectivesPdf(filteredCollectives, collectiveFilters, profile);
-          await sharePdf(uri);
-        } else {
-          // Two files: the register, and the dated count history the head
-          // counts are derived from. One sheet cannot hold both without
-          // repeating every group on every count change.
-          await exportCollectivesCsv(filteredCollectives, profile.dateFormat);
-          await exportCollectiveCountEventsCsv(filteredCollectives, profile.dateFormat);
+          // The PDF is one document, but a spreadsheet is not: individuals and
+          // groups have different columns, and the dated count changes a head
+          // count is derived from are a third shape again. Forcing them into
+          // one sheet would mean either blank columns down half of it or every
+          // group repeated on every count change, so each goes to its own file
+          // and only the files that have rows are written.
+          if (filteredAnimals.length > 0) {
+            await exportAnimalsCsv(filteredAnimals, profile.dateFormat, farmEntities, locationEntities, labelEntities);
+          }
+
+          if (filteredCollectives.length > 0) {
+            await exportCollectivesCsv(filteredCollectives, profile.dateFormat);
+            await exportCollectiveCountEventsCsv(filteredCollectives, profile.dateFormat);
+          }
         }
       } else if (format === 'pdf') {
-        const uri = await createRecordsPdf(filteredRecords, animals, recordFilters, profile, farmEntities, locationEntities);
+        const uri = await createRecordsPdf(filteredRecords, animals, appliedRecordFilters, profile, farmEntities, locationEntities);
         await sharePdf(uri);
       } else {
         await exportRecordsCsv(filteredRecords, animals, profile.dateFormat, farmEntities, locationEntities);
@@ -323,18 +389,11 @@ export default function ExportScreen() {
     }
   }
 
-  function updateAnimalMultiSelect(key: keyof Pick<AnimalExportFilters, 'statuses' | 'species' | 'farms' | 'locations' | 'labels'>, value: string) {
-    setAnimalFilters((current) => ({
-      ...current,
-      [key]: toggleSelection(current[key], value),
-    }));
-  }
-
-  function updateCollectiveMultiSelect(
-    key: keyof Pick<CollectiveExportFilters, 'statuses' | 'species' | 'farms' | 'locations' | 'labels'>,
+  function updateRegisterMultiSelect(
+    key: keyof Pick<RegisterExportFilters, 'statuses' | 'species' | 'farms' | 'locations' | 'labels'>,
     value: string,
   ) {
-    setCollectiveFilters((current) => ({
+    setRegisterFilters((current) => ({
       ...current,
       [key]: toggleSelection(current[key], value),
     }));
@@ -348,21 +407,12 @@ export default function ExportScreen() {
   }
 
   function toggleActiveSelection(selectionKey: MultiSelectKey, option: string) {
-    if (target === 'animals') {
-      if (selectionKey === 'statuses') updateAnimalMultiSelect('statuses', option);
-      if (selectionKey === 'species') updateAnimalMultiSelect('species', option);
-      if (selectionKey === 'farms') updateAnimalMultiSelect('farms', option);
-      if (selectionKey === 'locations') updateAnimalMultiSelect('locations', option);
-      if (selectionKey === 'labels') updateAnimalMultiSelect('labels', option);
-      return;
-    }
-
-    if (target === 'collectives') {
-      if (selectionKey === 'statuses') updateCollectiveMultiSelect('statuses', option);
-      if (selectionKey === 'species') updateCollectiveMultiSelect('species', option);
-      if (selectionKey === 'farms') updateCollectiveMultiSelect('farms', option);
-      if (selectionKey === 'locations') updateCollectiveMultiSelect('locations', option);
-      if (selectionKey === 'labels') updateCollectiveMultiSelect('labels', option);
+    if (target === 'register') {
+      if (selectionKey === 'statuses') updateRegisterMultiSelect('statuses', option);
+      if (selectionKey === 'species') updateRegisterMultiSelect('species', option);
+      if (selectionKey === 'farms') updateRegisterMultiSelect('farms', option);
+      if (selectionKey === 'locations') updateRegisterMultiSelect('locations', option);
+      if (selectionKey === 'labels') updateRegisterMultiSelect('labels', option);
       return;
     }
 
@@ -370,6 +420,16 @@ export default function ExportScreen() {
     if (selectionKey === 'recordTypes') updateRecordMultiSelect('recordTypes', option);
     if (selectionKey === 'farms') updateRecordMultiSelect('farms', option);
     if (selectionKey === 'locations') updateRecordMultiSelect('locations', option);
+  }
+
+  const activeDatePreset = useMemo(
+    () => matchDateRangePreset({ startDate: recordFilters.startDate, endDate: recordFilters.endDate }),
+    [recordFilters.endDate, recordFilters.startDate],
+  );
+
+  function applyDatePreset(key: DateRangePresetKey) {
+    const range = resolveDateRangePreset(key);
+    setRecordFilters((current) => ({ ...current, startDate: range.startDate, endDate: range.endDate }));
   }
 
   function handleDateChange(event: DateTimePickerEvent, nextDate?: Date) {
@@ -397,13 +457,8 @@ export default function ExportScreen() {
   }
 
   function clearCurrentFilters() {
-    if (target === 'animals') {
-      setAnimalFilters(DEFAULT_ANIMAL_FILTERS);
-      return;
-    }
-
-    if (target === 'collectives') {
-      setCollectiveFilters(DEFAULT_COLLECTIVE_FILTERS);
+    if (target === 'register') {
+      setRegisterFilters(DEFAULT_REGISTER_FILTERS);
       return;
     }
 
@@ -415,33 +470,24 @@ export default function ExportScreen() {
       <TabSwipeView>
         <AppTopBar
         title="Export"
+        leftAction={{
+          icon: 'menu',
+          accessibilityLabel: 'Open menu',
+          onPress: openDrawer,
+        }}
         actions={[
-          {
-            icon: 'profile',
-            accessibilityLabel: 'Open account',
-            onPress: () => router.push('/account'),
-          },
         ]}
       />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.segmentRow}>
-          <SegmentButton
-            active={target === 'records'}
-            label="Records"
-            onPress={() => setTarget('records')}
-          />
-          <SegmentButton
-            active={target === 'animals'}
-            label="Animal register"
-            onPress={() => setTarget('animals')}
-          />
-          <SegmentButton
-            active={target === 'collectives'}
-            label="Herds & flocks"
-            onPress={() => setTarget('collectives')}
-          />
-        </View>
+        <SegmentedToggle<ExportTarget>
+          options={[
+            { key: 'records', label: 'Records' },
+            { key: 'register', label: 'Animal register' },
+          ]}
+          value={target}
+          onChange={setTarget}
+        />
 
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
@@ -451,97 +497,76 @@ export default function ExportScreen() {
             </Pressable>
           </View>
 
-          {target === 'animals' ? (
+          {target === 'register' ? (
             <View style={styles.filterStack}>
+              <View style={styles.block}>
+                <Text style={styles.label}>Include</Text>
+                <View style={styles.chipRow}>
+                  {REGISTER_SCOPES.map((scope) => (
+                    <Pressable
+                      key={scope.key}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: registerFilters.scope === scope.key }}
+                      onPress={() => setRegisterFilters((current) => ({ ...current, scope: scope.key }))}
+                      style={({ pressed }) => [
+                        styles.filterChip,
+                        registerFilters.scope === scope.key && styles.filterChipActive,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          registerFilters.scope === scope.key && styles.filterChipTextActive,
+                        ]}
+                      >
+                        {scope.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
               <DesignField
-                value={animalFilters.searchQuery}
-                label="Search ID or name"
-                left={<SearchAffix />}
-                onChangeText={(value) => setAnimalFilters((current) => ({ ...current, searchQuery: value }))}
-              />
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setShowMoreAnimalFilters((current) => !current)}
-                style={({ pressed }) => [styles.moreFiltersButton, pressed && styles.pressed]}
-              >
-                <Text style={styles.moreFiltersText}>{showMoreAnimalFilters ? 'Hide more filters' : 'Show more filters'}</Text>
-                <AppIcon name="chevron-down" size={16} color={tokens.colors.accent} />
-              </Pressable>
-              {showMoreAnimalFilters ? (
-                <>
-                  <SelectionField
-                    label="Status"
-                    value={formatSelectionSummary(animalFilters.statuses, 'Select status')}
-                    onPress={() => setActiveMultiSelect('statuses')}
-                  />
-                  <SelectionField
-                    label="Species"
-                    value={formatSelectionSummary(animalFilters.species, 'Select species')}
-                    onPress={() => setActiveMultiSelect('species')}
-                  />
-                  <SelectionField
-                    label="Farm"
-                    value={formatSelectionSummary(animalFilters.farms, 'Select farm')}
-                    onPress={() => setActiveMultiSelect('farms')}
-                  />
-                  <SelectionField
-                    label="Location"
-                    value={formatSelectionSummary(animalFilters.locations, 'Select location')}
-                    onPress={() => setActiveMultiSelect('locations')}
-                  />
-                  <SelectionField
-                    label="Labels"
-                    value={formatSelectionSummary(animalFilters.labels, 'Select labels')}
-                    onPress={() => setActiveMultiSelect('labels')}
-                  />
-                </>
-              ) : null}
-            </View>
-          ) : target === 'collectives' ? (
-            <View style={styles.filterStack}>
-              <DesignField
-                value={collectiveFilters.searchQuery}
+                value={registerFilters.searchQuery}
                 label="Search ID, name or breed"
+                placeholder="e.g. UK1234 or Bess"
                 left={<SearchAffix />}
-                onChangeText={(value) =>
-                  setCollectiveFilters((current) => ({ ...current, searchQuery: value }))
-                }
+                search
+                onChangeText={(value) => setRegisterFilters((current) => ({ ...current, searchQuery: value }))}
               />
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setShowMoreCollectiveFilters((current) => !current)}
+                onPress={() => setShowMoreRegisterFilters((current) => !current)}
                 style={({ pressed }) => [styles.moreFiltersButton, pressed && styles.pressed]}
               >
-                <Text style={styles.moreFiltersText}>
-                  {showMoreCollectiveFilters ? 'Hide more filters' : 'Show more filters'}
-                </Text>
+                <Text style={styles.moreFiltersText}>{showMoreRegisterFilters ? 'Hide more filters' : 'Show more filters'}</Text>
                 <AppIcon name="chevron-down" size={16} color={tokens.colors.accent} />
               </Pressable>
-              {showMoreCollectiveFilters ? (
+              {showMoreRegisterFilters ? (
                 <>
                   <SelectionField
                     label="Status"
-                    value={formatSelectionSummary(collectiveFilters.statuses, 'Select status')}
+                    value={formatSelectionSummary(registerFilters.statuses, 'Select status')}
                     onPress={() => setActiveMultiSelect('statuses')}
                   />
                   <SelectionField
                     label="Species"
-                    value={formatSelectionSummary(collectiveFilters.species, 'Select species')}
+                    value={formatSelectionSummary(registerFilters.species, 'Select species')}
                     onPress={() => setActiveMultiSelect('species')}
                   />
                   <SelectionField
                     label="Farm"
-                    value={formatSelectionSummary(collectiveFilters.farms, 'Select farm')}
+                    value={formatSelectionSummary(registerFilters.farms, 'Select farm')}
                     onPress={() => setActiveMultiSelect('farms')}
                   />
                   <SelectionField
                     label="Location"
-                    value={formatSelectionSummary(collectiveFilters.locations, 'Select location')}
+                    value={formatSelectionSummary(registerFilters.locations, 'Select location')}
                     onPress={() => setActiveMultiSelect('locations')}
                   />
                   <SelectionField
                     label="Labels"
-                    value={formatSelectionSummary(collectiveFilters.labels, 'Select labels')}
+                    value={formatSelectionSummary(registerFilters.labels, 'Select labels')}
                     onPress={() => setActiveMultiSelect('labels')}
                   />
                 </>
@@ -552,11 +577,37 @@ export default function ExportScreen() {
               <DesignField
                 value={recordFilters.searchQuery}
                 label="Search ID or name"
+                placeholder="e.g. UK1234 or Bess"
                 left={<SearchAffix />}
+                search
                 onChangeText={(value) => setRecordFilters((current) => ({ ...current, searchQuery: value }))}
               />
               <View style={styles.block}>
                 <Text style={styles.label}>Date range</Text>
+                <View style={styles.chipRow}>
+                  {DATE_RANGE_PRESETS.map((preset) => (
+                    <Pressable
+                      key={preset.key}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: activeDatePreset === preset.key }}
+                      onPress={() => applyDatePreset(preset.key)}
+                      style={({ pressed }) => [
+                        styles.filterChip,
+                        activeDatePreset === preset.key && styles.filterChipActive,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          activeDatePreset === preset.key && styles.filterChipTextActive,
+                        ]}
+                      >
+                        {preset.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
                 <View style={styles.dateGrid}>
                   <SelectionField
                     label=""
@@ -614,19 +665,11 @@ export default function ExportScreen() {
 
         <View style={styles.summaryCard}>
           <Text style={styles.countTitle}>
-            {target === 'collectives'
-              ? describeCollectiveCount(filteredCollectives)
-              : `${currentCount} ${
-                  target === 'animals'
-                    ? currentCount === 1
-                      ? 'animal'
-                      : 'animals'
-                    : currentCount === 1
-                      ? 'record'
-                      : 'records'
-                }`}
+            {target === 'register'
+              ? describeRegisterCount(filteredAnimals, filteredCollectives)
+              : `${currentCount} ${currentCount === 1 ? 'record' : 'records'}`}
           </Text>
-          <Text style={styles.countText}>{target === 'animals' ? 'Ready to export' : 'Ready to export'}</Text>
+          <Text style={styles.countText}>Ready to export</Text>
 
           <View style={styles.summaryWrap}>
             {currentSummary.length > 0 ? (
@@ -638,7 +681,7 @@ export default function ExportScreen() {
             ) : (
               <View style={styles.summaryChip}>
                 <Text style={styles.summaryChipText}>
-                  {target === 'animals' ? 'All animals included' : 'All records included'}
+                  {target === 'register' ? 'Everything included' : 'All records included'}
                 </Text>
               </View>
             )}
@@ -712,13 +755,13 @@ export default function ExportScreen() {
                 <View style={styles.speciesModalHeader}>
                   <Text style={styles.speciesModalTitle}>Select Species</Text>
                   <Pressable
-                    accessibilityLabel="Close species selector"
+                    accessibilityLabel="Done"
                     accessibilityRole="button"
                     hitSlop={8}
                     onPress={() => setActiveMultiSelect(null)}
                     style={styles.speciesModalClose}
                   >
-                    <AppIcon name="close" size={16} color={tokens.colors.text} />
+                    <Text style={styles.modalDone}>Done</Text>
                   </Pressable>
                 </View>
 
@@ -726,11 +769,9 @@ export default function ExportScreen() {
                   {multiSelectOptions.length > 0 ? (
                     multiSelectOptions.map((option) => {
                       const selected =
-                        target === 'animals'
-                          ? isSelectedAnimalOption(animalFilters, 'species', option)
-                          : target === 'collectives'
-                            ? isSelectedCollectiveOption(collectiveFilters, 'species', option)
-                            : isSelectedRecordOption(recordFilters, 'species', option);
+                        target === 'register'
+                          ? isSelectedRegisterOption(registerFilters, 'species', option)
+                          : isSelectedRecordOption(recordFilters, 'species', option);
                       const theme = getSpeciesThemeByLabel(option);
                       const iconName = getSpeciesIconName(option);
                       const iconColor = option === 'Sheep' ? '#171717' : theme.icon;
@@ -743,14 +784,21 @@ export default function ExportScreen() {
                           onPress={() => toggleActiveSelection('species', option)}
                           style={({ pressed }) => [
                             styles.speciesModalCard,
-                            { backgroundColor: theme.tintBackground },
+                            { backgroundColor: selected ? tokens.colors.accent : theme.tintBackground },
                             selected && styles.speciesModalCardActive,
                             pressed && styles.speciesModalCardPressed,
                           ]}
                         >
                           <View style={styles.speciesModalCardContent}>
-                            <AppIcon name={iconName} size={26} color={iconColor} />
-                            <Text style={[styles.speciesModalCardLabel, { color: theme.text }]}>{option}</Text>
+                            <AppIcon name={iconName} size={26} color={selected ? '#fff' : iconColor} />
+                            <Text
+                              style={[
+                                styles.speciesModalCardLabel,
+                                { color: selected ? '#fff' : theme.text },
+                              ]}
+                            >
+                              {option}
+                            </Text>
                           </View>
                           {selected ? <AppIcon name="check" size={16} color="#fff" /> : null}
                         </Pressable>
@@ -783,11 +831,9 @@ export default function ExportScreen() {
                         }
 
                         const selected =
-                          target === 'animals'
-                            ? isSelectedAnimalOption(animalFilters, selectionKey, option)
-                            : target === 'collectives'
-                              ? isSelectedCollectiveOption(collectiveFilters, selectionKey, option)
-                              : isSelectedRecordOption(recordFilters, selectionKey, option);
+                          target === 'register'
+                            ? isSelectedRegisterOption(registerFilters, selectionKey, option)
+                            : isSelectedRecordOption(recordFilters, selectionKey, option);
 
                         return (
                           <Pressable
@@ -841,26 +887,6 @@ export default function ExportScreen() {
   );
 }
 
-function SegmentButton({
-  active,
-  label,
-  onPress,
-}: {
-  active: boolean;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.segmentButton, active ? styles.segmentButtonActive : styles.segmentButtonIdle, pressed && styles.pressed]}
-    >
-      <Text style={[styles.segmentText, active ? styles.segmentTextActive : styles.segmentTextIdle]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 function SelectionField({
   label,
   value,
@@ -889,16 +915,19 @@ function SelectionField({
   );
 }
 
+// Icon only. The word "Search" used to sit here permanently, which said the
+// same thing as the icon beside it and the label above it, and — because it
+// never went away — pushed what the user typed to the right, truncating long
+// tags like UK123456700001 on a phone.
 function SearchAffix() {
   return (
     <View style={styles.searchAffix}>
       <AppIcon name="search" size={16} color="#7a7a7a" />
-      <Text style={styles.searchAffixText}>Search</Text>
     </View>
   );
 }
 
-function animalMatchesFilters(animal: Animal, filters: AnimalExportFilters) {
+function animalMatchesFilters(animal: Animal, filters: RegisterExportFilters) {
   const searchQuery = filters.searchQuery.trim().toLowerCase();
 
   if (
@@ -954,6 +983,7 @@ function recordMatchesFilters(
   filters: RecordExportFilters,
   animals: Animal[],
   lookup: AnimalLookup,
+  collectivesByUid: Map<string, Collective>,
 ) {
   const searchQuery = filters.searchQuery.trim().toLowerCase();
   const recordDate = parseStoredDate(record.date);
@@ -982,24 +1012,46 @@ function recordMatchesFilters(
   const needsRelatedAnimals = Boolean(searchQuery) || filters.farms.length > 0 || filters.locations.length > 0;
   const relatedAnimals = needsRelatedAnimals ? findRelatedAnimals(record, animals, lookup) : [];
 
-  if (
-    searchQuery &&
-    ![record.animalTag, record.animal, ...relatedAnimals.map((animal) => animal.id), ...relatedAnimals.map((animal) => animal.name)]
-      .some((value) => value.toLowerCase().includes(searchQuery))
-  ) {
-    return false;
+  // A record belonging to a herd or flock has no related animals at all — its
+  // subject is the group, named by collectiveUid. Every check below has to
+  // look there as well, or a filtered export silently drops every group
+  // record: filtering by the farm a flock stands on used to return only the
+  // individually identified animals kept there, with nothing to say the
+  // flock's own records had been left out.
+  const relatedCollective = record.collectiveUid ? collectivesByUid.get(record.collectiveUid) : undefined;
+
+  if (searchQuery) {
+    const haystack = [
+      record.animalTag,
+      record.animal,
+      ...relatedAnimals.map((animal) => animal.id),
+      ...relatedAnimals.map((animal) => animal.name),
+      // The snapshots taken when the record was written, so a record whose
+      // group has since been renamed still answers to what it says on the
+      // record, and the group's current identity too.
+      record.collectiveId ?? '',
+      record.collectiveName ?? '',
+      relatedCollective?.id ?? '',
+      relatedCollective?.name ?? '',
+    ];
+
+    if (!haystack.some((value) => value.toLowerCase().includes(searchQuery))) {
+      return false;
+    }
   }
 
   if (
     filters.farms.length > 0 &&
-    !relatedAnimals.some((animal) => filters.farms.some((value) => equalsIgnoreCase(value, animal.farm)))
+    !relatedAnimals.some((animal) => filters.farms.some((value) => equalsIgnoreCase(value, animal.farm))) &&
+    !(relatedCollective && filters.farms.some((value) => equalsIgnoreCase(value, relatedCollective.farm)))
   ) {
     return false;
   }
 
   if (
     filters.locations.length > 0 &&
-    !relatedAnimals.some((animal) => filters.locations.some((value) => equalsIgnoreCase(value, animal.location)))
+    !relatedAnimals.some((animal) => filters.locations.some((value) => equalsIgnoreCase(value, animal.location))) &&
+    !(relatedCollective && filters.locations.some((value) => equalsIgnoreCase(value, relatedCollective.location)))
   ) {
     return false;
   }
@@ -1073,41 +1125,6 @@ async function exportAnimalsCsv(
   await writeAndShareCsv(`animal-register-${createTimestamp()}.csv`, rows);
 }
 
-async function createCollectivesPdf(
-  collectives: Collective[],
-  filters: CollectiveExportFilters,
-  profile: AccountProfile,
-) {
-  const rows = collectives.map((collective) => [
-    collective.id || '—',
-    collective.name || '—',
-    collective.species || '—',
-    collective.breed || '—',
-    String(getCollectiveCount(collective)),
-    collective.status,
-    collective.farm || '—',
-    collective.location || '—',
-    collective.labels.join(', ') || '—',
-    collective.supplier || '—',
-    formatDateForDisplay(collective.startDate, profile.dateFormat) || '—',
-    collective.purpose || '—',
-  ]);
-
-  const html = buildPdfHtml({
-    title: 'Herd and Flock Register',
-    branding: await resolveBusinessBranding(profile),
-    countLabel: describeCollectiveCount(collectives),
-    filterSummary: getCollectiveFilterSummary(filters),
-    headers: [
-      'ID', 'Name', 'Species', 'Breed', 'Head Count', 'Status',
-      'Farm', 'Location', 'Labels', 'Supplier', 'Established', 'Purpose',
-    ],
-    rows,
-  });
-
-  return createPdfFile(html);
-}
-
 async function exportCollectivesCsv(
   collectives: Collective[],
   dateFormat: Parameters<typeof formatDateForDisplay>[1],
@@ -1175,7 +1192,7 @@ async function exportCollectiveCountEventsCsv(
   await writeAndShareCsv(`herd-count-history-${createTimestamp()}.csv`, rows);
 }
 
-function collectiveMatchesFilters(collective: Collective, filters: CollectiveExportFilters) {
+function collectiveMatchesFilters(collective: Collective, filters: RegisterExportFilters) {
   const searchQuery = filters.searchQuery.trim().toLowerCase();
 
   if (
@@ -1306,44 +1323,107 @@ async function exportRecordsCsv(
   await writeAndShareCsv(`records-${createTimestamp()}.csv`, rows);
 }
 
-async function createAnimalsPdf(
+/**
+ * The whole register as one document: herds and flocks first, then the
+ * individually identified animals.
+ *
+ * Groups lead because there are rarely more than a handful of them — a farm
+ * with twenty is unusual — so they fit on the opening page and give the reader
+ * the shape of the holding before several pages of individual animals. They
+ * are also the part an inspector is most likely to want first, since a single
+ * row can stand for six hundred birds.
+ *
+ * The two tables carry different columns (a group has a head count and no sex
+ * or date of birth), so they stay separate tables under their own headings
+ * rather than being forced into shared columns half of which would be blank.
+ */
+async function createRegisterPdf(
   animals: Animal[],
-  filters: AnimalExportFilters,
+  collectives: Collective[],
+  filters: RegisterExportFilters,
   profile: AccountProfile,
   farms: FarmEntity[],
   locations: LocationEntity[],
   labels: LabelEntity[],
 ) {
-  const rows = animals.map((animal) => [
-    animal.id,
-    animal.eid || '—',
-    animal.name || '—',
-    animal.species || '—',
-    animal.breed || '—',
-    animal.sex || '—',
-    animal.ageLabel || '—',
-    formatDateForDisplay(animal.dateOfBirth, profile.dateFormat) || '—',
-    formatWeight(animal.weight, animal.weightUnit) || '—',
-    animal.status,
-    resolveAnimalFarmName(animal, farms) || '—',
-    resolveAnimalLocationName(animal, locations) || '—',
-    resolveAnimalLabelNames(animal, labels).join(', ') || '—',
-    animal.source || '—',
-  ]);
+  const sections: PdfSection[] = [];
+
+  if (collectives.length > 0) {
+    sections.push({
+      heading: 'Herds and flocks',
+      subheading: describeCollectiveCount(collectives),
+      headers: [
+        'ID', 'Name', 'Species', 'Breed', 'Head Count', 'Status',
+        'Farm', 'Location', 'Labels', 'Supplier', 'Established', 'Purpose',
+      ],
+      rows: collectives.map((collective) => [
+        collective.id || '—',
+        collective.name || '—',
+        collective.species || '—',
+        collective.breed || '—',
+        String(getCollectiveCount(collective)),
+        collective.status,
+        collective.farm || '—',
+        collective.location || '—',
+        collective.labels.join(', ') || '—',
+        collective.supplier || '—',
+        formatDateForDisplay(collective.startDate, profile.dateFormat) || '—',
+        collective.purpose || '—',
+      ]),
+    });
+  }
+
+  if (animals.length > 0) {
+    sections.push({
+      heading: 'Individual animals',
+      subheading: `${animals.length} ${animals.length === 1 ? 'animal' : 'animals'}`,
+      headers: [
+        'Animal ID', 'EID', 'Name', 'Species', 'Breed', 'Sex', 'Age',
+        'Date of Birth', 'Weight', 'Status', 'Farm', 'Location', 'Labels', 'Source',
+      ],
+      rows: animals.map((animal) => [
+        animal.id,
+        animal.eid || '—',
+        animal.name || '—',
+        animal.species || '—',
+        animal.breed || '—',
+        animal.sex || '—',
+        animal.ageLabel || '—',
+        formatDateForDisplay(animal.dateOfBirth, profile.dateFormat) || '—',
+        formatWeight(animal.weight, animal.weightUnit) || '—',
+        animal.status,
+        resolveAnimalFarmName(animal, farms) || '—',
+        resolveAnimalLocationName(animal, locations) || '—',
+        resolveAnimalLabelNames(animal, labels).join(', ') || '—',
+        animal.source || '—',
+      ]),
+    });
+  }
 
   const html = buildPdfHtml({
     title: 'Animal Register',
     branding: await resolveBusinessBranding(profile),
-    countLabel: `${animals.length} ${animals.length === 1 ? 'animal' : 'animals'}`,
-    filterSummary: getAnimalFilterSummary(filters),
-    headers: [
-      'Animal ID', 'EID', 'Name', 'Species', 'Breed', 'Sex', 'Age',
-      'Date of Birth', 'Weight', 'Status', 'Farm', 'Location', 'Labels', 'Source',
-    ],
-    rows,
+    countLabel: describeRegisterCount(animals, collectives),
+    filterSummary: getRegisterFilterSummary(filters),
+    sections,
   });
 
   return createPdfFile(html);
+}
+
+/** "12 animals · 3 herds & flocks (626 head)", dropping whichever half is empty. */
+function describeRegisterCount(animals: Animal[], collectives: Collective[]) {
+  const parts: string[] = [];
+
+  if (animals.length > 0) {
+    parts.push(`${animals.length} ${animals.length === 1 ? 'animal' : 'animals'}`);
+  }
+
+  if (collectives.length > 0) {
+    parts.push(describeCollectiveCount(collectives));
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : 'Nothing to export';
 }
 
 async function createRecordsPdf(
@@ -1400,6 +1480,17 @@ async function writeAndShareCsv(fileName: string, rows: string[][]) {
   await Sharing.shareAsync(uri, { UTI: 'public.comma-separated-values-text', mimeType: 'text/csv' });
 }
 
+/**
+ * One table in the document. A register carries two — groups then individuals
+ * — because their columns genuinely differ; everything else carries one.
+ */
+type PdfSection = {
+  heading?: string;
+  subheading?: string;
+  headers: string[];
+  rows: string[][];
+};
+
 function buildPdfHtml({
   title,
   branding,
@@ -1407,13 +1498,15 @@ function buildPdfHtml({
   filterSummary,
   headers,
   rows,
+  sections,
 }: {
   title: string;
   branding: { businessName: string; businessAddress: string; logoDataUri: string };
   countLabel: string;
   filterSummary: string[];
-  headers: string[];
-  rows: string[][];
+  headers?: string[];
+  rows?: string[][];
+  sections?: PdfSection[];
 }) {
   // NOTE: expo-print renders through WKWebView's print pipeline, which —
   // unlike a full desktop browser — does not repeat <thead> at the top of
@@ -1454,39 +1547,57 @@ function buildPdfHtml({
         tbody tr:nth-child(even) td {
           background: #faf8fb;
         }
+        .section + .section {
+          margin-top: 26px;
+        }
+        .section-heading {
+          font-size: 15px;
+          font-weight: 700;
+          color: #171717;
+          margin: 0 0 2px;
+        }
+        .section-subheading {
+          font-size: 12px;
+          color: #666666;
+          margin: 0 0 10px;
+        }
   `;
 
-  const tableHtml = `
-      <table>
-        <thead>
-          <tr>
-            ${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}
-          </tr>
-        </thead>
-        <tbody>
-          ${rows
-            .map(
-              (row) =>
-                `<tr>${row.map((cell) => `<td>${escapeHtml(cell || '—')}</td>`).join('')}</tr>`,
-            )
-            .join('')}
-        </tbody>
-      </table>
-  `;
+  // A single headers/rows pair is just a one-section document, so both call
+  // shapes go through the same renderer.
+  const renderedSections: PdfSection[] =
+    sections ?? [{ headers: headers ?? [], rows: rows ?? [] }];
+
+  const tableHtml = renderedSections
+    .map(
+      (section) => `
+      <div class="section">
+        ${section.heading ? `<p class="section-heading">${escapeHtml(section.heading)}</p>` : ''}
+        ${section.subheading ? `<p class="section-subheading">${escapeHtml(section.subheading)}</p>` : ''}
+        <table>
+          <thead>
+            <tr>
+              ${section.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${section.rows
+              .map(
+                (row) =>
+                  `<tr>${row.map((cell) => `<td>${escapeHtml(cell || '—')}</td>`).join('')}</tr>`,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    `,
+    )
+    .join('');
 
   return buildPdfDocument({ title, branding, countLabel, filterSummary, extraStyles: tableStyles, bodyHtml: tableHtml });
 }
 
-function isSelectedAnimalOption(filters: AnimalExportFilters, key: MultiSelectKey, value: string) {
-  if (key === 'statuses') return filters.statuses.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'species') return filters.species.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'farms') return filters.farms.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'locations') return filters.locations.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'labels') return filters.labels.some((entry) => equalsIgnoreCase(entry, value));
-  return false;
-}
-
-function isSelectedCollectiveOption(filters: CollectiveExportFilters, key: MultiSelectKey, value: string) {
+function isSelectedRegisterOption(filters: RegisterExportFilters, key: MultiSelectKey, value: string) {
   if (key === 'statuses') return filters.statuses.some((entry) => equalsIgnoreCase(entry, value));
   if (key === 'species') return filters.species.some((entry) => equalsIgnoreCase(entry, value));
   if (key === 'farms') return filters.farms.some((entry) => equalsIgnoreCase(entry, value));
@@ -1526,22 +1637,11 @@ function needsExtraDropdownGap(key: MultiSelectKey | null) {
   return key === 'recordTypes' || key === 'farms' || key === 'locations';
 }
 
-function getAnimalFilterSummary(filters: AnimalExportFilters) {
+function getRegisterFilterSummary(filters: RegisterExportFilters) {
   const summary: string[] = [];
 
-  if (filters.searchQuery.trim()) summary.push(`Search: ${filters.searchQuery.trim()}`);
-  if (filters.statuses.length > 0) summary.push(`Status: ${filters.statuses.join(', ')}`);
-  if (filters.species.length > 0) summary.push(`Species: ${filters.species.join(', ')}`);
-  if (filters.farms.length > 0) summary.push(`Farm: ${filters.farms.join(', ')}`);
-  if (filters.locations.length > 0) summary.push(`Location: ${filters.locations.join(', ')}`);
-  if (filters.labels.length > 0) summary.push(`Labels: ${filters.labels.join(', ')}`);
-
-  return summary;
-}
-
-function getCollectiveFilterSummary(filters: CollectiveExportFilters) {
-  const summary: string[] = [];
-
+  if (filters.scope === 'individual') summary.push('Individual animals only');
+  if (filters.scope === 'collective') summary.push('Herds and flocks only');
   if (filters.searchQuery.trim()) summary.push(`Search: ${filters.searchQuery.trim()}`);
   if (filters.statuses.length > 0) summary.push(`Status: ${filters.statuses.join(', ')}`);
   if (filters.species.length > 0) summary.push(`Species: ${filters.species.join(', ')}`);
@@ -1736,52 +1836,21 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.background,
   },
   content: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 18,
     paddingBottom: 120,
     gap: 10,
   },
-  segmentRow: {
-    flexDirection: 'row',
-    alignSelf: 'flex-start',
-    justifyContent: 'flex-start',
-    gap: 10,
-  },
-  // No flex: each button is only as wide as its own label, so the pair sits at
-  // the start of the row instead of splitting the screen in half.
-  segmentButton: {
-    minHeight: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  segmentButtonActive: {
-    backgroundColor: tokens.colors.accent,
-  },
-  segmentButtonIdle: {
-    backgroundColor: '#F5F3F7',
-  },
-  segmentText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  segmentTextActive: {
-    color: '#fff',
-  },
-  segmentTextIdle: {
-    color: '#8A7F87',
-  },
   card: {
     borderRadius: 22,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     paddingVertical: 16,
     gap: 14,
   },
   summaryCard: {
     borderRadius: 22,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: 'rgba(214, 61, 61, 0.16)',
     paddingHorizontal: 16,
     paddingVertical: 16,
     gap: 10,
@@ -1806,7 +1875,7 @@ const styles = StyleSheet.create({
   },
   clearButtonText: {
     color: tokens.colors.accent,
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '700',
   },
   moreFiltersButton: {
@@ -1821,7 +1890,7 @@ const styles = StyleSheet.create({
   },
   moreFiltersText: {
     color: tokens.colors.accent,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '700',
   },
   filterStack: {
@@ -1861,15 +1930,36 @@ const styles = StyleSheet.create({
   placeholderValue: {
     color: '#7a7a7a',
   },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 4,
+  },
+  filterChip: {
+    borderRadius: tokens.radius.pill,
+    backgroundColor: '#fff',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  filterChipActive: {
+    backgroundColor: tokens.colors.accent,
+    borderColor: tokens.colors.accent,
+  },
+  filterChipText: {
+    color: tokens.colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: '#fff',
+  },
   searchAffix: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  searchAffixText: {
-    color: '#7a7a7a',
-    fontSize: 12,
-    fontWeight: '600',
   },
   countTitle: {
     color: tokens.colors.text,
@@ -1946,7 +2036,7 @@ const styles = StyleSheet.create({
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -2004,7 +2094,7 @@ const styles = StyleSheet.create({
   },
   speciesModalCardActive: {
     borderWidth: 1.5,
-    borderColor: tokens.colors.accent,
+    borderColor: tokens.colors.accentDeep,
   },
   speciesModalCardContent: {
     flexDirection: 'row',

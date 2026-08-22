@@ -1,4 +1,5 @@
-import { Modal, Pressable, StyleSheet, Text } from 'react-native';
+import { Modal, Pressable, StyleSheet } from 'react-native';
+import { Text } from '../theme/text';
 
 import { AppIcon } from './AppIcon';
 import { AnimatedPopupCard } from './AnimatedPopupCard';
@@ -23,7 +24,7 @@ export function InfoModal({ visible, onClose, title, description }: InfoModalPro
             onPress={onClose}
             style={styles.closeButton}
           >
-            <AppIcon name="close" size={18} color="#000" />
+            <AppIcon name="close" size={26} color="#000" />
           </BouncyPressable>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.description}>{description}</Text>
@@ -57,8 +58,8 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     alignSelf: 'flex-end',
-    width: 30,
-    height: 30,
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },

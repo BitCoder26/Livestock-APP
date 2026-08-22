@@ -1,7 +1,8 @@
 import AsyncStorage from 'expo-sqlite/kv-store';
 import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/text';
 
 import {
   FREE_EXPORT_LIMIT,
@@ -115,7 +116,7 @@ export function PlanLimitGate() {
   return (
     <Modal
       transparent
-      animationType="fade"
+      animationType="none"
       visible={Boolean(nudge)}
       onRequestClose={() => setNudge(null)}
     >

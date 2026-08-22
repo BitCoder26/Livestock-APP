@@ -3,14 +3,16 @@ import { useEffect, useRef } from 'react';
 
 import { Tabs, useLocalSearchParams, useNavigation } from 'expo-router';
 import type { ColorValue, GestureResponderEvent } from 'react-native';
-import { Animated, Easing, Pressable, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppIcon, AppIconName } from '../../src/components/AppIcon';
+import { AppDrawerProvider } from '../../src/components/AppDrawer';
 import { OnboardingSpotlight } from '../../src/components/OnboardingSpotlight';
 import { useOnboarding, type OnboardingStep } from '../../src/context/OnboardingContext';
 import { TAB_BAR_STYLE, tokens } from '../../src/theme/tokens';
-const TAB_ICON_SIZE = 20;
-const ANIMAL_TAB_ICON_SIZE = 21;
+import { FAST_MOTION_DURATION } from '../../src/utils/motion';
+const TAB_ICON_SIZE = 25;
+const ANIMAL_TAB_ICON_SIZE = 26;
 // The four tabs switch instantly — no fade, no slide. They are peers reached by
 // a direct tap, and any transition at all only delays the content the user
 // already asked for.
@@ -110,6 +112,7 @@ export default function TabsLayout() {
   }, [rootNavigation, saveReveal]);
 
   return (
+    <AppDrawerProvider>
     <View style={{ flex: 1 }}>
     <Tabs
     detachInactiveScreens={false}
@@ -173,26 +176,42 @@ export default function TabsLayout() {
       onAction={finishOnboarding}
       />
     </View>
+    </AppDrawerProvider>
   );
 }
 
 function TabIcon({
   name,
   color,
+  focused,
 }: {
   name: AppIconName;
   color: ColorValue;
   focused: boolean;
 }) {
   return (
-    <AppIcon
-      name={name}
-      size={name === 'goat-face' ? ANIMAL_TAB_ICON_SIZE : TAB_ICON_SIZE}
-      color={color}
-      opacity={1}
-    />
+    // The active tab's mark sits slightly proud of the bar. Only the selected
+    // one carries it — a shadow under every icon would just muddy the row.
+    <View style={focused ? tabIconStyles.focused : undefined}>
+      <AppIcon
+        name={name}
+        size={name === 'goat-face' ? ANIMAL_TAB_ICON_SIZE : TAB_ICON_SIZE}
+        color={color}
+        opacity={1}
+      />
+    </View>
   );
 }
+
+const tabIconStyles = StyleSheet.create({
+  focused: {
+    shadowColor: '#3B2B28',
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+});
 
 type TabButtonProps = {
   accessibilityState?: {
@@ -219,18 +238,17 @@ function TabButton({
     scale.stopAnimation();
     Animated.timing(scale, {
       toValue: 0.95,
-      duration: 90,
+      duration: FAST_MOTION_DURATION,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   };
 
   const handlePressOut = () => {
-    Animated.spring(scale, {
+    Animated.timing(scale, {
       toValue: 1,
-      stiffness: 420,
-      damping: 30,
-      mass: 0.7,
+      duration: FAST_MOTION_DURATION,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   };
@@ -257,7 +275,7 @@ function TabButton({
         style={{
           alignItems: 'center',
           justifyContent: 'flex-start',
-          transform: [{ translateY: -12 }, { scale }],
+          transform: [{ translateY: -9 }, { scale }],
           gap: 2,
         }}
       >

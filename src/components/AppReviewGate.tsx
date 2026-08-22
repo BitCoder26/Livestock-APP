@@ -1,7 +1,8 @@
 import AsyncStorage from 'expo-sqlite/kv-store';
 import { useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/text';
 
 import { useAccount } from '../context/AccountContext';
 import { useAnimals } from '../context/AnimalsContext';
@@ -186,7 +187,7 @@ export function AppReviewGate({ onVisibilityChange }: { onVisibilityChange?: (vi
   };
 
   return (
-    <Modal transparent animationType="fade" visible={visible} onRequestClose={() => setVisible(false)}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={() => setVisible(false)}>
       <Pressable style={styles.backdrop} onPress={() => setVisible(false)}>
         <Pressable style={styles.card} onPress={() => undefined}>
           <Text style={styles.title}>Enjoying LivestockBook?</Text>

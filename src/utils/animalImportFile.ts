@@ -3,7 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
 import { toCsv } from './csv';
-import { ANIMAL_IMPORT_FIELDS } from './importAliases';
+import { ANIMAL_IMPORT_FIELDS, type AnimalImportField } from './importAliases';
 
 /**
  * Getting a CSV in and a template out. Both use the same pieces the backup
@@ -45,14 +45,53 @@ export async function readCsvFileText(uri: string): Promise<string> {
  */
 export function buildTemplateCsv() {
   const headers = ANIMAL_IMPORT_FIELDS.map((field) => field.label);
-  const example = [
-    ['UK123456700001', 'Bess', 'Cattle', 'Female', 'Aberdeen Angus', '2021-03-14', 'Active',
-      'Home Farm', 'North Field', 'Breeding', '540', 'Born on farm', '2021-03-14', 'Twin'],
-    ['UK123456700002', '', 'Cattle', 'Male', '', '2022-05-02', 'Active',
-      'Home Farm', 'North Field', '', '480', 'Purchased', '2022-09-10', ''],
+
+  // Keyed by field id rather than written as positional rows: the header list
+  // comes from ANIMAL_IMPORT_FIELDS, so a row of bare strings has to be kept
+  // in step with it by hand, and adding a field silently shifts every example
+  // value one column left of the heading it belongs under. That is exactly
+  // what happened when `eid` was added, and it is invisible until someone
+  // reads the file — a template whose own example is misfiled teaches the
+  // wrong shape to the person least able to spot it.
+  const examples: Partial<Record<AnimalImportField, string>>[] = [
+    {
+      tag: 'UK123456700001',
+      eid: '982000123456789',
+      name: 'Bess',
+      species: 'Cattle',
+      sex: 'Female',
+      breed: 'Aberdeen Angus',
+      dateOfBirth: '2021-03-14',
+      status: 'Active',
+      farm: 'Home Farm',
+      location: 'North Field',
+      label: 'Breeding',
+      weight: '540',
+      source: 'Born on farm',
+      farmEntryDate: '2021-03-14',
+      notes: 'Twin',
+    },
+    // Deliberately sparse: every column except the tag may be left empty, and
+    // the second row is where that is shown rather than described.
+    {
+      tag: 'UK123456700002',
+      species: 'Cattle',
+      sex: 'Male',
+      dateOfBirth: '2022-05-02',
+      status: 'Active',
+      farm: 'Home Farm',
+      location: 'North Field',
+      weight: '480',
+      source: 'Purchased',
+      farmEntryDate: '2022-09-10',
+    },
   ];
 
-  return toCsv([headers, ...example]);
+  const rows = examples.map((example) =>
+    ANIMAL_IMPORT_FIELDS.map((field) => example[field.id] ?? ''),
+  );
+
+  return toCsv([headers, ...rows]);
 }
 
 export async function shareTemplateCsv() {

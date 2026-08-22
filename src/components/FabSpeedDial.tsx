@@ -55,10 +55,10 @@ const FAB_CLOSE_ICON = '#544F49';
 // 375 viewBox, so the + and the ✕ it rotates into are a true 24pt mark. The
 // other glyphs carry padding inside their canvas, so each is scaled up by its
 // own ratio to land on that same 24pt rather than being given a matching box.
-const FAB_GLYPH_INK = 24;
+const FAB_GLYPH_INK = 25;
 // Artwork PNGs: the mark occupies ~40% of the square, measured off the source.
 const FAB_IMAGE_SIZE = Math.round(FAB_GLYPH_INK / 0.4);
-const FAB_SIZE = 68;
+const FAB_SIZE = 74;
 const ACTION_SIZE = FAB_SIZE;
 const ACTION_GAP = 14;
 // The artwork PNGs carry ~40% transparent padding inside a square canvas, so

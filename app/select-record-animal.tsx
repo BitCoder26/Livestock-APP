@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
@@ -11,7 +12,7 @@ import { useRecords } from '../src/context/RecordsContext';
 import { useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
 import { resolveAnimalFarmName, resolveAnimalLocationName } from '../src/utils/recordLocations';
-import { SHEET_ENTRANCE_DURATION } from '../src/utils/motion';
+import { FAST_MOTION_DURATION, SHEET_ENTRANCE_DURATION } from '../src/utils/motion';
 
 type SelectionMode = 'animals' | 'labels';
 
@@ -198,7 +199,7 @@ export default function SelectRecordAnimalScreen() {
     entrance.stopAnimation();
     Animated.timing(entrance, {
       toValue: 0,
-      duration: 280,
+      duration: FAST_MOTION_DURATION,
       easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(() => {
@@ -500,7 +501,7 @@ const styles = StyleSheet.create({
   modeToggle: {
     flexDirection: 'row',
     borderRadius: 24,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     padding: 4,
     marginBottom: 12,
   },

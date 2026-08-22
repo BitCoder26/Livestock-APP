@@ -1,10 +1,12 @@
 import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from 'expo-sqlite/kv-store';
 
 import { AppIcon, AppIconName } from '../../src/components/AppIcon';
+import { useAppDrawer } from '../../src/components/AppDrawer';
 import { AppTopBar } from '../../src/components/AppTopBar';
 import { BouncyPressable } from '../../src/components/BouncyPressable';
 import { TabSwipeView } from '../../src/components/TabSwipeView';
@@ -29,6 +31,7 @@ const SETUP_ITEMS: Array<{
 
 export default function SetupScreen() {
   const router = useRouter();
+  const { openDrawer } = useAppDrawer();
   const { farms, locations, labels, medicines } = useSetup();
   const { step } = useOnboarding();
   const isFocused = useIsFocused();
@@ -59,13 +62,11 @@ export default function SetupScreen() {
       <TabSwipeView>
         <AppTopBar
         title="Setup"
-        actions={[
-          {
-            icon: 'profile',
-            accessibilityLabel: 'Open account',
-            onPress: () => router.push('/account'),
-          },
-        ]}
+        leftAction={{
+          icon: 'menu',
+          accessibilityLabel: 'Open menu',
+          onPress: openDrawer,
+        }}
       />
       <View style={styles.body}>
         <ScrollView
@@ -85,7 +86,9 @@ export default function SetupScreen() {
                 style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
               >
                 <View style={styles.leftGroup}>
-                  <AppIcon name={item.icon} size={22} color="#000" />
+                  <View style={styles.cardIconBadge}>
+                    <AppIcon name={item.icon} size={30} color="#000" />
+                  </View>
                   <Text style={styles.title}>{item.title}</Text>
                 </View>
                 <View style={styles.rightGroup}>
@@ -144,20 +147,34 @@ const styles = StyleSheet.create({
     paddingBottom: 112,
     gap: 8,
   },
+  // Matches the animal card's species badge.
+  cardIconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: 'rgba(221, 101, 96, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  // Same tile as the Records and Animals cards: white, 1pt warm-grey border,
+  // and a soft brown shadow rather than the old black one.
   card: {
-    minHeight: 60,
+    minHeight: 76,
     borderRadius: 18,
     backgroundColor: tokens.colors.surface,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#DDD5D3',
+    shadowColor: '#3B2B28',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   cardPressed: {
     opacity: 0.92,

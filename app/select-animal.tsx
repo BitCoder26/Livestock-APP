@@ -1,7 +1,8 @@
 import type { AppIconName } from '../src/components/AppIcon';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
@@ -200,7 +201,7 @@ const styles = StyleSheet.create({
     width: '47%',
     minHeight: 96,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',

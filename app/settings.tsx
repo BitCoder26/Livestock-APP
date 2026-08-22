@@ -1,18 +1,8 @@
 import AsyncStorage from 'expo-sqlite/kv-store';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '../src/theme/text';
 import type { ImageRequireSource } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -631,7 +621,9 @@ function SelectionModal({ visible, title, options, selectedValue, onSelect, onCl
                 <DesignField
                   label="Search"
                   icon="search"
+                  placeholder="Start typing to narrow the list"
                   value={searchValue ?? ''}
+                  search
                   onChangeText={onSearchValueChange}
                   fieldStyle={styles.formField}
                 />
@@ -1014,7 +1006,7 @@ const styles = StyleSheet.create({
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1055,7 +1047,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   sheetButtonSecondary: {
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     shadowOpacity: 0,
     elevation: 0,
   },

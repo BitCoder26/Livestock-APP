@@ -1,9 +1,20 @@
+import {
+  Manrope_200ExtraLight,
+  Manrope_300Light,
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  Manrope_800ExtraBold,
+  useFonts,
+} from '@expo-google-fonts/manrope';
 import { Stack, type ErrorBoundaryProps } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { PostHogProvider } from 'posthog-react-native';
+import { useEffect } from 'react';
 
 import { CollectivesProvider } from '../src/context/CollectivesContext';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppErrorFallback } from '../src/components/AppErrorFallback';
@@ -13,8 +24,21 @@ import { OnboardingProvider, useOnboarding } from '../src/context/OnboardingCont
 import { RecordsProvider, useRecords } from '../src/context/RecordsContext';
 import { SetupProvider, useSetup } from '../src/context/SetupContext';
 import { SubscriptionProvider, useSubscription } from '../src/context/SubscriptionContext';
+import { FAST_MOTION_DURATION } from '../src/utils/motion';
+
+// Keep the branded native launch screen in place while the local stores and
+// subscription state initialise. Calling this at module scope prevents the
+// splash screen from auto-hiding before React has had a chance to render.
+void SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ duration: FAST_MOTION_DURATION, fade: true });
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    // A startup failure must reveal the recovery UI instead of leaving the
+    // native launch screen covering it indefinitely.
+    SplashScreen.hide();
+  }, []);
+
   return <AppErrorFallback error={error} onRetry={retry} />;
 }
 
@@ -46,21 +70,38 @@ export default function RootLayout() {
 }
 
 function AppDataGate() {
+  const [fontsLoaded] = useFonts({
+    Manrope_200ExtraLight,
+    Manrope_300Light,
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+  });
   const { isLoaded: setupLoaded } = useSetup();
   const { isLoaded: animalsLoaded } = useAnimals();
   const { isLoaded: recordsLoaded } = useRecords();
   const { isLoaded: accountLoaded } = useAccount();
   const { isReady: onboardingReady } = useOnboarding();
   const { loading: subscriptionLoading } = useSubscription();
+  const isAppReady =
+    fontsLoaded &&
+    setupLoaded &&
+    animalsLoaded &&
+    recordsLoaded &&
+    accountLoaded &&
+    onboardingReady &&
+    !subscriptionLoading;
 
-  if (!setupLoaded || !animalsLoaded || !recordsLoaded || !accountLoaded || !onboardingReady || subscriptionLoading) {
-    return (
-      <View style={styles.loadingScreen}>
-        <StatusBar style="dark" />
-        <ActivityIndicator size="small" color="#E5635F" />
-        <Text style={styles.loadingText}>Loading LivestockBook</Text>
-      </View>
-    );
+  useEffect(() => {
+    if (isAppReady) {
+      SplashScreen.hide();
+    }
+  }, [isAppReady]);
+
+  if (!isAppReady) {
+    return null;
   }
 
   return (
@@ -71,13 +112,7 @@ function AppDataGate() {
                         headerShown: false,
                         contentStyle: { backgroundColor: '#F7F5F6' },
                         animation: 'simple_push',
-                        // Short enough to feel immediate, long enough to still
-                        // read as a movement. Below roughly 150ms the slide
-                        // stops registering as direction and becomes a flicker,
-                        // which is worse than having no animation at all.
-                        // react-native-screens honours animationDuration for
-                        // simple_push on both platforms.
-                        animationDuration: 160,
+                        animationDuration: FAST_MOTION_DURATION,
                       }}
                     >
                       <Stack.Screen
@@ -114,7 +149,7 @@ function AppDataGate() {
                         name="welcome"
                         options={{
                           animation: 'fade',
-                          animationDuration: 280,
+                          animationDuration: FAST_MOTION_DURATION,
                           gestureEnabled: false,
                         }}
                       />
@@ -149,7 +184,7 @@ function AppDataGate() {
                         name="view-record"
                         options={{
                           animation: 'simple_push',
-                          animationDuration: 280,
+                          animationDuration: FAST_MOTION_DURATION,
                           contentStyle: { backgroundColor: '#F7F5F6' },
                           presentation: 'card',
                         }}
@@ -158,7 +193,7 @@ function AppDataGate() {
                         name="edit-record"
                         options={{
                           animation: 'simple_push',
-                          animationDuration: 280,
+                          animationDuration: FAST_MOTION_DURATION,
                           contentStyle: { backgroundColor: '#F7F5F6' },
                           presentation: 'card',
                         }}
@@ -183,7 +218,7 @@ function AppDataGate() {
                         name="select-mother-animal"
                         options={({ route }) => ({
                           animation: 'simple_push',
-                          animationDuration: 280,
+                          animationDuration: FAST_MOTION_DURATION,
                           presentation:
                             (route.params as { source?: string } | undefined)?.source === 'add-record'
                               ? 'fullScreenModal'
@@ -252,18 +287,3 @@ function AppDataGate() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  loadingScreen: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    backgroundColor: '#F7F5F6',
-  },
-  loadingText: {
-    color: '#8A7F87',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});

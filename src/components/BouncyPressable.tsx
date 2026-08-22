@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import type { GestureResponderEvent, PressableProps, StyleProp, ViewStyle } from 'react-native';
 import { Animated, Easing, Pressable } from 'react-native';
 
+import { FAST_MOTION_DURATION } from '../utils/motion';
+
 type BouncyPressableProps = PressableProps & {
   containerStyle?: StyleProp<ViewStyle>;
   pressedScale?: number;
@@ -32,7 +34,7 @@ export function BouncyPressable({
     scale.stopAnimation();
     Animated.timing(scale, {
       toValue: pressedScale,
-      duration: 90,
+      duration: FAST_MOTION_DURATION,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
@@ -41,11 +43,10 @@ export function BouncyPressable({
 
   const handlePressOut = (event: GestureResponderEvent) => {
     scale.stopAnimation();
-    Animated.spring(scale, {
+    Animated.timing(scale, {
       toValue: 1,
-      stiffness: 420,
-      damping: 30,
-      mass: 0.7,
+      duration: FAST_MOTION_DURATION,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
     onPressOut?.(event);

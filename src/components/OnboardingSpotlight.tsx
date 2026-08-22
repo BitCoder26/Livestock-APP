@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/text';
 import Svg, { Path } from 'react-native-svg';
 
 import { tokens } from '../theme/tokens';
+import { FAST_AMBIENT_MOTION_DURATION, FAST_MOTION_DURATION } from '../utils/motion';
 
 export type SpotlightRect = { x: number; y: number; width: number; height: number };
 
@@ -51,18 +53,26 @@ export function OnboardingSpotlight({
 
     Animated.timing(fade, {
       toValue: 1,
-      duration: 260,
+      duration: FAST_MOTION_DURATION,
       useNativeDriver: true,
     }).start();
 
     // Frame callbacks can be throttled (e.g. backgrounded web tabs), which
     // would leave the overlay stuck transparent — snap it visible regardless.
-    const fadeFallback = setTimeout(() => fade.setValue(1), 400);
+    const fadeFallback = setTimeout(() => fade.setValue(1), FAST_MOTION_DURATION * 2);
 
     const pulseLoop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 820, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 820, useNativeDriver: true }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: FAST_AMBIENT_MOTION_DURATION,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0,
+          duration: FAST_AMBIENT_MOTION_DURATION,
+          useNativeDriver: true,
+        }),
       ]),
     );
     pulseLoop.start();

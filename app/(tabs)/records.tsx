@@ -1,12 +1,14 @@
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Easing, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from 'expo-sqlite/kv-store';
 
 import { AppIcon } from '../../src/components/AppIcon';
 import { AppReviewGate } from '../../src/components/AppReviewGate';
+import { useAppDrawer } from '../../src/components/AppDrawer';
 import { AppTopBar } from '../../src/components/AppTopBar';
 import { PlanLimitGate } from '../../src/components/PlanLimitGate';
 import { BouncyPressable } from '../../src/components/BouncyPressable';
@@ -31,11 +33,8 @@ import { MODAL_SHEET_ENTRANCE_DURATION, motionDuration } from '../../src/utils/m
 const FACEBOOK_GROUP_URL = 'https://www.facebook.com/groups/1353099223626390/';
 const FACEBOOK_CARD_DISMISSED_KEY = 'facebookGroupCardDismissed';
 const RECORD_SORT_KEY = 'recordsSortOption';
-// Holds the new card back until the save-time circular reveal has all but
-// finished, so it lands on a settled screen rather than sliding in behind the
-// mask. This is the *return* reveal in (tabs)/_layout.tsx — the forward one on
-// the add buttons was removed — so it tracks REVEAL_DURATION, 650 on iOS.
-const NEW_RECORD_CARD_ENTRANCE_DELAY = 580;
+// Saving now returns directly to the list, so the new card can enter at once.
+const NEW_RECORD_CARD_ENTRANCE_DELAY = 0;
 const RECORD_CARD_ENTRANCE_DURATION = motionDuration(260);
 // Removal is a response to a tap, so it runs shorter than the entrance and
 // without any delay at all — see the exit effect.
@@ -127,8 +126,11 @@ function formatAnimalSummary(record: RecordEntry, animals: Animal[]) {
   return `${count} animals`;
 }
 
+const CARD_CHEVRON_COLOR = tokens.colors.text;
+
 export default function RecordsScreen() {
   const router = useRouter();
+  const { openDrawer } = useAppDrawer();
   const { newRecordId, deletingRecordId } = useLocalSearchParams<{
     newRecordId?: string;
     deletingRecordId?: string;
@@ -232,6 +234,11 @@ export default function RecordsScreen() {
       <TabSwipeView>
         <AppTopBar
         title="Records"
+        leftAction={{
+          icon: 'menu',
+          accessibilityLabel: 'Open menu',
+          onPress: openDrawer,
+        }}
         actions={[
           {
             icon: 'sort',
@@ -246,16 +253,11 @@ export default function RecordsScreen() {
             onPress: () => router.push('/records-filter'),
             badge: hasActiveFilters,
           },
-          {
-            icon: 'profile',
-            accessibilityLabel: 'Open account',
-            onPress: () => router.push('/account'),
-          },
         ]}
       />
       <View style={styles.body}>
         <ScrollView
-          contentContainerStyle={[styles.content, filteredRecords.length === 0 && styles.emptyContent]}
+          contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
           {isFacebookCardDismissed ? null : (
@@ -296,13 +298,7 @@ export default function RecordsScreen() {
               : `${records.length} records`}
             <Text>{` · ${sortLabel}`}</Text>
           </Text>
-          {filteredRecords.length === 0 ? (
-            <View style={styles.emptyState}>
-              <AppIcon name="records_" size={86} color="#E5E0E7" opacity={1} />
-              <Text style={styles.emptyTitle}>{hasActiveFilters ? 'No matches' : 'Empty'}</Text>
-              <Text style={styles.emptyText}>{hasActiveFilters ? 'Try fewer filters' : 'Add below'}</Text>
-            </View>
-          ) : (
+          {filteredRecords.length === 0 ? null : (
             sortedRecords.map((record) => {
               const speciesTheme = getSpeciesThemeByLabel(record.species);
 
@@ -347,13 +343,20 @@ export default function RecordsScreen() {
                         </View>
                       </View>
                     </View>
-                    <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
+                    <AppIcon name="chevron-right-bold" size={22} color={CARD_CHEVRON_COLOR} />
                   </BouncyPressable>
                 </RecordCardMotion>
               );
             })
           )}
         </ScrollView>
+        {filteredRecords.length === 0 ? (
+          <View pointerEvents="none" style={styles.emptyState}>
+            <AppIcon name="records_" size={86} color="#E5E0E7" opacity={1} />
+            <Text style={styles.emptyTitle}>{hasActiveFilters ? 'No matches' : 'Empty'}</Text>
+            <Text style={styles.emptyText}>{hasActiveFilters ? 'Try fewer filters' : 'Add below'}</Text>
+          </View>
+        ) : null}
       </View>
       <FabSpeedDial
         accessibilityLabel="Add record"
@@ -419,7 +422,7 @@ export default function RecordsScreen() {
                   onPress={() => setShowSortSheet(false)}
                   style={styles.closeButton}
                 >
-                  <AppIcon name="close" size={22} color="#000" />
+                  <AppIcon name="close" size={26} color="#000" />
                 </Pressable>
               </View>
 
@@ -436,6 +439,7 @@ export default function RecordsScreen() {
                       onPress={() => chooseSort(option.value)}
                       style={({ pressed }) => [
                         styles.selectionRow,
+                        styles.sortRow,
                         isSelected && styles.sortRowActive,
                         pressed && styles.pressed,
                       ]}
@@ -582,14 +586,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 10,
   },
-  sheetHeaderSpacer: { width: 30 },
+  sheetHeaderSpacer: { width: 34 },
   sheetTitle: { color: tokens.colors.text, fontSize: 18, fontWeight: '700' },
-  closeButton: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  closeButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   sortSheetContent: { paddingBottom: 24 },
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -597,6 +601,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   selectionRowActive: { backgroundColor: tokens.colors.accent },
+  // Sort options are pills; the multi-select rows elsewhere keep the softer
+  // 18pt corner so the two lists stay distinguishable.
+  sortRow: { borderRadius: 999 },
   // Sort is a single choice, so the selected row is filled solid rather than
   // washed — the check mark and label go white to sit on it.
   sortRowActive: { backgroundColor: tokens.colors.accent },
@@ -612,31 +619,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 18,
     paddingBottom: 120,
-    gap: 8,
+    gap: 5,
   },
   countText: {
     color: '#8A7F87',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     marginBottom: 4,
   },
   countTextBelowFloatingFacebook: {
     marginTop: 102,
   },
-  emptyContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
   emptyState: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 28,
-    paddingTop: 72,
-    paddingBottom: 0,
   },
   emptyTitle: {
     marginTop: 18,
@@ -650,27 +655,34 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
+  // A hairline instead of a drop shadow: the list reads as a set of tiles
+  // rather than a stack of floating slabs, and nothing bleeds between rows.
   card: {
     backgroundColor: tokens.colors.surface,
     borderRadius: 18,
-    minHeight: 84,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    minHeight: 79,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#DDD5D3',
+    // Far softer than the original 0.16 / 7 / 4: the border does the defining
+    // and this only warms the edge underneath. Brown rather than black so it
+    // sits in the same family as the border it falls behind.
+    shadowColor: '#3B2B28',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   cardPressed: {
     opacity: 0.92,
   },
   cardCopy: {
     flex: 1,
-    gap: 5,
+    gap: 1,
     minWidth: 0,
   },
   cardTypeTitle: {
@@ -697,7 +709,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   footerRow: {
-    marginTop: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -722,7 +733,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   speciesChipText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
   },
   facebookCard: {

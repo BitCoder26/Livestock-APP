@@ -1,6 +1,7 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, Text } from 'react-native';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppTopBar } from '../src/components/AppTopBar';

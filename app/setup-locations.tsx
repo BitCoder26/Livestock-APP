@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
@@ -175,7 +176,7 @@ export default function SetupLocationsScreen() {
                 <View style={styles.itemHeader}>
                   <View style={styles.itemTitleRow}>
                     <View style={styles.itemIconBadge}>
-                      <AppIcon name="pin" size={22} color="#171717" />
+                      <AppIcon name="pin" size={32} color="#171717" />
                     </View>
                     <View style={styles.itemHeadingCopy}>
                       <Text style={styles.itemTitle}>{location.name}</Text>
@@ -200,7 +201,7 @@ export default function SetupLocationsScreen() {
 
       <Modal
         transparent
-        animationType="fade"
+        animationType="none"
         visible={locationPendingDelete !== null}
         onRequestClose={() => setLocationPendingDelete(null)}
       >
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#fff' },
   content: { paddingHorizontal: 16, paddingTop: 22, paddingBottom: 120, gap: 16 },
   emptyContent: { flexGrow: 1, justifyContent: 'center' },
-  editorCard: { borderRadius: 24, backgroundColor: '#F5F3F7', padding: 16, gap: 14 },
+  editorCard: { borderRadius: 24, backgroundColor: '#EFECF0', padding: 16, gap: 14 },
   sectionLabel: { color: tokens.colors.text, fontSize: 16, fontWeight: '700' },
   block: { gap: 8 },
   label: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
@@ -318,8 +319,17 @@ const styles = StyleSheet.create({
   addButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   editorActionsRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 12 },
   editorPrimaryButtonWrap: { flex: 1 },
-  cancelButton: { minHeight: 50, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
-  cancelButtonText: { color: tokens.colors.textSoft, fontSize: 14, fontWeight: '700' },
+  // Same translucent red as Clear filter: a secondary action that belongs to
+  // the accent family without competing with the solid Save button.
+  cancelButton: {
+    minHeight: 50,
+    paddingHorizontal: 22,
+    borderRadius: 25,
+    backgroundColor: 'rgba(221, 101, 96, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: { color: tokens.colors.accentDeep, fontSize: 14, fontWeight: '700' },
   list: { gap: 10 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingTop: 72 },
   emptyTitle: { marginTop: 18, color: '#E5E0E7', fontSize: 29, fontWeight: '700' },
@@ -338,9 +348,9 @@ const styles = StyleSheet.create({
   itemHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   itemTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, flex: 1 },
   itemIconBadge: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
+    width: 60,
+    height: 60,
+    borderRadius: 19,
     backgroundColor: '#FCE5E4',
     alignItems: 'center',
     justifyContent: 'center',
@@ -447,7 +457,7 @@ const styles = StyleSheet.create({
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',

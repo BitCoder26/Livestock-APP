@@ -1,12 +1,13 @@
 import { useRouter } from 'expo-router';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppTopBar } from '../src/components/AppTopBar';
 import { tokens } from '../src/theme/tokens';
 
 const APP_LOGO = require('../assets/logo/about-logo.png');
-const APP_VERSION = 'v2.0';
+const APP_VERSION = 'v2.1';
 
 export default function AboutScreen() {
   const router = useRouter();

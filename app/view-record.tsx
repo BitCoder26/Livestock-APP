@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Dimensions, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Dimensions, Image, Modal, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
@@ -17,7 +18,12 @@ import { formatCurrencyAmount } from '../src/entities/account';
 import type { Animal, AnimalTone } from '../src/entities/animal';
 import { getCollectiveCount, type Collective } from '../src/entities/collective';
 import type { RecordEntry } from '../src/entities/record';
-import { tokens } from '../src/theme/tokens';
+import {
+  ANIMAL_CARD_AVATAR_ICON_SIZE,
+  ANIMAL_CARD_AVATAR_RADIUS,
+  ANIMAL_CARD_AVATAR_SIZE,
+  tokens,
+} from '../src/theme/tokens';
 import { formatDateForDisplay } from '../src/utils/dateFormat';
 import { useThumbnailUri } from '../src/utils/useThumbnailUri';
 import { findRecordAnimals } from '../src/utils/recordAnimals';
@@ -197,7 +203,7 @@ export default function ViewRecordScreen() {
                   icon: 'more-vertical',
                   accessibilityLabel: 'Record options',
                   onPress: openActionsMenu,
-                  size: 24,
+                  size: 28,
                   anchorRef: moreRef,
                 },
               ]
@@ -427,7 +433,7 @@ function AnimalNavigationRow({ animal }: { animal: Animal }) {
         <Text style={styles.animalName}>{animal.name.trim() || 'Unnamed animal'}</Text>
         <Text style={styles.animalMeta}>{`${animal.id} • ${animal.species}`}</Text>
       </View>
-      <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
+      <AppIcon name="chevron-right-bold" size={22} color={tokens.colors.text} />
     </Pressable>
   );
 }
@@ -452,7 +458,7 @@ function CollectiveNavigationRow({
     return (
       <View style={styles.animalRow}>
         <View style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}>
-          <AppIcon name={icon} size={22} color={theme.icon} />
+          <AppIcon name={icon} size={ANIMAL_CARD_AVATAR_ICON_SIZE} color={theme.icon} />
         </View>
         <View style={styles.animalCopy}>
           <Text style={styles.animalName}>{label}</Text>
@@ -472,7 +478,7 @@ function CollectiveNavigationRow({
       style={({ pressed }) => [styles.animalRow, pressed && styles.cardPressed]}
     >
       <View style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}>
-        <AppIcon name={icon} size={22} color={theme.icon} />
+        <AppIcon name={icon} size={ANIMAL_CARD_AVATAR_ICON_SIZE} color={theme.icon} />
       </View>
       <View style={styles.animalCopy}>
         <Text style={styles.animalName}>{label}</Text>
@@ -480,7 +486,7 @@ function CollectiveNavigationRow({
           {`${collective.species} • ${getCollectiveCount(collective)} animals`}
         </Text>
       </View>
-      <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
+      <AppIcon name="chevron-right-bold" size={22} color={tokens.colors.text} />
     </Pressable>
   );
 }
@@ -499,7 +505,11 @@ function MissingAnimalRow({ record }: { record: RecordEntry }) {
   return (
     <View style={styles.animalRow}>
       <View style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}>
-        <AppIcon name={SPECIES_ICONS.get(record.species) ?? 'animals3'} size={22} color={theme.icon} />
+        <AppIcon
+          name={SPECIES_ICONS.get(record.species) ?? 'animals3'}
+          size={ANIMAL_CARD_AVATAR_ICON_SIZE}
+          color={theme.icon}
+        />
       </View>
       <View style={styles.animalCopy}>
         <Text style={styles.animalName}>{label}</Text>
@@ -526,7 +536,11 @@ function AnimalAvatar({ animal }: { animal: Animal }) {
 
   return (
     <View style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }] }>
-      <AppIcon name={getSpeciesIconName(animal.species, animal.tone)} size={22} color={theme.icon} />
+      <AppIcon
+        name={getSpeciesIconName(animal.species, animal.tone)}
+        size={ANIMAL_CARD_AVATAR_ICON_SIZE}
+        color={theme.icon}
+      />
     </View>
   );
 }
@@ -863,27 +877,30 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.surface,
     borderRadius: 18,
     minHeight: 84,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#DDD5D3',
+    shadowColor: '#3B2B28',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   animalPhoto: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: ANIMAL_CARD_AVATAR_SIZE,
+    height: ANIMAL_CARD_AVATAR_SIZE,
+    borderRadius: ANIMAL_CARD_AVATAR_RADIUS,
     backgroundColor: tokens.colors.surfaceMuted,
   },
+  // Matches the animal card's species badge on the Animals tab.
   speciesIconBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: ANIMAL_CARD_AVATAR_SIZE,
+    height: ANIMAL_CARD_AVATAR_SIZE,
+    borderRadius: ANIMAL_CARD_AVATAR_RADIUS,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,

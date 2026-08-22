@@ -2,20 +2,9 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  Image,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Text, TextInput } from '../src/theme/text';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
@@ -30,7 +19,7 @@ import { useAnimals } from '../src/context/AnimalsContext';
 import { useSetup } from '../src/context/SetupContext';
 import { useSubscription } from '../src/context/SubscriptionContext';
 import type { AnimalAgeUnit, AnimalSex, AnimalSource, AnimalStatus, AnimalWeightUnit } from '../src/entities/animal';
-import { tokens } from '../src/theme/tokens';
+import { TAB_ALIGNED_FAB_BOTTOM_OFFSET, tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
 import { filterAccessibleImageUris, persistAnimalProfileImage } from '../src/utils/imageStorage';
 import { resolveAnimalFarmName, resolveAnimalLocationName } from '../src/utils/recordLocations';
@@ -46,7 +35,6 @@ const SPECIES_ICONS: Record<string, AppIconName> = Object.fromEntries(
 type PickerKey = 'status' | 'weightUnit' | 'farm' | 'location' | 'label' | 'source';
 
 export function AddAnimalScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const {
     species,
@@ -799,7 +787,7 @@ export function AddAnimalScreen() {
       <FloatingActionButton
         accessibilityLabel="Save animal"
         icon="check"
-        bottomOffset={insets.bottom + 78}
+        bottomOffset={TAB_ALIGNED_FAB_BOTTOM_OFFSET}
         onPress={handleSave}
       />
 
@@ -838,7 +826,7 @@ export function AddAnimalScreen() {
                 onPress={() => setShowSpeciesPicker(false)}
                 style={styles.speciesModalClose}
               >
-                <AppIcon name="close" size={16} color={tokens.colors.text} />
+                <AppIcon name="close" size={26} color={tokens.colors.text} />
               </Pressable>
             </View>
 
@@ -1026,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   formCard: {
     borderRadius: 24,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     padding: 16,
     gap: 14,
   },
@@ -1195,7 +1183,7 @@ const styles = StyleSheet.create({
     width: '48%',
     minHeight: 74,
     borderRadius: 16,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
@@ -1271,7 +1259,7 @@ const styles = StyleSheet.create({
     height: 108,
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     position: 'relative',
   },
   imagePreview: {
@@ -1336,7 +1324,7 @@ const styles = StyleSheet.create({
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',

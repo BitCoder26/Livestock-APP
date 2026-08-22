@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Fragment, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
@@ -12,7 +13,7 @@ import { SPECIES_OPTIONS } from '../src/constants/records';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useSetup } from '../src/context/SetupContext';
-import type { AnimalSex, AnimalStatus } from '../src/entities/animal';
+import type { AnimalSex } from '../src/entities/animal';
 import { tokens } from '../src/theme/tokens';
 import {
   analyzeImport,
@@ -632,40 +633,46 @@ function ChooseStep({
 }) {
   return (
     <>
-      <Text style={styles.lead}>How is your list written down?</Text>
+      <View style={styles.chooseIntro}>
+        <Text style={styles.chooseTitle}>Choose a method</Text>
+      </View>
 
-      <OptionCard
-        icon="tag"
-        title="Type tag numbers"
-        text="One tag per line. Every animal gets the same details, which you choose next."
-        onPress={onTyped}
-      />
-      <OptionCard
-        icon="enter-arrow"
-        title="Import a CSV file"
-        text="One animal per row, with its own details. Saved from Excel, Numbers or Sheets."
-        onPress={onFile}
-      />
-      <OptionCard
-        icon="edit"
-        title="Paste a table"
-        text="Copied from a note, an email or a message rather than a file."
-        onPress={onPaste}
-      />
+      <View style={styles.importOptionList}>
+        <ImportOptionRow
+          icon="tag"
+          title="Type tag numbers"
+          description="Same details for every animal"
+          onPress={onTyped}
+        />
+        <ImportOptionRow
+          icon="enter-arrow"
+          title="Choose a CSV file"
+          description="Different details in each row"
+          onPress={onFile}
+        />
+        <ImportOptionRow
+          icon="edit"
+          title="Paste rows"
+          description="From a spreadsheet, note or message"
+          onPress={onPaste}
+        />
+      </View>
 
-      <BouncyPressable
-        accessibilityLabel="Get the CSV template"
-        accessibilityRole="button"
+      <Text style={styles.chooseTitle}>Need a CSV file?</Text>
+      <ImportOptionRow
+        icon="export-download-outline"
+        title="Get CSV template"
+        description="Fill it in, then import the completed file"
+        accessibilityHint="Create and share a CSV template to fill in and import"
         onPress={onTemplate}
-        style={({ pressed }) => [styles.templateRow, pressed && styles.pressed]}
-      >
-        <AppIcon name="export-download-outline" size={18} color={tokens.colors.accent} />
-        <Text style={styles.templateText}>Get the template to fill in</Text>
-      </BouncyPressable>
+      />
 
-      <Text style={styles.footnote}>
-        Nothing is added until you have seen the preview and pressed Import.
-      </Text>
+      <View style={styles.importReassurance}>
+        <AppIcon name="check" size={16} color={tokens.colors.accentDeep} />
+        <Text style={styles.importReassuranceText}>
+          Review every row before import. Existing tags are skipped.
+        </Text>
+      </View>
     </>
   );
 }
@@ -871,7 +878,7 @@ function ValuesStep({
   overrides,
   onEditValue,
 }: {
-  unmapped: Array<{ field: MappedValueField; value: string; count: number }>;
+  unmapped: { field: MappedValueField; value: string; count: number }[];
   overrides: ImportValueOverrides;
   onEditValue: (field: MappedValueField, value: string) => void;
 }) {
@@ -1037,6 +1044,39 @@ function describeIssue(issue: ImportRowResult['issues'][number]) {
 // Shared bits
 // ---------------------------------------------------------------------------
 
+function ImportOptionRow({
+  icon,
+  title,
+  description,
+  accessibilityHint,
+  onPress,
+}: {
+  icon: Parameters<typeof AppIcon>[0]['name'];
+  title: string;
+  description: string;
+  accessibilityHint?: string;
+  onPress: () => void;
+}) {
+  return (
+    <BouncyPressable
+      accessibilityLabel={title}
+      accessibilityHint={accessibilityHint ?? description}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.importOptionRow, pressed && styles.pressed]}
+    >
+      <View style={styles.importOptionIcon}>
+        <AppIcon name={icon} size={21} color={tokens.colors.accent} />
+      </View>
+      <View style={styles.columnCopy}>
+        <Text style={styles.importOptionTitle}>{title}</Text>
+        <Text style={styles.importOptionDescription}>{description}</Text>
+      </View>
+      <AppIcon name="chevron-right" size={12} color={tokens.colors.textSoft} />
+    </BouncyPressable>
+  );
+}
+
 function StepIndicator({
   stages,
   activeIndex,
@@ -1082,36 +1122,6 @@ function StepIndicator({
         );
       })}
     </View>
-  );
-}
-
-function OptionCard({
-  icon,
-  title,
-  text,
-  onPress,
-}: {
-  icon: Parameters<typeof AppIcon>[0]['name'];
-  title: string;
-  text: string;
-  onPress: () => void;
-}) {
-  return (
-    <BouncyPressable
-      accessibilityLabel={title}
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.optionCard, pressed && styles.pressed]}
-    >
-      <View style={styles.optionIcon}>
-        <AppIcon name={icon} size={24} color={tokens.colors.text} />
-      </View>
-      <View style={styles.columnCopy}>
-        <Text style={styles.optionTitle}>{title}</Text>
-        <Text style={styles.optionText}>{text}</Text>
-      </View>
-      <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
-    </BouncyPressable>
   );
 }
 
@@ -1239,6 +1249,55 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  chooseIntro: {
+    marginBottom: 2,
+  },
+  chooseTitle: {
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  importOptionList: {
+    gap: 10,
+  },
+  importOptionRow: {
+    minHeight: 66,
+    borderRadius: 33,
+    backgroundColor: tokens.colors.surfaceMuted,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  importOptionIcon: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  importOptionTitle: {
+    color: tokens.colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  importOptionDescription: {
+    color: tokens.colors.textSoft,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  importReassurance: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 4,
+    marginTop: 3,
+  },
+  importReassuranceText: {
+    flex: 1,
+    color: tokens.colors.textSoft,
+    fontSize: 12,
+    lineHeight: 18,
+  },
   stageRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1314,48 +1373,7 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 10,
   },
-  optionCard: {
-    minHeight: 88,
-    borderRadius: 20,
-    backgroundColor: tokens.colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  optionIcon: {
-    width: 32,
-    alignItems: 'center',
-  },
-  optionTitle: {
-    color: tokens.colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  optionText: {
-    color: tokens.colors.textSoft,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  templateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-  },
-  templateText: {
-    color: tokens.colors.accent,
-    fontSize: 14,
-    fontWeight: '600',
-  },
+
   tagInput: {
     minHeight: 190,
     color: tokens.colors.text,

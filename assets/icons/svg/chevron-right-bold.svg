@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <g transform="rotate(-90 12 12)">
+    <path
+      fill="currentColor"
+      d="M12 16.4a1.2 1.2 0 0 1-.85-.35l-6-6a1.2 1.2 0 1 1 1.7-1.7L12 13.56l5.15-5.2a1.2 1.2 0 1 1 1.7 1.7l-6 6c-.23.23-.53.34-.85.34Z"
+    />
+  </g>
+</svg>

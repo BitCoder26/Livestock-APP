@@ -1,25 +1,17 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Easing,
-  Image,
-  Linking,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { ActivityIndicator, Alert, Animated, Easing, Image, Linking, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Text } from '../src/theme/text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { FREE_EXPORT_LIMIT, FREE_RECORD_LIMIT } from '../src/constants/subscription';
+import { useAccount } from '../src/context/AccountContext';
+import { useRecords } from '../src/context/RecordsContext';
 import { useSubscription } from '../src/context/SubscriptionContext';
 import { tokens } from '../src/theme/tokens';
+import { FAST_MOTION_DURATION } from '../src/utils/motion';
 
 // Records and exports are the only things Basic caps (see FREE_RECORD_LIMIT
 // and FREE_EXPORT_LIMIT), so they are the only things Pro can honestly claim
@@ -67,10 +59,6 @@ function formatComparePrice(value: number, currencyCode: string | null | undefin
   }
 }
 
-const POP_IN_SPEED = 18;
-const POP_IN_BOUNCINESS = 7;
-const POP_OUT_DURATION = 170;
-
 export default function UpgradeToProScreen() {
   const router = useRouter();
   const { limitType, autotest, debug } = useLocalSearchParams<{
@@ -80,6 +68,8 @@ export default function UpgradeToProScreen() {
   }>();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { profile } = useAccount();
+  const { records } = useRecords();
   const {
     activeEntitlementId,
     annualPackage,
@@ -103,10 +93,10 @@ export default function UpgradeToProScreen() {
 
   useEffect(() => {
     entrance.setValue(0);
-    Animated.spring(entrance, {
+    Animated.timing(entrance, {
       toValue: 1,
-      speed: POP_IN_SPEED,
-      bounciness: POP_IN_BOUNCINESS,
+      duration: FAST_MOTION_DURATION,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, [entrance]);
@@ -114,7 +104,7 @@ export default function UpgradeToProScreen() {
   const handleBack = () => {
     Animated.timing(entrance, {
       toValue: 0,
-      duration: POP_OUT_DURATION,
+      duration: FAST_MOTION_DURATION,
       easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
@@ -156,11 +146,14 @@ export default function UpgradeToProScreen() {
     },
   ];
 
+  // Reads the cap back as it actually stands rather than quoting the plan:
+  // someone sent here has just hit the wall, and the count is what tells them
+  // why. The sales pitch for lifting it is the perks list below.
   const limitMessage =
     limitType === 'exports'
-      ? `Free plan includes ${FREE_EXPORT_LIMIT} exports. Upgrade for unlimited PDF and spreadsheet exports of your animals, herds and records.`
+      ? `${Math.min(profile.exportsUsed ?? 0, FREE_EXPORT_LIMIT)} of ${FREE_EXPORT_LIMIT} free exports used`
       : limitType === 'animals' || limitType === 'records'
-        ? `Free plan includes up to ${FREE_RECORD_LIMIT} records. Upgrade to keep adding more without removing any existing data.`
+        ? `${Math.min(records.length, FREE_RECORD_LIMIT)} of ${FREE_RECORD_LIMIT} free records used`
         : null;
 
   const handleUpgrade = async () => {
@@ -318,7 +311,7 @@ export default function UpgradeToProScreen() {
               onPress={handleBack}
               style={styles.closeButton}
             >
-              <AppIcon name="close" size={20} color={tokens.colors.text} />
+              <AppIcon name="close" size={26} color={tokens.colors.text} />
             </BouncyPressable>
           </View>
 
@@ -335,12 +328,18 @@ export default function UpgradeToProScreen() {
           >
             <View style={styles.content}>
               <View style={styles.heroBlock}>
-                <View style={styles.crownPlate}>
-                  <AppIcon name="crown" size={22} color="#C8A24A" />
+                <View style={styles.heroTitleRow}>
+                  <View style={styles.crownPlate}>
+                    <AppIcon name="crown" size={22} color="#C8A24A" />
+                  </View>
+                  <Text style={styles.heroTitle}>LivestockBook Pro</Text>
                 </View>
-                <Text style={styles.heroTitle}>LivestockBook Pro</Text>
                 <Text style={styles.heroLead}>Manage your entire farm without limits and stay compliant as your farm grows.</Text>
-                {limitMessage ? <Text style={styles.limitNote}>{limitMessage}</Text> : null}
+                {limitMessage ? (
+                  <View style={styles.limitPill}>
+                    <Text style={styles.limitNote}>{limitMessage}</Text>
+                  </View>
+                ) : null}
               </View>
 
               <View style={styles.perksCard}>
@@ -523,6 +522,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     paddingHorizontal: 26,
+    marginBottom: -6,
   },
   closeRowWide: {
     width: '100%',
@@ -530,9 +530,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: tokens.colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -550,11 +550,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   content: {
-    gap: 6,
+    gap: 14,
   },
   heroBlock: {
     alignItems: 'center',
     gap: 3,
+  },
+  // Crown and wordmark share a row, so the plate no longer carries the gap
+  // that used to sit between the two stacked lines.
+  heroTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   crownPlate: {
     width: 40,
@@ -563,7 +570,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF2DC',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
   },
   heroTitle: {
     color: tokens.colors.text,
@@ -573,33 +579,35 @@ const styles = StyleSheet.create({
   heroLead: {
     color: tokens.colors.text,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '400',
     lineHeight: 21,
     textAlign: 'center',
     marginTop: 3,
-    marginBottom: 7,
     paddingHorizontal: 6,
   },
+  limitPill: {
+    borderRadius: 999,
+    backgroundColor: tokens.colors.accentSoft,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginTop: 8,
+  },
   limitNote: {
-    color: tokens.colors.textSoft,
+    color: tokens.colors.accentDeep,
     fontSize: 13,
-    lineHeight: 18,
+    fontWeight: '600',
     textAlign: 'center',
-    marginTop: 2,
-    marginBottom: 6,
-    paddingHorizontal: 8,
   },
   perksCard: {
     backgroundColor: tokens.colors.surfaceMuted,
     borderRadius: tokens.radius.md,
     padding: 12,
     gap: 6,
-    marginBottom: 10,
   },
   perksTitle: {
     color: tokens.colors.text,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   perkRow: {
     flexDirection: 'row',
@@ -609,7 +617,7 @@ const styles = StyleSheet.create({
   perkText: {
     color: tokens.colors.text,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   imagePlaceholder: {
     width: '100%',

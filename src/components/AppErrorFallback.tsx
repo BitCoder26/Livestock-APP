@@ -1,4 +1,5 @@
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/text';
 
 import { tokens } from '../theme/tokens';
 

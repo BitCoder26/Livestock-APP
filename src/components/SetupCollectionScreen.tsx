@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from './AppIcon';
@@ -40,11 +41,12 @@ export function SetupCollectionScreen({ title, icon, collection }: SetupCollecti
           onPress: () => router.back(),
         }}
       />
-      <ScrollView
-        contentContainerStyle={[styles.content, items.length === 0 && styles.emptyContent]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.editorCard}>
+      <View style={styles.body}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.editorCard}>
           <Text style={styles.sectionLabel}>{title}</Text>
           <View style={styles.entryRow}>
             <TextInput
@@ -67,18 +69,15 @@ export function SetupCollectionScreen({ title, icon, collection }: SetupCollecti
               <Text style={styles.addButtonText}>Add</Text>
             </BouncyPressable>
           </View>
-        </View>
-        {items.length === 0 ? (
-          <View style={styles.emptyState}>
-            <AppIcon name={icon} size={90} color="#E5E0E7" opacity={1} />
-            <Text style={styles.emptyTitle}>Empty</Text>
           </View>
-        ) : (
-          <View style={styles.list}>
+          {items.length === 0 ? null : (
+            <View style={styles.list}>
             {items.map((item) => (
               <View key={item} style={styles.itemRow}>
                 <View style={styles.itemCopy}>
-                  <AppIcon name={icon} size={18} color={tokens.colors.accent} />
+                  <View style={styles.itemIconBadge}>
+                    <AppIcon name={icon} size={30} color={tokens.colors.accent} />
+                  </View>
                   <Text style={styles.itemText}>{item}</Text>
                 </View>
                 <BouncyPressable
@@ -91,9 +90,16 @@ export function SetupCollectionScreen({ title, icon, collection }: SetupCollecti
                 </BouncyPressable>
               </View>
             ))}
+            </View>
+          )}
+        </ScrollView>
+        {items.length === 0 ? (
+          <View pointerEvents="none" style={styles.emptyState}>
+            <AppIcon name={icon} size={90} color="#E5E0E7" opacity={1} />
+            <Text style={styles.emptyTitle}>Empty</Text>
           </View>
-        )}
-      </ScrollView>
+        ) : null}
+      </View>
     </SafeAreaView>
   );
 }
@@ -103,19 +109,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  body: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: 16,
     paddingTop: 22,
     paddingBottom: 120,
     gap: 16,
   },
-  emptyContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
   editorCard: {
     borderRadius: 24,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     padding: 16,
     gap: 10,
   },
@@ -157,12 +162,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   emptyState: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 28,
-    paddingTop: 72,
-    paddingBottom: 0,
   },
   emptyTitle: {
     marginTop: 18,
@@ -171,7 +178,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   itemRow: {
-    minHeight: 56,
+    minHeight: 72,
     borderRadius: 22,
     backgroundColor: '#fff',
     paddingHorizontal: 18,
@@ -184,6 +191,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flex: 1,
+  },
+  // Matches the animal card's species badge, so a farm row and an animal row
+  // read as the same kind of thing.
+  itemIconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: tokens.colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   itemText: {
     color: tokens.colors.text,

@@ -141,7 +141,7 @@ const HEADER_ALIASES: Record<AnimalImportField, string[]> = {
     'etiqueta', 'etiquette', 'etikett', 'etichetta', 'ετικετα',
   ],
   weight: [
-    'weight', 'live weight', 'liveweight', 'lw', 'bodyweight', 'body weight', 'kg', 'weight kg',
+    'weight', 'live weight', 'liveweight', 'lw', 'wt', 'bodyweight', 'body weight', 'kg', 'weight kg',
     'peso', 'poids', 'gewicht', 'βαρος',
   ],
   source: [
@@ -183,7 +183,7 @@ const SPECIES_VALUE_ALIASES: Record<string, string[]> = {
     'mucca', 'gado', 'koe', 'rund', 'αγελαδα', 'βοοειδη', 'μοσχαρι',
   ],
   Sheep: [
-    'sheep', 'ewe', 'ewes', 'ram', 'rams', 'lamb', 'lambs', 'hogget', 'wether', 'tup',
+    'sheep', 'ewe', 'ewes', 'ram', 'rams', 'lamb', 'lambs', 'hogget', 'wether', 'tup', 'ovine',
     'oveja', 'ovino', 'brebis', 'mouton', 'ovin', 'schaf', 'schafe', 'pecora', 'ovelha',
     'schaap', 'προβατο', 'προβατα', 'αρνι',
   ],
@@ -199,7 +199,7 @@ const SPECIES_VALUE_ALIASES: Record<string, string[]> = {
   ],
   Chicken: [
     'chicken', 'chickens', 'hen', 'hens', 'cock', 'cockerel', 'rooster', 'chick', 'chicks',
-    'broiler', 'broilers', 'layer', 'layers', 'pullet', 'poultry', 'fowl',
+    'broiler', 'broilers', 'layer', 'layers', 'pullet', 'poultry', 'fowl', 'chook', 'chooks',
     'gallina', 'pollo', 'poule', 'poulet', 'huhn', 'huhner', 'hahn', 'gallo', 'galinha',
     'kip', 'κοτα', 'κοτοπουλο', 'ορνιθα',
   ],

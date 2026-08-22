@@ -1,0 +1,104 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+release-build/
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+
+# EAS upload: version-control metadata
+.git/
+.git/**
+.gitignore
+
+# EAS upload: local assistant and development-tool configuration
+.claude/
+.claude/**
+.agents/
+.agents/**
+.codex/
+.codex/**
+AGENTS.md
+CLAUDE.md
+.nvmrc
+eslint.config.js
+
+# EAS upload: documentation, marketing, and local generation artifacts
+/app_screenshots/
+/app_screenshots/**
+/context prompt for codex/
+/context prompt for codex/**
+/docs/
+/docs/**
+/output/
+/output/**
+/preview/
+/preview/**
+/tmp/
+/tmp/**
+/generate_design_pdf.py
+/tmp-livestockbook-homepage-2026-07-22.png
+LICENSE
+
+# Explicit recursive forms for generated directories retained from .gitignore
+node_modules/**
+.expo/**
+dist/**
+web-build/**
+release-build/**
+.kotlin/**
+ios/**
+android/**
+
+# Directory-name forms required for tracked/local directory exclusion
+node_modules
+.expo
+dist
+web-build
+release-build
+.kotlin
+.git
+.claude
+.agents
+.codex
+/app_screenshots
+/context prompt for codex
+/docs
+/output
+/preview
+/tmp

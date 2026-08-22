@@ -2,8 +2,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, Image, Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../src/theme/text';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
@@ -33,7 +34,7 @@ import {
   getCollectiveCount,
   type Collective,
 } from '../src/entities/collective';
-import { tokens } from '../src/theme/tokens';
+import { TAB_ALIGNED_FAB_BOTTOM_OFFSET, tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
 import { persistRecordImage } from '../src/utils/imageStorage';
 import {
@@ -124,7 +125,6 @@ const FIELD_NOTES: Record<string, { title: string; description: string }> = {
 
 export default function AddCollectiveRecordScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const {
     collectiveUid: initialCollectiveUid,
     recordId,
@@ -1602,7 +1602,7 @@ export default function AddCollectiveRecordScreen() {
         <FloatingActionButton
           accessibilityLabel={isEditing ? 'Save record changes' : 'Save record'}
           icon="check"
-          bottomOffset={insets.bottom + 78}
+          bottomOffset={TAB_ALIGNED_FAB_BOTTOM_OFFSET}
           onPress={() => void handleSave()}
         />
 
@@ -1710,7 +1710,7 @@ export default function AddCollectiveRecordScreen() {
                   hitSlop={8}
                   onPress={() => setShowCollectivePicker(false)}
                 >
-                  <AppIcon name="close" size={16} color={tokens.colors.text} />
+                  <AppIcon name="close" size={26} color={tokens.colors.text} />
                 </Pressable>
               </View>
 
@@ -1906,7 +1906,7 @@ const styles = StyleSheet.create({
   typeChipText: { fontSize: 14, fontWeight: '600' },
   typeChipTextIdle: { color: '#544F49' },
   typeChipTextActive: { color: '#fff' },
-  formCard: { borderRadius: 24, backgroundColor: '#F5F3F7', padding: 16, gap: 18 },
+  formCard: { borderRadius: 24, backgroundColor: '#EFECF0', padding: 16, gap: 18 },
   block: { gap: 8 },
   label: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
   helperText: {
@@ -2042,7 +2042,7 @@ const styles = StyleSheet.create({
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,
-    backgroundColor: '#F5F3F7',
+    backgroundColor: '#EFECF0',
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
