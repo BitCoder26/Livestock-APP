@@ -8,9 +8,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon } from '../../src/components/AppIcon';
 import { useAppDrawer } from '../../src/components/AppDrawer';
 import { AppTopBar } from '../../src/components/AppTopBar';
-import { AnimatedPopupCard } from '../../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../../src/components/BouncyPressable';
+import { InlineMultiDropdown } from '../../src/components/InlineDropdown';
 import { TabSwipeView } from '../../src/components/TabSwipeView';
+import { WithdrawalPill } from '../../src/components/WithdrawalBadge';
 import { useCollectives } from '../../src/context/CollectivesContext';
 import {
   collectiveTermForSpecies,
@@ -23,6 +24,8 @@ import { getSpeciesThemeByLabel, getSpeciesThemeByTone, getToneForSpecies } from
 import { FabSpeedDial } from '../../src/components/FabSpeedDial';
 import { ImportPromptBubble } from '../../src/components/ImportPromptBubble';
 import { useAnimals } from '../../src/context/AnimalsContext';
+import { useRecords } from '../../src/context/RecordsContext';
+import { buildWithdrawalIndex } from '../../src/utils/withdrawal';
 import { useOnboarding, useSpotlightTarget } from '../../src/context/OnboardingContext';
 import { useSetup } from '../../src/context/SetupContext';
 import type { Animal, AnimalTone } from '../../src/entities/animal';
@@ -56,9 +59,14 @@ const SPECIES_FILTER_OPTIONS = [
 ] as const;
 
 const STATUS_FILTER_OPTIONS = ['All', 'Active', 'Sold', 'Dead'] as const;
+// A group is only ever in use or not — it is never sold or deceased as a whole,
+// so the Herds & flocks view swaps this one row rather than offering statuses
+// nothing in it can match.
+const COLLECTIVE_STATUS_FILTER_OPTIONS = ['All', 'Active', 'Inactive'] as const;
 const ALL_SPECIES_FILTER = 'All';
 const SPECIES_FILTER_LABELS = [ALL_SPECIES_FILTER, ...SPECIES_FILTER_OPTIONS.map((item) => item.label)] as const;
 type StatusFilter = Exclude<(typeof STATUS_FILTER_OPTIONS)[number], 'All'>;
+type CollectiveStatusFilter = Exclude<(typeof COLLECTIVE_STATUS_FILTER_OPTIONS)[number], 'All'>;
 type SpeciesFilter = (typeof SPECIES_FILTER_OPTIONS)[number]['label'];
 
 const SORT_OPTIONS = [
@@ -153,14 +161,17 @@ export default function AnimalsScreen() {
   const [showSortSheet, setShowSortSheet] = useState(false);
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [appliedStatus, setAppliedStatus] = useState<StatusFilter[]>([]);
+  // Kept apart from the animal statuses so a "Sold" selection does not survive
+  // a switch to a list where it can never match.
+  const [appliedCollectiveStatus, setAppliedCollectiveStatus] = useState<CollectiveStatusFilter[]>([]);
   const [appliedSpecies, setAppliedSpecies] = useState<SpeciesFilter[]>([]);
   const [appliedLabels, setAppliedLabels] = useState<string[]>([]);
   const [appliedSort, setAppliedSort] = useState<SortOption>(DEFAULT_SORT);
   const [draftSearchQuery, setDraftSearchQuery] = useState('');
   const [draftStatus, setDraftStatus] = useState<StatusFilter[]>([]);
+  const [draftCollectiveStatus, setDraftCollectiveStatus] = useState<CollectiveStatusFilter[]>([]);
   const [draftSpecies, setDraftSpecies] = useState<SpeciesFilter[]>([]);
   const [draftLabels, setDraftLabels] = useState<string[]>([]);
-  const [showLabelSelector, setShowLabelSelector] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const sheetEntrance = useRef(new Animated.Value(0)).current;
   const sortSheetEntrance = useRef(new Animated.Value(0)).current;
@@ -178,9 +189,14 @@ export default function AnimalsScreen() {
   );
 
   const { collectives } = useCollectives();
+  const { records } = useRecords();
+  // One pass over the treatment records for the whole screen: resolving a
+  // record's animals per card would repeat that work for every row.
+  const withdrawals = useMemo(() => buildWithdrawalIndex(records, animals), [animals, records]);
   // Individual animals and collectives are different entities with different
   // forms, so the tab is a view switch rather than a filter over one list.
   const [animalView, setAnimalView] = useState<'individual' | 'collectives'>('individual');
+  const isCollectiveView = animalView === 'collectives';
   const fabRef = useRef<View>(null);
   useSpotlightTarget('animal', step === 'animal' && isFocused, fabRef);
 
@@ -212,11 +228,13 @@ export default function AnimalsScreen() {
     }).start();
   }, [sortSheetEntrance, showSortSheet]);
 
+  // Search, species and label mean the same thing on an animal and on a group,
+  // so they are shared across the two views; only status is per-view.
+  const hasSharedFilters =
+    appliedSearchQuery.trim().length > 0 || appliedSpecies.length > 0 || appliedLabels.length > 0;
   const hasActiveFilters =
-    appliedSearchQuery.trim().length > 0 ||
-    appliedStatus.length > 0 ||
-    appliedSpecies.length > 0 ||
-    appliedLabels.length > 0;
+    hasSharedFilters ||
+    (isCollectiveView ? appliedCollectiveStatus.length > 0 : appliedStatus.length > 0);
 
   const filteredAnimals = useMemo(() => {
     const normalizedQuery = appliedSearchQuery.trim().toLowerCase();
@@ -253,26 +271,54 @@ export default function AnimalsScreen() {
     () => sortAnimals(filteredAnimals, appliedSort),
     [filteredAnimals, appliedSort],
   );
+  const filteredCollectives = useMemo(() => {
+    const normalizedQuery = appliedSearchQuery.trim().toLowerCase();
+
+    return collectives.filter((collective) => {
+      const matchesSearch =
+        normalizedQuery.length === 0 ||
+        collective.id.toLowerCase().includes(normalizedQuery) ||
+        collective.name.toLowerCase().includes(normalizedQuery);
+
+      const matchesStatus =
+        appliedCollectiveStatus.length === 0 || appliedCollectiveStatus.includes(collective.status);
+
+      const matchesSpecies =
+        appliedSpecies.length === 0 ||
+        appliedSpecies.some((species) => collective.species.trim().toLowerCase() === species.toLowerCase());
+
+      // A group carries the same labels an animal does, so the same any-of
+      // match applies.
+      const matchesLabel =
+        appliedLabels.length === 0 ||
+        appliedLabels.some((label) =>
+          collective.labels.some((entry) => entry.trim().toLowerCase() === label.toLowerCase()),
+        );
+
+      return matchesSearch && matchesStatus && matchesSpecies && matchesLabel;
+    });
+  }, [appliedCollectiveStatus, appliedLabels, appliedSearchQuery, appliedSpecies, collectives]);
+
   const sortedCollectives = useMemo(
-    () => sortCollectives(collectives, appliedSort),
-    [collectives, appliedSort],
+    () => sortCollectives(filteredCollectives, appliedSort),
+    [filteredCollectives, appliedSort],
   );
 
   const openFilters = () => {
     setDraftSearchQuery(appliedSearchQuery);
     setDraftStatus([...appliedStatus]);
+    setDraftCollectiveStatus([...appliedCollectiveStatus]);
     setDraftSpecies([...appliedSpecies]);
     setDraftLabels([...appliedLabels]);
-    setShowLabelSelector(false);
     setShowFilterSheet(true);
   };
 
   const applyFilters = () => {
     setAppliedSearchQuery(draftSearchQuery.trim());
     setAppliedStatus([...draftStatus]);
+    setAppliedCollectiveStatus([...draftCollectiveStatus]);
     setAppliedSpecies([...draftSpecies]);
     setAppliedLabels([...draftLabels]);
-    setShowLabelSelector(false);
     setShowFilterSheet(false);
   };
 
@@ -306,7 +352,9 @@ export default function AnimalsScreen() {
           },
           {
             icon: 'filter-funnel-outline',
-            accessibilityLabel: hasActiveFilters ? 'Filter animals (filters applied)' : 'Filter animals',
+            accessibilityLabel: `${
+              isCollectiveView ? 'Filter herds and flocks' : 'Filter animals'
+            }${hasActiveFilters ? ' (filters applied)' : ''}`,
             onPress: openFilters,
             badge: hasActiveFilters,
           },
@@ -327,15 +375,17 @@ export default function AnimalsScreen() {
         />
         <ImportPromptBubble onPress={() => router.push('/import-animals')} />
         <Text style={styles.countText}>
-          {animalView === 'collectives'
-            ? describeCollectiveCount(collectives)
+          {isCollectiveView
+            ? hasActiveFilters
+              ? `${filteredCollectives.length} of ${describeCollectiveCount(collectives)}`
+              : describeCollectiveCount(collectives)
             : hasActiveFilters
               ? `${filteredAnimals.length} of ${animals.length} animals`
               : `${animals.length} animals`}
           <Text>{` · ${getSortLabel(appliedSort)}`}</Text>
         </Text>
-        {animalView === 'collectives' ? (
-          collectives.length === 0 ? null : (
+        {isCollectiveView ? (
+          filteredCollectives.length === 0 ? null : (
             <>
               {sortedCollectives.map((collective) => {
                 const term = collectiveTermForSpecies(collective.species);
@@ -409,6 +459,10 @@ export default function AnimalsScreen() {
                           />
                           <Text style={styles.statusText}>{collective.status}</Text>
                         </View>
+                        <WithdrawalPill
+                          withdrawals={withdrawals.byCollectiveUid.get(collective.uid) ?? []}
+                          style={styles.withdrawalPill}
+                        />
                       </View>
                     </View>
                     <AppIcon name="chevron-right-bold" size={22} color={CARD_CHEVRON_COLOR} />
@@ -492,6 +546,10 @@ export default function AnimalsScreen() {
                       />
                       <Text style={styles.statusText}>{animal.status}</Text>
                     </View>
+                    <WithdrawalPill
+                      withdrawals={withdrawals.byAnimalUid.get(animal.uid) ?? []}
+                      style={styles.withdrawalPill}
+                    />
                   </View>
                 </View>
                 <AppIcon name="chevron-right-bold" size={22} color={CARD_CHEVRON_COLOR} />
@@ -501,7 +559,7 @@ export default function AnimalsScreen() {
           })
         )}
         </ScrollView>
-        {animalView === 'collectives' && collectives.length === 0 ? (
+        {isCollectiveView && filteredCollectives.length === 0 ? (
           <View pointerEvents="none" style={styles.emptyState}>
             <Image
               source={require('../../assets/herd.png')}
@@ -509,9 +567,13 @@ export default function AnimalsScreen() {
               style={styles.emptyEntityIcon}
             />
             <Text style={styles.emptyTitle}>Empty</Text>
-            <Text style={styles.emptyText}>Add a herd or flock below</Text>
+            <Text style={styles.emptyText}>
+              {collectives.length === 0
+                ? 'Add a herd or flock below'
+                : 'No herds or flocks match your filters'}
+            </Text>
           </View>
-        ) : animalView === 'individual' && filteredAnimals.length === 0 ? (
+        ) : !isCollectiveView && filteredAnimals.length === 0 ? (
           <View pointerEvents="none" style={styles.emptyState}>
             <Image
               source={require('../../assets/individual.png')}
@@ -577,7 +639,9 @@ export default function AnimalsScreen() {
           <Pressable onPress={() => undefined}>
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeaderSpacer} />
-              <Text style={styles.sheetTitle}>Filter animals</Text>
+              <Text style={styles.sheetTitle}>
+                {isCollectiveView ? 'Filter herds & flocks' : 'Filter animals'}
+              </Text>
               <Pressable
                 accessibilityLabel="Close"
                 accessibilityRole="button"
@@ -615,34 +679,19 @@ export default function AnimalsScreen() {
 
               <View style={styles.filterBlock}>
                 <Text style={styles.filterLabel}>Status</Text>
-                <View style={styles.optionRow}>
-                  {STATUS_FILTER_OPTIONS.map((status) => {
-                    const active = status === 'All' ? draftStatus.length === 0 : draftStatus.includes(status);
-
-                    return (
-                      <Pressable
-                        key={status}
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: active }}
-                        onPress={() => {
-                          if (status === 'All') {
-                            setDraftStatus([]);
-                            return;
-                          }
-
-                          setDraftStatus((current) =>
-                            current.includes(status)
-                              ? current.filter((item) => item !== status)
-                              : [...current, status],
-                          );
-                        }}
-                        style={[styles.filterChip, active && styles.filterChipActive]}
-                      >
-                        <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{status}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                {isCollectiveView ? (
+                  <StatusFilterChips<CollectiveStatusFilter>
+                    options={COLLECTIVE_STATUS_FILTER_OPTIONS}
+                    selected={draftCollectiveStatus}
+                    onChange={setDraftCollectiveStatus}
+                  />
+                ) : (
+                  <StatusFilterChips<StatusFilter>
+                    options={STATUS_FILTER_OPTIONS}
+                    selected={draftStatus}
+                    onChange={setDraftStatus}
+                  />
+                )}
               </View>
 
               <View style={styles.filterBlock}>
@@ -682,20 +731,21 @@ export default function AnimalsScreen() {
               {availableLabels.length > 0 ? (
                 <View style={styles.filterBlock}>
                   <Text style={styles.filterLabel}>By Label</Text>
-                  <Pressable
+                  <InlineMultiDropdown
                     accessibilityLabel="Select labels"
-                    accessibilityRole="button"
-                    onPress={(event) => {
-                      event.stopPropagation();
-                      setShowLabelSelector(true);
-                    }}
-                    style={({ pressed }) => [styles.pickerField, pressed && styles.pressed]}
-                  >
-                    <Text style={[styles.fieldValue, draftLabels.length === 0 && styles.placeholderValue]}>
-                      {formatLabelSelection(draftLabels)}
-                    </Text>
-                    <AppIcon name="chevron-down" size={18} color="#7a7a7a" />
-                  </Pressable>
+                    options={availableLabels}
+                    selected={draftLabels}
+                    onToggle={(label) =>
+                      setDraftLabels((current) =>
+                        current.some((entry) => entry.toLowerCase() === label.toLowerCase())
+                          ? current.filter((entry) => entry.toLowerCase() !== label.toLowerCase())
+                          : [...current, label],
+                      )
+                    }
+                    placeholder="Select labels"
+                    formatSummary={formatLabelSelection}
+                    fieldStyle={styles.pickerField}
+                  />
                 </View>
               ) : null}
               <View style={styles.filterActionsRow}>
@@ -708,7 +758,6 @@ export default function AnimalsScreen() {
                     setDraftStatus([]);
                     setDraftSpecies([]);
                     setDraftLabels([]);
-                    setShowLabelSelector(false);
                   }}
                   style={styles.clearFilterButton}
                 >
@@ -728,56 +777,6 @@ export default function AnimalsScreen() {
             </ScrollView>
           </Pressable>
           </Animated.View>
-          {showLabelSelector ? (
-            <Pressable
-              style={styles.selectionBackdrop}
-              onPress={(event) => {
-                event.stopPropagation();
-                setShowLabelSelector(false);
-              }}
-            >
-              <AnimatedPopupCard visible={showLabelSelector} style={styles.selectionCard} onPress={() => undefined}>
-                <View style={styles.selectionHeader}>
-                  <Text style={styles.selectionTitle}>Select labels</Text>
-                  <Pressable
-                    accessibilityLabel="Done"
-                    accessibilityRole="button"
-                    onPress={() => setShowLabelSelector(false)}
-                  >
-                    <Text style={styles.modalDone}>Done</Text>
-                  </Pressable>
-                </View>
-                <ScrollView showsVerticalScrollIndicator={false}>
-                  {availableLabels.map((label) => {
-                    const isSelected = draftLabels.some((entry) => entry.toLowerCase() === label.toLowerCase());
-
-                    return (
-                      <Pressable
-                        key={label}
-                        accessibilityLabel={label}
-                        accessibilityRole="button"
-                        onPress={() =>
-                          setDraftLabels((current) =>
-                            current.some((entry) => entry.toLowerCase() === label.toLowerCase())
-                              ? current.filter((entry) => entry.toLowerCase() !== label.toLowerCase())
-                              : [...current, label],
-                          )
-                        }
-                        style={({ pressed }) => [
-                          styles.selectionRow,
-                          isSelected && styles.selectionRowActive,
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{label}</Text>
-                        {isSelected ? <AppIcon name="check" size={16} color="#fff" /> : null}
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </AnimatedPopupCard>
-            </Pressable>
-          ) : null}
         </Pressable>
       </Modal>
 
@@ -1088,6 +1087,10 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   sortSheetContent: {
+    // The filter sheet opens on a text label, whose ink starts a few pixels
+    // below its line box; a filled chip has no such inset, so it needs the
+    // difference added back to sit the same distance under the sheet title.
+    paddingTop: 6,
     paddingBottom: 24,
   },
   filterBlock: {
@@ -1130,52 +1133,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     flex: 1,
   },
-  fieldValue: {
-    color: '#2b2b2b',
-    fontSize: 13,
-    fontWeight: '500',
-    flex: 1,
-    paddingRight: 12,
-  },
-  placeholderValue: {
-    color: '#7a7a7a',
-  },
-  selectionBackdrop: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.28)',
-    justifyContent: 'flex-end',
-    zIndex: 10,
-  },
-  selectionCard: {
-    marginHorizontal: 18,
-    marginBottom: 28,
-    borderRadius: 26,
-    backgroundColor: '#fff',
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    gap: 8,
-    maxHeight: '70%',
-  },
-  selectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  selectionTitle: {
-    color: tokens.colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  modalDone: {
-    color: tokens.colors.accent,
-    fontSize: 16,
-    fontWeight: '700',
-  },
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,
@@ -1185,9 +1142,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
-  },
-  selectionRowActive: {
-    backgroundColor: tokens.colors.accent,
   },
   // Sort is a single choice, so the selected row is filled solid rather than
   // washed — the check mark and label go white to sit on it.
@@ -1205,9 +1159,6 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
     fontSize: 14,
     fontWeight: '500',
-  },
-  selectionTextActive: {
-    color: '#fff',
   },
   optionRow: {
     flexDirection: 'row',
@@ -1372,6 +1323,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  withdrawalPill: {
+    marginLeft: 8,
+  },
 });
 
 function AnimalCardAvatar({ animal }: { animal: Animal }) {
@@ -1406,6 +1360,53 @@ function AnimalCardAvatar({ animal }: { animal: Animal }) {
   );
 }
 
+/**
+ * Status is the one filter whose vocabulary differs between the two views, so
+ * the chips are rendered from whichever list belongs to the visible entity.
+ * `All` is the absence of a selection rather than a value of its own.
+ */
+function StatusFilterChips<T extends string>({
+  options,
+  selected,
+  onChange,
+}: {
+  options: readonly string[];
+  selected: T[];
+  onChange: (next: T[]) => void;
+}) {
+  return (
+    <View style={styles.optionRow}>
+      {options.map((option) => {
+        const status = option as T;
+        const active = option === 'All' ? selected.length === 0 : selected.includes(status);
+
+        return (
+          <Pressable
+            key={option}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: active }}
+            onPress={() => {
+              if (option === 'All') {
+                onChange([]);
+                return;
+              }
+
+              onChange(
+                selected.includes(status)
+                  ? selected.filter((item) => item !== status)
+                  : [...selected, status],
+              );
+            }}
+            style={[styles.filterChip, active && styles.filterChipActive]}
+          >
+            <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{option}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 function CollectiveCardAvatar({ collective, tone }: { collective: Collective; tone: AnimalTone }) {
   const imageUri = useThumbnailUri(collective.showImageOnCard ? collective.imageUris?.[0] : null);
   const [imageFailed, setImageFailed] = useState(false);
@@ -1436,7 +1437,7 @@ function CollectiveCardAvatar({ collective, tone }: { collective: Collective; to
   );
 }
 
-function formatLabelSelection(labels: string[]) {
+function formatLabelSelection(labels: readonly string[]) {
   if (labels.length === 0) {
     return 'Select labels';
   }

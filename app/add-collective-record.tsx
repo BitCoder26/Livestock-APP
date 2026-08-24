@@ -1,19 +1,34 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Alert,
+  Animated,
+  Easing,
+  Image,
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import DateTimePicker from '../src/components/AppDateTimePicker';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
+import { FieldClearButton } from '../src/components/FieldClearButton';
 import { FieldLabel } from '../src/components/FieldLabel';
 import { FloatingActionButton } from '../src/components/FloatingActionButton';
 import { InfoModal } from '../src/components/InfoModal';
+import { InlineDropdown } from '../src/components/InlineDropdown';
 import {
   COLLECTIVE_RECORD_TYPES,
   SPECIES_OPTIONS,
@@ -24,6 +39,7 @@ import {
 import { FREE_RECORD_LIMIT } from '../src/constants/subscription';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
 import { formatCurrencyPrefix } from '../src/entities/account';
+import { FAST_MOTION_DURATION, SHEET_ENTRANCE_DURATION } from '../src/utils/motion';
 import { useAccount } from '../src/context/AccountContext';
 import { useCollectives } from '../src/context/CollectivesContext';
 import { useRecords } from '../src/context/RecordsContext';
@@ -36,6 +52,7 @@ import {
 } from '../src/entities/collective';
 import { TAB_ALIGNED_FAB_BOTTOM_OFFSET, tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
+import { confirmSaleWithinWithdrawal, withdrawalsForCollective } from '../src/utils/withdrawal';
 import { persistRecordImage } from '../src/utils/imageStorage';
 import {
   equalsIgnoreCase,
@@ -208,12 +225,19 @@ export default function AddCollectiveRecordScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showExpiryDatePicker, setShowExpiryDatePicker] = useState(false);
   const [showCollectivePicker, setShowCollectivePicker] = useState(false);
-  const [optionPicker, setOptionPicker] = useState<null | {
-    title: string;
-    options: readonly string[];
-    selected: string;
-    onSelect: (value: string) => void;
-  }>(null);
+  // Matches the Animal(s) picker: the list rises from the bottom of the screen
+  // over a dimmed form rather than dropping out of the field.
+  const [collectiveSheetEntrance] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    Animated.timing(collectiveSheetEntrance, {
+      toValue: showCollectivePicker ? 1 : 0,
+      duration: showCollectivePicker ? SHEET_ENTRANCE_DURATION : FAST_MOTION_DURATION,
+      easing: showCollectivePicker ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [collectiveSheetEntrance, showCollectivePicker]);
+
   const [fieldNote, setFieldNote] = useState<(typeof FIELD_NOTES)[string] | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -720,6 +744,30 @@ export default function AddCollectiveRecordScreen() {
       return;
     }
 
+    // Judged against the sale's own date, not today, so a backdated sale is
+    // measured against the period as it stood then. The record being edited is
+    // left out of the check — a treatment cannot put itself in withdrawal.
+    if (recordType === 'Sale') {
+      const saleDate = parseStoredDate(storedDate) ?? new Date();
+      const active = withdrawalsForCollective(
+        collective.uid,
+        records.filter((record) => record.id !== editingRecord?.id),
+        saleDate,
+      );
+
+      if (active.length > 0) {
+        const proceed = await confirmSaleWithinWithdrawal(
+          collectiveLabel(collective),
+          active,
+          profile.dateFormat,
+        );
+
+        if (!proceed) {
+          return;
+        }
+      }
+    }
+
     // More eggs cracked than were collected is arithmetic, not a typo the
     // keeper can be left to spot later in Reports.
     if (
@@ -834,81 +882,44 @@ export default function AddCollectiveRecordScreen() {
    * screen's does: a farm with a single location fills that location in, and a
    * location picked before its farm fills the farm in to match.
    */
-  const openMovementPicker = (target: SetupSelectionTarget) => {
-    const isFarm = target === 'fromFarm' || target === 'toFarm';
-    const isFrom = target === 'fromFarm' || target === 'fromLocation';
-    const options = isFarm ? farms : isFrom ? fromLocationOptions : toLocationOptions;
-
-    if (options.length === 0) {
-      openSetupScreen(isFarm ? '/setup-farms' : '/setup-locations', target);
-      return;
+  const selectMovementFarm = (
+    option: string,
+    current: string,
+    setFarm: (value: string) => void,
+    setLocation: (value: string) => void,
+  ) => {
+    if (!equalsIgnoreCase(option, current)) {
+      const matchingLocations = locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
+      setLocation(matchingLocations.length === 1 ? matchingLocations[0].name : '');
     }
 
-    const selected = target === 'fromFarm'
-      ? fromFarm
-      : target === 'fromLocation'
-        ? fromLocation
-        : target === 'toFarm'
-          ? toFarm
-          : toLocation;
-
-    const title = target === 'fromFarm'
-      ? 'Select from farm'
-      : target === 'fromLocation'
-        ? 'Select from location'
-        : target === 'toFarm'
-          ? 'Select to farm'
-          : 'Select to location';
-
-    openOptions(title, options, selected, (value) => {
-      if (target === 'fromFarm') {
-        if (!equalsIgnoreCase(value, fromFarm)) {
-          const matchingLocations = locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, value));
-          setFromLocation(matchingLocations.length === 1 ? matchingLocations[0].name : '');
-        }
-
-        setFromFarm(value);
-        return;
-      }
-
-      if (target === 'toFarm') {
-        if (!equalsIgnoreCase(value, toFarm)) {
-          const matchingLocations = locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, value));
-          setToLocation(matchingLocations.length === 1 ? matchingLocations[0].name : '');
-        }
-
-        setToFarm(value);
-        return;
-      }
-
-      const matchedFarm = locationEntities.find((entry) => equalsIgnoreCase(entry.name, value))?.farm;
-
-      if (target === 'fromLocation') {
-        if (matchedFarm && !equalsIgnoreCase(matchedFarm, fromFarm)) {
-          setFromFarm(matchedFarm);
-        }
-
-        setFromLocation(value);
-        return;
-      }
-
-      if (matchedFarm && !equalsIgnoreCase(matchedFarm, toFarm)) {
-        setToFarm(matchedFarm);
-      }
-
-      setToLocation(value);
-    });
+    setFarm(option);
   };
 
-  const openOptions = (
-    title: string,
-    options: readonly string[],
-    selected: string,
-    onSelect: (value: string) => void,
+  const selectMovementLocation = (
+    option: string,
+    currentFarm: string,
+    setFarm: (value: string) => void,
+    setLocation: (value: string) => void,
   ) => {
-    Keyboard.dismiss();
-    setOptionPicker({ title, options, selected, onSelect });
+    const matchedFarm = locationEntities.find((entry) => equalsIgnoreCase(entry.name, option))?.farm;
+
+    if (matchedFarm && !equalsIgnoreCase(matchedFarm, currentFarm)) {
+      setFarm(matchedFarm);
+    }
+
+    setLocation(option);
   };
+
+  const treatmentNames = useMemo(
+    () => availableTreatments.map((entity) => entity.name.trim()).filter(Boolean),
+    [availableTreatments],
+  );
+  const collectiveUids = useMemo(() => collectives.map((item) => item.uid), [collectives]);
+  const collectivesByUid = useMemo(
+    () => new Map(collectives.map((item) => [item.uid, item])),
+    [collectives],
+  );
 
   return (
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -962,14 +973,18 @@ export default function AddCollectiveRecordScreen() {
             </View>
 
             <View style={styles.block}>
-              <Text style={styles.label}>Herd or Flock *</Text>
+              <FieldLabel label="Herd or Flock *" addAccessibilityLabel="Add herd or flock" onAddPress={() => router.push('/add-collective')} />
+            <View style={styles.clearableField}>
               <Pressable
                 accessibilityLabel="Choose herd or flock"
                 accessibilityRole="button"
-                onPress={() => setShowCollectivePicker(true)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowCollectivePicker(true);
+                }}
                 style={({ pressed }) => [styles.selectField, pressed && styles.pressed]}
               >
-                <Text style={[styles.selectValue, !collective && styles.placeholderValue]}>
+                <Text style={[styles.selectValue, !collective && styles.placeholderValue, collective && styles.clearableSelectValue]}>
                   {collectives.length === 0
                     ? 'No herds or flocks available'
                     : collective
@@ -981,31 +996,17 @@ export default function AddCollectiveRecordScreen() {
                 </View>
               </Pressable>
               {collective ? (
+                <FieldClearButton
+                  accessibilityLabel="Clear herd or flock"
+                  onPress={() => setCollectiveUid('')}
+                  style={styles.customFieldClearButton}
+                />
+              ) : null}
+            </View>
+              {collective ? (
                 <Text style={styles.helperText}>
                   {`${collective.species} ${term} · ${getCollectiveCount(collective)} animals recorded`}
                 </Text>
-              ) : null}
-            </View>
-            <View style={styles.helperLinkRow}>
-              <Pressable
-                accessibilityLabel="Add herd or flock"
-                accessibilityRole="button"
-                hitSlop={12}
-                onPress={() => router.push('/add-collective')}
-                style={({ pressed }) => [pressed && styles.pressed]}
-              >
-                <Text style={styles.helperLinkCompact}>+ Add</Text>
-              </Pressable>
-              {collectiveUid ? (
-                <Pressable
-                  accessibilityLabel="Clear herd or flock"
-                  accessibilityRole="button"
-                  hitSlop={12}
-                  onPress={() => setCollectiveUid('')}
-                  style={({ pressed }) => [pressed && styles.pressed]}
-                >
-                  <Text style={styles.helperLinkCompact}>Clear</Text>
-                </Pressable>
               ) : null}
             </View>
 
@@ -1057,7 +1058,7 @@ export default function AddCollectiveRecordScreen() {
 
             {recordType === 'Movement' ? (
               <>
-                <SelectRow
+                <DropdownRow
                   label="From Farm *"
                   value={fromFarm}
                   placeholder={
@@ -1065,34 +1066,18 @@ export default function AddCollectiveRecordScreen() {
                       ? 'No farms available'
                       : `${farms.length} ${farms.length === 1 ? 'farm' : 'farms'} available`
                   }
-                  onPress={() => openMovementPicker('fromFarm')}
+                  options={farms}
+                  onSelect={(option) => selectMovementFarm(option, fromFarm, setFromFarm, setFromLocation)}
+                  onEmptyPress={() => openSetupScreen('/setup-farms', 'fromFarm')}
+                  onAddPress={() => openSetupScreen('/setup-farms', 'fromFarm')}
+                  addAccessibilityLabel="Add farm"
+                  onClear={() => {
+                    setFromFarm('');
+                    setFromLocation('');
+                  }}
+                  clearAccessibilityLabel="Clear from farm"
                 />
-                <View style={styles.helperLinkRow}>
-                  <Pressable
-                    accessibilityLabel="Add farm"
-                    accessibilityRole="button"
-                    hitSlop={12}
-                    onPress={() => openSetupScreen('/setup-farms', 'fromFarm')}
-                    style={({ pressed }) => [pressed && styles.pressed]}
-                  >
-                    <Text style={styles.helperLinkCompact}>+ Add</Text>
-                  </Pressable>
-                  {fromFarm ? (
-                    <Pressable
-                      accessibilityLabel="Clear from farm"
-                      accessibilityRole="button"
-                      hitSlop={12}
-                      onPress={() => {
-                        setFromFarm('');
-                        setFromLocation('');
-                      }}
-                      style={({ pressed }) => [pressed && styles.pressed]}
-                    >
-                      <Text style={styles.helperLinkCompact}>Clear</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-                <SelectRow
+                <DropdownRow
                   label="From Location"
                   value={fromLocation}
                   placeholder={
@@ -1102,31 +1087,15 @@ export default function AddCollectiveRecordScreen() {
                         : 'No locations available'
                       : `${fromLocationOptions.length} ${fromLocationOptions.length === 1 ? 'location' : 'locations'} available`
                   }
-                  onPress={() => openMovementPicker('fromLocation')}
+                  options={fromLocationOptions}
+                  onSelect={(option) => selectMovementLocation(option, fromFarm, setFromFarm, setFromLocation)}
+                  onEmptyPress={() => openSetupScreen('/setup-locations', 'fromLocation')}
+                  onAddPress={() => openSetupScreen('/setup-locations', 'fromLocation')}
+                  addAccessibilityLabel="Add location"
+                  onClear={() => setFromLocation('')}
+                  clearAccessibilityLabel="Clear from location"
                 />
-                <View style={styles.helperLinkRow}>
-                  <Pressable
-                    accessibilityLabel="Add location"
-                    accessibilityRole="button"
-                    hitSlop={12}
-                    onPress={() => openSetupScreen('/setup-locations', 'fromLocation')}
-                    style={({ pressed }) => [pressed && styles.pressed]}
-                  >
-                    <Text style={styles.helperLinkCompact}>+ Add</Text>
-                  </Pressable>
-                  {fromLocation ? (
-                    <Pressable
-                      accessibilityLabel="Clear from location"
-                      accessibilityRole="button"
-                      hitSlop={12}
-                      onPress={() => setFromLocation('')}
-                      style={({ pressed }) => [pressed && styles.pressed]}
-                    >
-                      <Text style={styles.helperLinkCompact}>Clear</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-                <SelectRow
+                <DropdownRow
                   label="To Farm *"
                   value={toFarm}
                   placeholder={
@@ -1134,34 +1103,18 @@ export default function AddCollectiveRecordScreen() {
                       ? 'No farms available'
                       : `${farms.length} ${farms.length === 1 ? 'farm' : 'farms'} available`
                   }
-                  onPress={() => openMovementPicker('toFarm')}
+                  options={farms}
+                  onSelect={(option) => selectMovementFarm(option, toFarm, setToFarm, setToLocation)}
+                  onEmptyPress={() => openSetupScreen('/setup-farms', 'toFarm')}
+                  onAddPress={() => openSetupScreen('/setup-farms', 'toFarm')}
+                  addAccessibilityLabel="Add farm"
+                  onClear={() => {
+                    setToFarm('');
+                    setToLocation('');
+                  }}
+                  clearAccessibilityLabel="Clear to farm"
                 />
-                <View style={styles.helperLinkRow}>
-                  <Pressable
-                    accessibilityLabel="Add farm"
-                    accessibilityRole="button"
-                    hitSlop={12}
-                    onPress={() => openSetupScreen('/setup-farms', 'toFarm')}
-                    style={({ pressed }) => [pressed && styles.pressed]}
-                  >
-                    <Text style={styles.helperLinkCompact}>+ Add</Text>
-                  </Pressable>
-                  {toFarm ? (
-                    <Pressable
-                      accessibilityLabel="Clear to farm"
-                      accessibilityRole="button"
-                      hitSlop={12}
-                      onPress={() => {
-                        setToFarm('');
-                        setToLocation('');
-                      }}
-                      style={({ pressed }) => [pressed && styles.pressed]}
-                    >
-                      <Text style={styles.helperLinkCompact}>Clear</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-                <SelectRow
+                <DropdownRow
                   label="To Location"
                   value={toLocation}
                   placeholder={
@@ -1171,30 +1124,14 @@ export default function AddCollectiveRecordScreen() {
                         : 'No locations available'
                       : `${toLocationOptions.length} ${toLocationOptions.length === 1 ? 'location' : 'locations'} available`
                   }
-                  onPress={() => openMovementPicker('toLocation')}
+                  options={toLocationOptions}
+                  onSelect={(option) => selectMovementLocation(option, toFarm, setToFarm, setToLocation)}
+                  onEmptyPress={() => openSetupScreen('/setup-locations', 'toLocation')}
+                  onAddPress={() => openSetupScreen('/setup-locations', 'toLocation')}
+                  addAccessibilityLabel="Add location"
+                  onClear={() => setToLocation('')}
+                  clearAccessibilityLabel="Clear to location"
                 />
-                <View style={styles.helperLinkRow}>
-                  <Pressable
-                    accessibilityLabel="Add location"
-                    accessibilityRole="button"
-                    hitSlop={12}
-                    onPress={() => openSetupScreen('/setup-locations', 'toLocation')}
-                    style={({ pressed }) => [pressed && styles.pressed]}
-                  >
-                    <Text style={styles.helperLinkCompact}>+ Add</Text>
-                  </Pressable>
-                  {toLocation ? (
-                    <Pressable
-                      accessibilityLabel="Clear to location"
-                      accessibilityRole="button"
-                      hitSlop={12}
-                      onPress={() => setToLocation('')}
-                      style={({ pressed }) => [pressed && styles.pressed]}
-                    >
-                      <Text style={styles.helperLinkCompact}>Clear</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
               </>
             ) : null}
 
@@ -1214,17 +1151,13 @@ export default function AddCollectiveRecordScreen() {
                   <View style={styles.inlineUnit}>
                     <View style={styles.block}>
                       <Text style={styles.label}>Unit *</Text>
-                      <Pressable
+                      <InlineDropdown
                         accessibilityLabel="Select weight unit"
-                        accessibilityRole="button"
-                        onPress={() => openOptions('Select unit', WEIGHT_UNITS, weightUnit, (value) =>
-                          setWeightUnit(value as (typeof WEIGHT_UNITS)[number]),
-                        )}
-                        style={({ pressed }) => [styles.selectField, pressed && styles.pressed]}
-                      >
-                        <Text style={styles.selectValue}>{weightUnit}</Text>
-                        <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                      </Pressable>
+                        options={WEIGHT_UNITS}
+                        value={weightUnit}
+                        onSelect={setWeightUnit}
+                        fieldStyle={styles.selectField}
+                      />
                     </View>
                   </View>
                 </View>
@@ -1254,15 +1187,13 @@ export default function AddCollectiveRecordScreen() {
                   <View style={styles.inlineGrow}>
                     <View style={styles.block}>
                       <Text style={styles.label}>Unit *</Text>
-                      <Pressable
+                      <InlineDropdown
                         accessibilityLabel="Select feed unit"
-                        accessibilityRole="button"
-                        onPress={() => openOptions('Select unit', FEED_UNITS, feedUnit, setFeedUnit)}
-                        style={({ pressed }) => [styles.selectField, pressed && styles.pressed]}
-                      >
-                        <Text style={styles.selectValue}>{feedUnit}</Text>
-                        <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                      </Pressable>
+                        options={FEED_UNITS}
+                        value={feedUnit}
+                        onSelect={setFeedUnit}
+                        fieldStyle={styles.selectField}
+                      />
                     </View>
                   </View>
                 </View>
@@ -1319,7 +1250,7 @@ export default function AddCollectiveRecordScreen() {
 
             {recordType === 'Vaccination' || recordType === 'Medication' ? (
               <>
-                <SelectRow
+                <DropdownRow
                   label={isVaccinationRecord ? 'Vaccine *' : 'Medicine *'}
                   value={medicine}
                   placeholder={
@@ -1329,55 +1260,23 @@ export default function AddCollectiveRecordScreen() {
                         : 'No medicines available'
                       : `Select from your ${isVaccinationRecord ? 'vaccines' : 'medicine cabinet'}`
                   }
-                  onPress={() => {
-                    if (availableTreatments.length === 0) {
-                      openMedicinesScreen();
+                  options={treatmentNames}
+                  onSelect={(option) => {
+                    const match = availableTreatments.find((entity) => entity.name.trim() === option);
+
+                    if (match) {
+                      applyTreatment(match);
                       return;
                     }
 
-                    const names = availableTreatments
-                      .map((entity) => entity.name.trim())
-                      .filter(Boolean);
-
-                    openOptions(
-                      isVaccinationRecord ? 'Select vaccine' : 'Select medicine',
-                      names,
-                      medicine,
-                      (value) => {
-                        const match = availableTreatments.find((entity) => entity.name.trim() === value);
-
-                        if (match) {
-                          applyTreatment(match);
-                          return;
-                        }
-
-                        setMedicine(value);
-                      },
-                    );
+                    setMedicine(option);
                   }}
+                  onEmptyPress={openMedicinesScreen}
+                  onAddPress={openMedicinesScreen}
+                  addAccessibilityLabel={isVaccinationRecord ? 'Add vaccine' : 'Add medicine'}
+                  onClear={clearTreatment}
+                  clearAccessibilityLabel={isVaccinationRecord ? 'Clear vaccine' : 'Clear medicine'}
                 />
-                <View style={styles.helperLinkRow}>
-                  <Pressable
-                    accessibilityLabel={isVaccinationRecord ? 'Add vaccine' : 'Add medicine'}
-                    accessibilityRole="button"
-                    hitSlop={12}
-                    onPress={openMedicinesScreen}
-                    style={({ pressed }) => [pressed && styles.pressed]}
-                  >
-                    <Text style={styles.helperLinkCompact}>+ Add</Text>
-                  </Pressable>
-                  {medicine ? (
-                    <Pressable
-                      accessibilityLabel={isVaccinationRecord ? 'Clear vaccine' : 'Clear medicine'}
-                      accessibilityRole="button"
-                      hitSlop={12}
-                      onPress={clearTreatment}
-                      style={({ pressed }) => [pressed && styles.pressed]}
-                    >
-                      <Text style={styles.helperLinkCompact}>Clear</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
                 <View style={styles.inlineRow}>
                   <View style={styles.inlineGrow}>
                     <DesignField
@@ -1389,17 +1288,19 @@ export default function AddCollectiveRecordScreen() {
                     />
                   </View>
                   <View style={styles.inlineGrow}>
-                    <SelectRow
+                    <DropdownRow
                       label="Dose Unit"
                       value={doseUnit}
-                      onPress={() => openOptions('Select dose unit', DOSE_UNITS, doseUnit, setDoseUnit)}
+                      options={DOSE_UNITS}
+                      onSelect={setDoseUnit}
                     />
                   </View>
                 </View>
-                <SelectRow
+                <DropdownRow
                   label="Route"
                   value={route}
-                  onPress={() => openOptions('Select route', ROUTE_OPTIONS, route, setRoute)}
+                  options={ROUTE_OPTIONS}
+                  onSelect={setRoute}
                 />
                 <View style={styles.inlineRow}>
                   <View style={styles.inlineGrow}>
@@ -1441,25 +1342,21 @@ export default function AddCollectiveRecordScreen() {
                         Keyboard.dismiss();
                         setShowExpiryDatePicker(true);
                       }}
+                      onClear={() => setExpiryDate('')}
+                      clearAccessibilityLabel="Clear expiry date"
                     />
                   </View>
                 </View>
-                <ClearLink
-                  label="Clear Expiry Date"
-                  visible={Boolean(expiryDate)}
-                  onPress={() => setExpiryDate('')}
-                />
               </>
             ) : null}
 
             {recordType === 'Health Check' ? (
               <>
-                <SelectRow
+                <DropdownRow
                   label="Health Status *"
                   value={healthStatus}
-                  onPress={() =>
-                    openOptions('Select health status', HEALTH_STATUSES, healthStatus, setHealthStatus)
-                  }
+                  options={HEALTH_STATUSES}
+                  onSelect={setHealthStatus}
                 />
                 <DesignField
                   value={conditionDiagnosis}
@@ -1500,31 +1397,23 @@ export default function AddCollectiveRecordScreen() {
 
             {recordType === 'Deaths' ? (
               <>
-                <SelectRow
+                <DropdownRow
                   label="Cause of Death"
                   value={causeOfDeath}
                   placeholder="Select cause of death"
-                  onPress={() =>
-                    openOptions('Select cause of death', CAUSE_OF_DEATH_OPTIONS, causeOfDeath, setCauseOfDeath)
-                  }
+                  options={CAUSE_OF_DEATH_OPTIONS}
+                  onSelect={setCauseOfDeath}
+                  onClear={() => setCauseOfDeath('')}
+                  clearAccessibilityLabel="Clear cause of death"
                 />
-                <ClearLink
-                  label="Clear Cause"
-                  visible={Boolean(causeOfDeath)}
-                  onPress={() => setCauseOfDeath('')}
-                />
-                <SelectRow
+                <DropdownRow
                   label="Disposal Method"
                   value={disposalMethod}
                   placeholder="Select disposal method"
-                  onPress={() =>
-                    openOptions('Select disposal method', DISPOSAL_METHOD_OPTIONS, disposalMethod, setDisposalMethod)
-                  }
-                />
-                <ClearLink
-                  label="Clear Method"
-                  visible={Boolean(disposalMethod)}
-                  onPress={() => setDisposalMethod('')}
+                  options={DISPOSAL_METHOD_OPTIONS}
+                  onSelect={setDisposalMethod}
+                  onClear={() => setDisposalMethod('')}
+                  clearAccessibilityLabel="Clear disposal method"
                 />
               </>
             ) : null}
@@ -1696,124 +1585,105 @@ export default function AddCollectiveRecordScreen() {
           visible={showCollectivePicker}
           onRequestClose={() => setShowCollectivePicker(false)}
         >
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowCollectivePicker(false)}>
-            <AnimatedPopupCard
-              visible={showCollectivePicker}
-              style={styles.modalCard}
-              onPress={() => undefined}
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.sheetBackdrop, { opacity: collectiveSheetEntrance }]}
+          />
+          <Pressable style={styles.sheetOverlay} onPress={() => setShowCollectivePicker(false)}>
+            <Animated.View
+              style={[
+                styles.sheet,
+                {
+                  opacity: collectiveSheetEntrance.interpolate({
+                    inputRange: [0, 0.28, 1],
+                    outputRange: [0, 1, 1],
+                  }),
+                  transform: [
+                    {
+                      translateY: collectiveSheetEntrance.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [140, 0],
+                      }),
+                    },
+                    {
+                      scale: collectiveSheetEntrance.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.985, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
             >
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Select herd or flock</Text>
-                <Pressable
-                  accessibilityLabel="Close"
-                  accessibilityRole="button"
-                  hitSlop={8}
-                  onPress={() => setShowCollectivePicker(false)}
-                >
-                  <AppIcon name="close" size={26} color={tokens.colors.text} />
-                </Pressable>
-              </View>
-
-              {collectives.length === 0 ? (
-                <View style={styles.emptyPicker}>
-                  <Text style={styles.emptyPickerText}>
-                    You have not added a herd or flock yet. Close this and tap + Add under the field.
-                  </Text>
-                </View>
-              ) : (
-                <ScrollView
-                  style={styles.pickerList}
-                  contentContainerStyle={styles.pickerListContent}
-                  showsVerticalScrollIndicator={false}
-                >
-                  {collectives.map((item) => {
-                    const theme = getSpeciesThemeByLabel(item.species);
-                    const selected = item.uid === collectiveUid;
-
-                    return (
-                      <Pressable
-                        key={item.uid}
-                        accessibilityRole="button"
-                        onPress={() => {
-                          setCollectiveUid(item.uid);
-                          setShowCollectivePicker(false);
-                        }}
-                        style={({ pressed }) => [
-                          styles.collectiveRow,
-                          selected && styles.collectiveRowActive,
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <View style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}>
-                          <AppIcon
-                            name={SPECIES_ICONS.get(item.species) ?? 'animals'}
-                            size={20}
-                            color={theme.icon}
-                          />
-                        </View>
-                        <View style={styles.collectiveCopy}>
-                          <Text style={styles.collectiveTitle}>{collectiveLabel(item)}</Text>
-                          <Text style={styles.collectiveMeta}>
-                            {`${item.species} ${collectiveTermForSpecies(item.species)} · ${getCollectiveCount(item)} animals`}
-                          </Text>
-                        </View>
-                        {selected ? <AppIcon name="check" size={16} color="#fff" /> : null}
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              )}
-            </AnimatedPopupCard>
-          </Pressable>
-        </Modal>
-
-        <Modal
-          animationType="none"
-          transparent
-          visible={optionPicker !== null}
-          onRequestClose={() => setOptionPicker(null)}
-        >
-          <Pressable style={styles.modalBackdrop} onPress={() => setOptionPicker(null)}>
-            <AnimatedPopupCard
-              visible={optionPicker !== null}
-              style={styles.selectionCard}
-              onPress={() => undefined}
-            >
-              <Text style={styles.selectionTitle}>{optionPicker?.title ?? ''}</Text>
-              <ScrollView
-                style={styles.pickerList}
-                contentContainerStyle={styles.optionListContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {(optionPicker?.options ?? []).map((option) => (
+              <Pressable onPress={() => undefined} style={styles.sheetInner}>
+                <View style={styles.sheetHeader}>
+                  <View style={styles.headerActionSlot} />
+                  <Text style={styles.sheetTitle}>Select herd or flock</Text>
                   <Pressable
-                    key={option}
+                    accessibilityLabel="Done"
                     accessibilityRole="button"
-                    onPress={() => {
-                      optionPicker?.onSelect(option);
-                      setOptionPicker(null);
-                    }}
-                    style={({ pressed }) => [
-                      styles.selectionRow,
-                      option === optionPicker?.selected && styles.selectionRowActive,
-                      pressed && styles.pressed,
-                    ]}
+                    onPress={() => setShowCollectivePicker(false)}
+                    style={({ pressed }) => [styles.headerDoneButton, pressed && styles.pressed]}
                   >
-                    <Text
-                      style={[
-                        styles.selectionText,
-                        option === optionPicker?.selected && styles.selectionTextActive,
-                      ]}
-                    >
-                      {option}
-                    </Text>
-                    {option === optionPicker?.selected ? (
-                      <AppIcon name="check" size={16} color="#fff" />
-                    ) : null}
+                    <Text style={styles.headerDoneText}>Done</Text>
                   </Pressable>
-                ))}
-              </ScrollView>
-            </AnimatedPopupCard>
+                </View>
+
+                {collectives.length === 0 ? (
+                  <View style={styles.sheetEmptyState}>
+                    <AppIcon name="group" size={86} color="#E5E0E7" opacity={1} />
+                    <Text style={styles.sheetEmptyTitle}>No herds or flocks available</Text>
+                    <Text style={styles.sheetEmptyText}>
+                      Close this and tap the + beside the herd or flock label.
+                    </Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    style={styles.sheetListScroll}
+                    contentContainerStyle={styles.sheetContent}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {collectives.map((item) => {
+                      const theme = getSpeciesThemeByLabel(item.species);
+                      const selected = item.uid === collectiveUid;
+
+                      return (
+                        <Pressable
+                          key={item.uid}
+                          accessibilityLabel={`Select ${collectiveLabel(item)}`}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
+                          onPress={() => {
+                            setCollectiveUid(item.uid);
+                            setShowCollectivePicker(false);
+                          }}
+                          style={({ pressed }) => [
+                            styles.sheetCard,
+                            selected && styles.sheetCardActive,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <View style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}>
+                            <AppIcon
+                              name={SPECIES_ICONS.get(item.species) ?? 'animals'}
+                              size={20}
+                              color={theme.icon}
+                            />
+                          </View>
+                          <View style={styles.collectiveCopy}>
+                            <Text style={styles.collectiveTitle}>{collectiveLabel(item)}</Text>
+                            <Text style={styles.collectiveMeta}>
+                              {`${item.species} ${collectiveTermForSpecies(item.species)} · ${getCollectiveCount(item)} animals`}
+                            </Text>
+                          </View>
+                          {selected ? <AppIcon name="check" size={18} color={tokens.colors.accent} /> : null}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+              </Pressable>
+            </Animated.View>
           </Pressable>
         </Modal>
 
@@ -1827,35 +1697,79 @@ export default function AddCollectiveRecordScreen() {
   );
 }
 
+// A group reads as its species mark, its name, and how many animals it holds —
+// the same three things the old picker sheet showed, since one flock is told
+// from another by its size as much as by its name.
+function CollectiveRowLabel({ collective }: { collective?: Collective }) {
+  if (!collective) {
+    return null;
+  }
+
+  const theme = getSpeciesThemeByLabel(collective.species);
+
+  return (
+    <View style={styles.collectiveRowLabel}>
+      <View style={[styles.speciesIconBadge, { backgroundColor: theme.chipBackground }]}>
+        <AppIcon name={SPECIES_ICONS.get(collective.species) ?? 'animals'} size={20} color={theme.icon} />
+      </View>
+      <View style={styles.collectiveCopy}>
+        <Text style={styles.collectiveTitle} numberOfLines={1}>
+          {collectiveLabel(collective)}
+        </Text>
+        <Text style={styles.collectiveMeta} numberOfLines={1}>
+          {`${collective.species} ${collectiveTermForSpecies(collective.species)} · ${getCollectiveCount(collective)} animals`}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function capitalize(value: string) {
   return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : '';
 }
 
-/**
- * The Clear link under an optional dropdown. A picker can be re-picked but not
- * un-picked, so anything that may legitimately be left blank needs a way back
- * to blank. Dropdowns that always carry a value (units, route, status) have
- * nothing to clear and get none.
- */
-function ClearLink({ label, visible, onPress }: { label: string; visible: boolean; onPress: () => void }) {
-  if (!visible) {
-    return null;
-  }
-
+// The dropdown twin of SelectRow — same label and info affordance, but the
+// options open against the field instead of over the form. SelectRow stays for
+// the one row that opens a date picker rather than a list.
+function DropdownRow({
+  label,
+  value,
+  placeholder,
+  options,
+  onSelect,
+  onEmptyPress,
+  onInfoPress,
+  onAddPress,
+  addAccessibilityLabel,
+  onClear,
+  clearAccessibilityLabel,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  options: readonly string[];
+  onSelect: (value: string) => void;
+  onEmptyPress?: () => void;
+  onInfoPress?: () => void;
+  onAddPress?: () => void;
+  addAccessibilityLabel?: string;
+  onClear?: () => void;
+  clearAccessibilityLabel?: string;
+}) {
   return (
-    <View style={styles.helperLinkRow}>
-      <Pressable
+    <View style={styles.block}>
+      <FieldLabel label={label} onInfoPress={onInfoPress} onAddPress={onAddPress} addAccessibilityLabel={addAccessibilityLabel} />
+      <InlineDropdown
         accessibilityLabel={label}
-        accessibilityRole="button"
-        hitSlop={12}
-        onPress={onPress}
-        style={({ pressed }) => [pressed && styles.pressed]}
-      >
-        {/* The field above says what is being cleared, so the link only has to
-            say the verb. `label` still carries the full phrase for screen
-            readers, which have no such context. */}
-        <Text style={styles.helperLinkCompact}>Clear</Text>
-      </Pressable>
+        options={options}
+        value={value === '' ? null : value}
+        placeholder={placeholder ?? 'Select'}
+        onSelect={onSelect}
+        onEmptyPress={onEmptyPress}
+        onClear={onClear}
+        clearAccessibilityLabel={clearAccessibilityLabel}
+        fieldStyle={styles.selectField}
+      />
     </View>
   );
 }
@@ -1866,27 +1780,40 @@ function SelectRow({
   placeholder,
   onPress,
   onInfoPress,
+  onClear,
+  clearAccessibilityLabel,
 }: {
   label: string;
   value: string;
   placeholder?: string;
   onPress: () => void;
   onInfoPress?: () => void;
+  onClear?: () => void;
+  clearAccessibilityLabel?: string;
 }) {
   return (
     <View style={styles.block}>
       <FieldLabel label={label} onInfoPress={onInfoPress} />
-      <Pressable
-        accessibilityLabel={label}
-        accessibilityRole="button"
-        onPress={onPress}
-        style={({ pressed }) => [styles.selectField, pressed && styles.pressed]}
-      >
-        <Text style={[styles.selectValue, !value && styles.placeholderValue]}>
-          {value || placeholder || 'Select'}
-        </Text>
-        <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-      </Pressable>
+      <View style={styles.clearableField}>
+        <Pressable
+          accessibilityLabel={label}
+          accessibilityRole="button"
+          onPress={onPress}
+          style={({ pressed }) => [styles.selectField, pressed && styles.pressed]}
+        >
+          <Text style={[styles.selectValue, !value && styles.placeholderValue, value && onClear && styles.clearableSelectValue]}>
+            {value || placeholder || 'Select'}
+          </Text>
+          <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+        </Pressable>
+        {value && onClear ? (
+          <FieldClearButton
+            accessibilityLabel={clearAccessibilityLabel ?? `Clear ${label.toLowerCase()}`}
+            onPress={onClear}
+            style={styles.customFieldClearButton}
+          />
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -1895,6 +1822,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: tokens.colors.background },
   content: { padding: 18, paddingBottom: 220, gap: 18 },
   pressed: { opacity: 0.85 },
+  formCard: { borderRadius: 24, backgroundColor: '#EFECF0', padding: 16, gap: 18 },
   typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-start' },
   typeChip: {
     borderRadius: 999,
@@ -1906,7 +1834,6 @@ const styles = StyleSheet.create({
   typeChipText: { fontSize: 14, fontWeight: '600' },
   typeChipTextIdle: { color: '#544F49' },
   typeChipTextActive: { color: '#fff' },
-  formCard: { borderRadius: 24, backgroundColor: '#EFECF0', padding: 16, gap: 18 },
   block: { gap: 8 },
   label: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
   helperText: {
@@ -1926,19 +1853,6 @@ const styles = StyleSheet.create({
   },
   selectValue: { color: '#2b2b2b', fontSize: 13, fontWeight: '500', flex: 1, paddingRight: 10 },
   placeholderValue: { color: '#7a7a7a' },
-  helperLinkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginTop: -10,
-    marginBottom: 4,
-  },
-  helperLinkCompact: {
-    color: tokens.colors.accent,
-    fontSize: 13,
-    fontWeight: '700',
-  },
   radioRow: { flexDirection: 'row', gap: 12 },
   binaryOption: {
     flex: 1,
@@ -1957,6 +1871,115 @@ const styles = StyleSheet.create({
   binaryOptionTextActive: { color: '#fff' },
   inlineRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-end' },
   inlineGrow: { flex: 1 },
+  // The Animal(s) picker's sheet, matched: dimmed form, rounded top corners,
+  // rising from the bottom of the screen rather than out of the field.
+  sheetBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  sheetOverlay: {
+    position: 'absolute',
+    inset: 0,
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 26,
+    maxHeight: '86%',
+  },
+  sheetInner: {
+    flexShrink: 1,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingHorizontal: 10,
+  },
+  sheetTitle: {
+    flex: 1,
+    color: tokens.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  headerActionSlot: {
+    width: 64,
+  },
+  headerDoneButton: {
+    minHeight: 36,
+    width: 64,
+    borderRadius: 18,
+    backgroundColor: tokens.colors.accent,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerDoneText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  sheetListScroll: {
+    flexShrink: 1,
+  },
+  sheetContent: {
+    gap: 12,
+    paddingBottom: 24,
+  },
+  sheetCard: {
+    minHeight: 62,
+    borderRadius: 18,
+    backgroundColor: tokens.colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+  },
+  sheetCardActive: {
+    backgroundColor: '#FCE5E4',
+    borderColor: '#E79D99',
+  },
+  sheetEmptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingTop: 48,
+    paddingBottom: 24,
+    gap: 16,
+  },
+  sheetEmptyTitle: {
+    color: '#8A8A8A',
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  sheetEmptyText: {
+    color: '#777178',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  collectiveRowLabel: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingRight: 10,
+  },
   inlineUnit: { width: 130 },
   currencyPrefix: { color: '#7a7a7a', fontSize: 13, fontWeight: '600' },
   // Matches the animal and herd cards on the Animals tab: a rounded square in
@@ -1982,6 +2005,9 @@ const styles = StyleSheet.create({
   photoCopy: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   photoText: { color: tokens.colors.text, fontSize: 15, fontWeight: '600' },
   fieldChevron: { width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
+  clearableField: { position: 'relative' },
+  clearableSelectValue: { paddingRight: 32 },
+  customFieldClearButton: { position: 'absolute', right: 34, top: 8, zIndex: 1, elevation: 1 },
   imageGrid: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   imageCard: {
     width: 88,
@@ -2003,16 +2029,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  selectionCard: {
-    marginHorizontal: 18,
-    marginBottom: 28,
-    borderRadius: 26,
-    backgroundColor: '#fff',
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    gap: 8,
-  },
-  selectionTitle: { color: tokens.colors.text, fontSize: 18, fontWeight: '700', marginBottom: 4 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
   modalCard: {
     borderTopLeftRadius: 28,
@@ -2031,45 +2047,15 @@ const styles = StyleSheet.create({
   },
   modalTitle: { color: tokens.colors.text, fontSize: 18, fontWeight: '700' },
   modalDone: { color: tokens.colors.accent, fontSize: 15, fontWeight: '700' },
-  pickerList: { maxHeight: 340 },
   // The rows are bordered cards now, so they need air between them rather
   // than stacking into one block.
-  pickerListContent: { gap: 10, paddingBottom: 4 },
   // The plain option rows match the individual Add Record screen's picker,
   // whose rows take this gap from the card itself. Inside a ScrollView the
   // card's gap does not reach them, so it is restated here.
-  optionListContent: { gap: 8, paddingBottom: 4 },
-  selectionRow: {
-    minHeight: 46,
-    borderRadius: 18,
-    backgroundColor: '#EFECF0',
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  selectionRowActive: { backgroundColor: tokens.colors.accent },
-  selectionText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
-  selectionTextActive: { color: '#fff' },
   // Same card as the individual animal picker: white, subtly bordered at
   // rest, accent-bordered when selected. Bordered either way so picking one
   // never resizes it.
-  collectiveRow: {
-    minHeight: 62,
-    borderRadius: 18,
-    backgroundColor: tokens.colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
-  },
-  collectiveRowActive: { backgroundColor: tokens.colors.accent, borderColor: tokens.colors.accentDeep },
   collectiveCopy: { flex: 1, gap: 2 },
   collectiveTitle: { color: tokens.colors.text, fontSize: 15, fontWeight: '700' },
   collectiveMeta: { color: tokens.colors.textSoft, fontSize: 12, fontWeight: '500' },
-  emptyPicker: { paddingVertical: 18, alignItems: 'center', gap: 14 },
-  emptyPickerText: { color: tokens.colors.textSoft, fontSize: 14, fontWeight: '500', textAlign: 'center' },
 });

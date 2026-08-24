@@ -1,4 +1,4 @@
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -6,13 +6,15 @@ import { Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Switc
 import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import DateTimePicker from '../src/components/AppDateTimePicker';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
-import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
+import { FieldLabel } from '../src/components/FieldLabel';
 import { FloatingActionButton } from '../src/components/FloatingActionButton';
 import { InfoModal } from '../src/components/InfoModal';
+import { InlineDropdown, InlineMultiDropdown } from '../src/components/InlineDropdown';
 import { SPECIES_OPTIONS } from '../src/constants/records';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
 import { useAccount } from '../src/context/AccountContext';
@@ -29,19 +31,11 @@ import { TAB_ALIGNED_FAB_BOTTOM_OFFSET, tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
 import { filterAccessibleImageUris, persistCollectiveImage } from '../src/utils/imageStorage';
 
-const SPECIES_ICONS = new Map<string, AppIconName>(
-  SPECIES_OPTIONS.map((item) => [item.label, item.icon]),
-);
-
-type PickerKey = 'farm' | 'location' | 'label';
+const SPECIES_ICONS = new Map<string, AppIconName>(SPECIES_OPTIONS.map((item) => [item.label, item.icon]));
 
 const ESTABLISHED_HELP =
   'When the group arrived or was formed on your farm — the day it became yours.\n\n' +
   'This is the date your ownership runs from, which is what an inventory or a movement question is asking about.';
-
-const BORN_OR_HATCHED_HELP =
-  'When the animals themselves were born or hatched.\n\n' +
-  'Fill it in only when it differs from the date established. Point-of-lay pullets hatched in March and bought in July have two different dates, and it is the hatch date that tells you how old they are.';
 
 export default function AddCollectiveScreen() {
   const router = useRouter();
@@ -50,10 +44,7 @@ export default function AddCollectiveScreen() {
   const { farms, locationEntities, labelEntities } = useSetup();
   const { profile } = useAccount();
 
-  const existing = useMemo(
-    () => collectives.find((item) => item.uid === collectiveUid),
-    [collectives, collectiveUid],
-  );
+  const existing = useMemo(() => collectives.find((item) => item.uid === collectiveUid), [collectives, collectiveUid]);
   const isEditing = !!existing;
 
   const [name, setName] = useState(existing?.name ?? '');
@@ -65,23 +56,16 @@ export default function AddCollectiveScreen() {
   const [startDate, setStartDate] = useState(existing?.startDate ?? '');
   const [purpose, setPurpose] = useState(existing?.purpose ?? '');
   const [notes, setNotes] = useState(existing?.notes ?? '');
-  const [startingCount, setStartingCount] = useState(
-    existing ? String(getCollectiveCount(existing)) : '',
-  );
-  const [birthDate, setBirthDate] = useState(existing?.birthDate ?? '');
+  const [startingCount, setStartingCount] = useState(existing ? String(getCollectiveCount(existing)) : '');
   const [supplier, setSupplier] = useState(existing?.supplier ?? '');
-  const [imageUris, setImageUris] = useState<string[]>(() =>
-    filterAccessibleImageUris(existing?.imageUris),
-  );
+  const [imageUris, setImageUris] = useState<string[]>(() => filterAccessibleImageUris(existing?.imageUris));
   const [showImageOnCard, setShowImageOnCard] = useState(
     existing?.showImageOnCard === true && filterAccessibleImageUris(existing.imageUris).length > 0,
   );
-  const [activePicker, setActivePicker] = useState<PickerKey | null>(null);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showBirthDatePicker, setShowBirthDatePicker] = useState(false);
   const [labels, setLabels] = useState<string[]>(existing?.labels ?? []);
   const [showSpeciesPicker, setShowSpeciesPicker] = useState(false);
-  const [datesHelp, setDatesHelp] = useState<'established' | 'birth' | null>(null);
+  const [showEstablishedHelp, setShowEstablishedHelp] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // "flock" once poultry is picked, "herd" for cattle and pigs, "batch" for
@@ -105,37 +89,31 @@ export default function AddCollectiveScreen() {
   );
   const availableLabels = useMemo(() => labelEntities.map((entry) => entry.name), [labelEntities]);
   const parsedStartDate = useMemo(() => parseStoredDate(startDate), [startDate]);
-  const parsedBirthDate = useMemo(() => parseStoredDate(birthDate), [birthDate]);
   const displayedStartDate = useMemo(
     () => formatDateForDisplay(startDate, profile.dateFormat),
     [startDate, profile.dateFormat],
   );
-  const displayedBirthDate = useMemo(
-    () => formatDateForDisplay(birthDate, profile.dateFormat),
-    [birthDate, profile.dateFormat],
-  );
-  const pickerOptions =
-    activePicker === 'farm'
-      ? farms
-      : activePicker === 'location'
-        ? availableLocations
-        : activePicker === 'label'
-          ? availableLabels
-          : [];
-  const pickerValue =
-    activePicker === 'farm'
-      ? farm
-      : activePicker === 'location'
-        ? location
-        : '';
-
   const openSetupScreen = (pathname: '/setup-farms' | '/setup-locations' | '/setup-labels') => {
     router.push({ pathname, params: { source: 'add-collective' } });
   };
 
+  const handleFarmSelect = (option: string) => {
+    setFarm(option);
+
+    // A farm with exactly one location has no real choice to make, so fill it
+    // in; changing farms drops a location that belongs to the old one.
+    const matching = locationEntities.filter(
+      (entry) => entry.farm.trim().toLowerCase() === option.trim().toLowerCase(),
+    );
+    const currentBelongs = matching.some((entry) => entry.name.trim().toLowerCase() === location.trim().toLowerCase());
+
+    if (!currentBelongs) {
+      setLocation(matching.length === 1 ? matching[0].name : '');
+    }
+  };
+
   const makeDateChangeHandler =
-    (apply: (value: string) => void, close: () => void) =>
-    (event: DateTimePickerEvent, nextDate?: Date) => {
+    (apply: (value: string) => void, close: () => void) => (event: DateTimePickerEvent, nextDate?: Date) => {
       if (Platform.OS === 'android') {
         if (event.type === 'dismissed') {
           close();
@@ -156,7 +134,6 @@ export default function AddCollectiveScreen() {
     };
 
   const handleStartDateChange = makeDateChangeHandler(setStartDate, () => setShowStartDatePicker(false));
-  const handleBirthDateChange = makeDateChangeHandler(setBirthDate, () => setShowBirthDatePicker(false));
 
   useEffect(() => {
     const nextImageUris = filterAccessibleImageUris(existing?.imageUris);
@@ -250,7 +227,9 @@ export default function AddCollectiveScreen() {
       farm: farm.trim(),
       location: location.trim(),
       startDate: startDate.trim(),
-      birthDate: birthDate.trim(),
+      // Kept only for backward compatibility with previously saved groups.
+      // A collective may contain animals born or hatched at different times.
+      birthDate: existing?.birthDate ?? '',
       supplier: supplier.trim(),
       // No longer collected here — a flock's weight and what it cost are
       // recorded as dated Weight and Purchase records instead. Existing values
@@ -262,7 +241,9 @@ export default function AddCollectiveScreen() {
       purpose: purpose.trim(),
       notes: notes.trim(),
       labelUids: labels
-        .map((name) => labelEntities.find((entry) => entry.name.trim().toLowerCase() === name.trim().toLowerCase())?.uid)
+        .map(
+          (name) => labelEntities.find((entry) => entry.name.trim().toLowerCase() === name.trim().toLowerCase())?.uid,
+        )
         .filter((uid): uid is string => !!uid),
       labels: labels.map((name) => name.trim()).filter(Boolean),
       imageUris: imageUris.length > 0 ? imageUris : undefined,
@@ -280,9 +261,7 @@ export default function AddCollectiveScreen() {
       ],
     };
 
-    const result = isEditing
-      ? await updateCollective(existing.uid, base)
-      : await addCollective(base);
+    const result = isEditing ? await updateCollective(existing.uid, base) : await addCollective(base);
 
     setSaving(false);
 
@@ -298,7 +277,11 @@ export default function AddCollectiveScreen() {
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
         title={isEditing ? `Edit ${term || 'group'}` : heading}
-        leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: handleBack }}
+        leftAction={{
+          icon: 'back',
+          accessibilityLabel: 'Back',
+          onPress: handleBack,
+        }}
         // Nothing in the bar: deleting lives on the view screen's three-dot
         // menu, and help sits on the field it explains rather than up here.
         actions={[]}
@@ -316,11 +299,7 @@ export default function AddCollectiveScreen() {
             >
               <View style={styles.fieldWithIcon}>
                 {species ? (
-                  <AppIcon
-                    name={SPECIES_ICONS.get(species) ?? 'animals'}
-                    size={20}
-                    color={tokens.colors.text}
-                  />
+                  <AppIcon name={SPECIES_ICONS.get(species) ?? 'animals'} size={20} color={tokens.colors.text} />
                 ) : null}
                 <Text style={[styles.dateValue, !species && styles.placeholderValue]}>
                   {species || 'Select species'}
@@ -330,12 +309,7 @@ export default function AddCollectiveScreen() {
             </Pressable>
           </View>
 
-          <DesignField
-            value={name}
-            label="Name"
-            placeholder="Layer Flock A"
-            onChangeText={setName}
-          />
+          <DesignField value={name} label="Name" placeholder="Layer Flock A" onChangeText={setName} />
 
           <DesignField
             value={reference}
@@ -358,12 +332,7 @@ export default function AddCollectiveScreen() {
             </Text>
           ) : null}
 
-          <DesignField
-            value={breed}
-            label="Breed or type"
-            placeholder="Lohmann Brown"
-            onChangeText={setBreed}
-          />
+          <DesignField value={breed} label="Breed or type" placeholder="Lohmann Brown" onChangeText={setBreed} />
 
           <DesignField
             value={supplier}
@@ -372,181 +341,92 @@ export default function AddCollectiveScreen() {
             onChangeText={setSupplier}
           />
 
-          <SelectionField
-            label="Farm"
-            value={farm}
-            emptyLabel={farms.length === 0 ? 'No farms available' : 'Select farm'}
-            onPress={() => {
-              if (farms.length === 0) {
-                openSetupScreen('/setup-farms');
-                return;
-              }
-
-              setActivePicker('farm');
-            }}
-          />
-          <View style={styles.helperLinkRow}>
-            <BouncyPressable
-              accessibilityLabel="Add farm"
-              accessibilityRole="button"
-              onPress={() => openSetupScreen('/setup-farms')}
-              style={({ pressed }) => [pressed && styles.pressed]}
-            >
-              <Text style={styles.helperLink}>+ Add</Text>
-            </BouncyPressable>
-            {farm ? (
-              <BouncyPressable
-                accessibilityLabel="Clear farm"
-                accessibilityRole="button"
-                onPress={() => {
-                  setFarm('');
-                  setLocation('');
-                }}
-                style={({ pressed }) => [pressed && styles.pressed]}
-              >
-                <Text style={styles.helperLink}>Clear</Text>
-              </BouncyPressable>
-            ) : null}
+          <View style={styles.block}>
+            <FieldLabel label="Farm" addAccessibilityLabel="Add farm" onAddPress={() => openSetupScreen('/setup-farms')} />
+            <InlineDropdown
+              accessibilityLabel="Farm"
+              options={farms}
+              value={farm === '' ? null : farm}
+              placeholder={farms.length === 0 ? 'No farms available' : 'Select farm'}
+              onSelect={handleFarmSelect}
+              onEmptyPress={() => openSetupScreen('/setup-farms')}
+              onClear={() => {
+                setFarm('');
+                setLocation('');
+              }}
+              clearAccessibilityLabel="Clear farm"
+            />
           </View>
 
-          <SelectionField
-            label="Location"
-            value={location}
-            emptyLabel={
-              !farm
-                ? 'Select farm first'
-                : availableLocations.length === 0
-                  ? 'No locations for this farm'
-                  : 'Select location'
-            }
-            onPress={() => {
-              if (!farm) {
-                return;
+          <View style={styles.block}>
+            <FieldLabel
+              label="Location"
+              addAccessibilityLabel="Add location"
+              onAddPress={() => openSetupScreen('/setup-locations')}
+            />
+            <InlineDropdown
+              accessibilityLabel="Location"
+              options={availableLocations}
+              value={location === '' ? null : location}
+              placeholder={
+                !farm
+                  ? 'Select farm first'
+                  : availableLocations.length === 0
+                    ? 'No locations for this farm'
+                    : 'Select location'
               }
-
-              if (availableLocations.length === 0) {
-                openSetupScreen('/setup-locations');
-                return;
-              }
-
-              setActivePicker('location');
-            }}
-          />
-          <View style={styles.helperLinkRow}>
-            <BouncyPressable
-              accessibilityLabel="Add location"
-              accessibilityRole="button"
-              onPress={() => openSetupScreen('/setup-locations')}
-              style={({ pressed }) => [pressed && styles.pressed]}
-            >
-              <Text style={styles.helperLink}>+ Add</Text>
-            </BouncyPressable>
-            {location ? (
-              <BouncyPressable
-                accessibilityLabel="Clear location"
-                accessibilityRole="button"
-                onPress={() => setLocation('')}
-                style={({ pressed }) => [pressed && styles.pressed]}
-              >
-                <Text style={styles.helperLink}>Clear</Text>
-              </BouncyPressable>
-            ) : null}
+              onSelect={setLocation}
+              // Without a farm there is no list to set up yet, so the field
+              // stays inert rather than sending the keeper to Locations.
+              onEmptyPress={farm ? () => openSetupScreen('/setup-locations') : undefined}
+              onClear={() => setLocation('')}
+              clearAccessibilityLabel="Clear location"
+            />
           </View>
 
-          <SelectionField
-            label="Labels"
-            value={formatLabelSelection(labels)}
-            emptyLabel={availableLabels.length === 0 ? 'No labels set up yet' : 'Select labels'}
-            onPress={() => {
-              if (availableLabels.length === 0) {
-                openSetupScreen('/setup-labels');
-                return;
+          <View style={styles.block}>
+            <FieldLabel label="Labels" addAccessibilityLabel="Add label" onAddPress={() => openSetupScreen('/setup-labels')} />
+            <InlineMultiDropdown
+              accessibilityLabel="Labels"
+              options={availableLabels}
+              selected={labels}
+              placeholder={availableLabels.length === 0 ? 'No labels set up yet' : 'Select labels'}
+              formatSummary={formatLabelSelection}
+              onToggle={(option) =>
+                setLabels((current) =>
+                  current.includes(option) ? current.filter((entry) => entry !== option) : [...current, option],
+                )
               }
-
-              setActivePicker('label');
-            }}
-          />
-          <View style={styles.helperLinkRow}>
-            <BouncyPressable
-              accessibilityLabel="Add label"
-              accessibilityRole="button"
-              onPress={() => openSetupScreen('/setup-labels')}
-              style={({ pressed }) => [pressed && styles.pressed]}
-            >
-              <Text style={styles.helperLink}>+ Add</Text>
-            </BouncyPressable>
-            {labels.length > 0 ? (
-              <BouncyPressable
-                accessibilityLabel="Clear labels"
-                accessibilityRole="button"
-                onPress={() => setLabels([])}
-                style={({ pressed }) => [pressed && styles.pressed]}
-              >
-                <Text style={styles.helperLink}>Clear</Text>
-              </BouncyPressable>
-            ) : null}
+              onEmptyPress={() => openSetupScreen('/setup-labels')}
+              onClear={() => setLabels([])}
+              clearAccessibilityLabel="Clear labels"
+            />
           </View>
 
-          {/* Side by side: the two dates are the same kind of answer and are
-              usually filled together, and at half width each they still hold a
-              formatted date without truncating. */}
-          <View style={styles.dateRow}>
-            <View style={styles.dateRowHalf}>
-              <View style={styles.labelRow}>
-                <Text style={styles.label}>Date established</Text>
-                <Pressable
-                  accessibilityLabel="About date established"
-                  accessibilityRole="button"
-                  hitSlop={12}
-                  onPress={() => setDatesHelp('established')}
-                  style={({ pressed }) => [styles.labelInfoButton, pressed && styles.pressed]}
-                >
-                  <AppIcon name="info" size={15} color={tokens.colors.textSoft} />
-                </Pressable>
-              </View>
+          <View style={styles.block}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>Date established</Text>
               <Pressable
-                accessibilityLabel="Select date established"
+                accessibilityLabel="About date established"
                 accessibilityRole="button"
-                onPress={() => setShowStartDatePicker(true)}
-                style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
+                hitSlop={12}
+                onPress={() => setShowEstablishedHelp(true)}
+                style={({ pressed }) => [styles.labelInfoButton, pressed && styles.pressed]}
               >
-                <Text
-                  numberOfLines={1}
-                  style={[styles.dateValue, !startDate && styles.placeholderValue]}
-                >
-                  {displayedStartDate || 'Select'}
-                </Text>
-                <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+                <AppIcon name="info" size={15} color={tokens.colors.textSoft} />
               </Pressable>
             </View>
-            <View style={styles.dateRowHalf}>
-              <View style={styles.labelRow}>
-                <Text style={styles.label}>Born or hatched</Text>
-                <Pressable
-                  accessibilityLabel="About born or hatched"
-                  accessibilityRole="button"
-                  hitSlop={12}
-                  onPress={() => setDatesHelp('birth')}
-                  style={({ pressed }) => [styles.labelInfoButton, pressed && styles.pressed]}
-                >
-                  <AppIcon name="info" size={15} color={tokens.colors.textSoft} />
-                </Pressable>
-              </View>
-              <Pressable
-                accessibilityLabel="Select date born or hatched"
-                accessibilityRole="button"
-                onPress={() => setShowBirthDatePicker(true)}
-                style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={[styles.dateValue, !birthDate && styles.placeholderValue]}
-                >
-                  {displayedBirthDate || 'Select'}
-                </Text>
-                <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-              </Pressable>
-            </View>
+            <Pressable
+              accessibilityLabel="Select date established"
+              accessibilityRole="button"
+              onPress={() => setShowStartDatePicker(true)}
+              style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
+            >
+              <Text numberOfLines={1} style={[styles.dateValue, !startDate && styles.placeholderValue]}>
+                {displayedStartDate || 'Select'}
+              </Text>
+              <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+            </Pressable>
           </View>
           <DesignField
             value={purpose}
@@ -571,9 +451,7 @@ export default function AddCollectiveScreen() {
           >
             <View style={styles.photoCopy}>
               <AppIcon name="image-add" size={22} color={tokens.colors.accent} />
-              <Text style={styles.photoText}>
-                {imageUris.length === 0 ? 'Profile picture' : 'Profile picture 1/1'}
-              </Text>
+              <Text style={styles.photoText}>{imageUris.length === 0 ? 'Profile picture' : 'Profile picture 1/1'}</Text>
             </View>
             <View style={styles.fieldChevron}>
               <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
@@ -584,11 +462,7 @@ export default function AddCollectiveScreen() {
               <View style={styles.imageGrid}>
                 {imageUris.map((uri) => (
                   <View key={uri} style={styles.imageCard}>
-                    <Image
-                      source={{ uri }}
-                      style={styles.imagePreview}
-                      onError={() => handleRemoveImage(uri)}
-                    />
+                    <Image source={{ uri }} style={styles.imagePreview} onError={() => handleRemoveImage(uri)} />
                     <Pressable
                       accessibilityLabel="Remove image"
                       accessibilityRole="button"
@@ -602,12 +476,8 @@ export default function AddCollectiveScreen() {
               </View>
               <View style={styles.cardImagePreference}>
                 <View style={styles.cardImagePreferenceCopy}>
-                  <Text style={styles.cardImagePreferenceTitle}>
-                    {`Show image on ${term || 'group'} card`}
-                  </Text>
-                  <Text style={styles.cardImagePreferenceText}>
-                    Otherwise, the species icon will be shown.
-                  </Text>
+                  <Text style={styles.cardImagePreferenceTitle}>{`Show image on ${term || 'group'} card`}</Text>
+                  <Text style={styles.cardImagePreferenceText}>Otherwise, the species icon will be shown.</Text>
                 </View>
                 <Switch
                   style={styles.cardImagePreferenceSwitch}
@@ -623,7 +493,6 @@ export default function AddCollectiveScreen() {
             </View>
           ) : null}
         </View>
-
       </ScrollView>
 
       {showStartDatePicker && Platform.OS === 'android' ? (
@@ -635,14 +504,6 @@ export default function AddCollectiveScreen() {
         />
       ) : null}
 
-      {showBirthDatePicker && Platform.OS === 'android' ? (
-        <DateTimePicker
-          mode="date"
-          display="default"
-          value={parsedBirthDate ?? new Date()}
-          onChange={handleBirthDateChange}
-        />
-      ) : null}
 
       <Modal
         animationType="none"
@@ -683,120 +544,6 @@ export default function AddCollectiveScreen() {
         </Pressable>
       </Modal>
 
-      <Modal
-        animationType="none"
-        transparent
-        visible={showBirthDatePicker && Platform.OS === 'ios'}
-        onRequestClose={() => setShowBirthDatePicker(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowBirthDatePicker(false)}>
-          <AnimatedPopupCard
-            visible={showBirthDatePicker && Platform.OS === 'ios'}
-            style={styles.modalCard}
-            onPress={() => undefined}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select date born or hatched</Text>
-              <Pressable
-                accessibilityLabel="Done"
-                accessibilityRole="button"
-                onPress={() => {
-                  setBirthDate(formatDateForStorage(parsedBirthDate ?? new Date()));
-                  setShowBirthDatePicker(false);
-                }}
-              >
-                <Text style={styles.modalDone}>Done</Text>
-              </Pressable>
-            </View>
-            <DateTimePicker
-              mode="date"
-              display="spinner"
-              value={parsedBirthDate ?? new Date()}
-              onChange={handleBirthDateChange}
-            />
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="none"
-        transparent
-        visible={activePicker !== null}
-        onRequestClose={() => setActivePicker(null)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
-          <AnimatedPopupCard
-            visible={activePicker !== null}
-            style={styles.selectionCard}
-            onPress={() => undefined}
-          >
-            <Text style={styles.selectionTitle}>
-              {activePicker === 'farm'
-                ? 'Select farm'
-                : activePicker === 'location'
-                  ? 'Select location'
-                  : 'Select labels'}
-            </Text>
-            {pickerOptions.map((option) => {
-              // Labels are the one multi-select picker here — a group can carry
-              // several — so the row toggles and the sheet stays open.
-              const isLabelPicker = activePicker === 'label';
-              const active = isLabelPicker ? labels.includes(option) : option === pickerValue;
-
-              return (
-              <Pressable
-                key={option}
-                accessibilityLabel={option}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                onPress={() => {
-                  if (isLabelPicker) {
-                    setLabels((current) =>
-                      current.includes(option)
-                        ? current.filter((entry) => entry !== option)
-                        : [...current, option],
-                    );
-                    return;
-                  }
-
-                  if (activePicker === 'farm') {
-                    setFarm(option);
-
-                    // A farm with exactly one location has no real choice to
-                    // make, so fill it in; changing farms drops a location that
-                    // belongs to the old one.
-                    const matching = locationEntities.filter(
-                      (entry) => entry.farm.trim().toLowerCase() === option.trim().toLowerCase(),
-                    );
-                    const currentBelongs = matching.some(
-                      (entry) => entry.name.trim().toLowerCase() === location.trim().toLowerCase(),
-                    );
-
-                    if (!currentBelongs) {
-                      setLocation(matching.length === 1 ? matching[0].name : '');
-                    }
-                  } else if (activePicker === 'location') {
-                    setLocation(option);
-                  }
-
-                  setActivePicker(null);
-                }}
-                style={({ pressed }) => [
-                  styles.selectionRow,
-                  active && styles.selectionRowActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={[styles.selectionText, active && styles.selectionTextActive]}>
-                  {option}
-                </Text>
-                {active ? <AppIcon name="check" size={16} color="#fff" /> : null}
-              </Pressable>
-              );
-            })}
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
 
       <FloatingActionButton
         accessibilityLabel={isEditing ? 'Save changes' : 'Add herd or flock'}
@@ -812,11 +559,7 @@ export default function AddCollectiveScreen() {
         onRequestClose={() => setShowSpeciesPicker(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setShowSpeciesPicker(false)}>
-          <AnimatedPopupCard
-            visible={showSpeciesPicker}
-            style={styles.modalCard}
-            onPress={() => undefined}
-          >
+          <AnimatedPopupCard visible={showSpeciesPicker} style={styles.modalCard} onPress={() => undefined}>
             <View style={styles.speciesModalHeader}>
               <Text style={styles.speciesModalTitle}>Select Species</Text>
               <Pressable
@@ -848,9 +591,7 @@ export default function AddCollectiveScreen() {
                     ]}
                   >
                     <AppIcon name={item.icon} size={26} color={theme.icon} />
-                    <Text style={[styles.speciesModalCardLabel, { color: theme.text }]}>
-                      {item.label}
-                    </Text>
+                    <Text style={[styles.speciesModalCardLabel, { color: theme.text }]}>{item.label}</Text>
                   </Pressable>
                 );
               })}
@@ -860,17 +601,16 @@ export default function AddCollectiveScreen() {
       </Modal>
 
       <InfoModal
-        visible={datesHelp !== null}
-        onClose={() => setDatesHelp(null)}
-        title={datesHelp === 'birth' ? 'Born or hatched' : 'Date established'}
-        description={datesHelp === 'birth' ? BORN_OR_HATCHED_HELP : ESTABLISHED_HELP}
+        visible={showEstablishedHelp}
+        onClose={() => setShowEstablishedHelp(false)}
+        title="Date established"
+        description={ESTABLISHED_HELP}
       />
-
     </SafeAreaView>
   );
 }
 
-function formatLabelSelection(labels: string[]) {
+function formatLabelSelection(labels: readonly string[]) {
   if (labels.length === 0) {
     return '';
   }
@@ -879,36 +619,14 @@ function formatLabelSelection(labels: string[]) {
   return labels.length <= 2 ? labels.join(', ') : `${labels.length} labels selected`;
 }
 
-function SelectionField({
-  label,
-  value,
-  emptyLabel,
-  onPress,
-}: {
-  label: string;
-  value: string;
-  emptyLabel: string;
-  onPress: () => void;
-}) {
-  return (
-    <View style={styles.block}>
-      <Text style={styles.label}>{label}</Text>
-      <Pressable
-        accessibilityLabel={label}
-        accessibilityRole="button"
-        onPress={onPress}
-        style={styles.dateField}
-      >
-        <Text style={[styles.dateValue, !value && styles.placeholderValue]}>{value || emptyLabel}</Text>
-        <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-      </Pressable>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: tokens.colors.background },
-  content: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 120, gap: 14 },
+  content: {
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 120,
+    gap: 14,
+  },
   pressed: { opacity: 0.85 },
   // Mirrors add-animal: fields are white pills inside a grey form card, rather
   // than grey inputs sitting directly on the page.
@@ -919,12 +637,6 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   block: { gap: 8 },
-  dateRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  // The info sits with the label it explains rather than under the pair, so a
-  // half-width column carries only its own explanation.
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -935,15 +647,6 @@ const styles = StyleSheet.create({
     height: 18,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  // flexBasis 0 with equal grow, so both halves are exactly half the row
-  // whatever their content — a wider formatted date on one side cannot push
-  // the other narrower.
-  dateRowHalf: {
-    flex: 1,
-    flexBasis: 0,
-    minWidth: 0,
-    gap: 8,
   },
   label: {
     color: tokens.colors.text,
@@ -980,18 +683,6 @@ const styles = StyleSheet.create({
     gap: 10,
     flex: 1,
   },
-  helperLink: {
-    color: tokens.colors.accent,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: -6,
-  },
-  helperLinkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
   inlineRow: {
     flexDirection: 'row',
     gap: 12,
@@ -1018,41 +709,6 @@ const styles = StyleSheet.create({
     color: tokens.colors.accent,
     fontSize: 16,
     fontWeight: '700',
-  },
-  selectionCard: {
-    marginHorizontal: 18,
-    marginBottom: 28,
-    borderRadius: 26,
-    backgroundColor: '#fff',
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    gap: 8,
-  },
-  selectionTitle: {
-    color: tokens.colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  selectionRow: {
-    minHeight: 46,
-    borderRadius: 18,
-    backgroundColor: '#EFECF0',
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  selectionRowActive: {
-    backgroundColor: tokens.colors.accent,
-  },
-  selectionText: {
-    color: tokens.colors.text,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  selectionTextActive: {
-    color: '#fff',
   },
   photoButton: {
     minHeight: 54,

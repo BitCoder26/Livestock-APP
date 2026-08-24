@@ -10,7 +10,7 @@ import {
 } from './AnimalsContext';
 import { COLLECTIVES_STORAGE_KEY, useCollectives } from './CollectivesContext';
 import { LEGACY_RECORD_TYPE_RENAMES } from '../constants/records';
-import type { Animal } from '../entities/animal';
+import type { Animal, AnimalStatus } from '../entities/animal';
 import type { Collective } from '../entities/collective';
 import type { RecordEntry, RecordSpeciesTone } from '../entities/record';
 import { createUuid } from '../utils/createLocalId';
@@ -692,15 +692,7 @@ function rebuildAnimalsState(
     // /un-sell the animal (see Status's read-only helper text on the Edit
     // Animal screen: "Status updates automatically from Death, Sale, and
     // Purchase records" — true only if the absence of one also counts).
-    const latestLifecycleRecord = findLatestDimensionRecord(records, animal.uid, 'status');
-    const nextStatus = latestLifecycleRecord
-      ? latestLifecycleRecord.type === 'Death'
-        ? 'Deceased'
-        : latestLifecycleRecord.type === 'Sale'
-          ? 'Sold'
-          : 'Active'
-      : 'Active';
-    next = { ...next, status: nextStatus };
+    next = { ...next, status: deriveAnimalStatusFromRecords(records, animal.uid) };
 
     return next;
   });
@@ -797,6 +789,26 @@ function findLatestCollectiveRecord(
   });
 
   return latest as RecordEntry | null;
+}
+
+/**
+ * The status an animal's records alone imply: its latest Death, Sale or
+ * Purchase, or `Active` when it has none. Exported because removing a manual
+ * status change needs the same answer — what the animal reverts to once the
+ * hand-made line is gone is exactly what the records were saying all along.
+ */
+export function deriveAnimalStatusFromRecords(records: RecordEntry[], animalUid: string): AnimalStatus {
+  const latestLifecycleRecord = findLatestDimensionRecord(records, animalUid, 'status');
+
+  if (!latestLifecycleRecord) {
+    return 'Active';
+  }
+
+  return latestLifecycleRecord.type === 'Death'
+    ? 'Deceased'
+    : latestLifecycleRecord.type === 'Sale'
+      ? 'Sold'
+      : 'Active';
 }
 
 // Among all records tying this animal to the given dimension, returns the

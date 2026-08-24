@@ -11,7 +11,12 @@ import type { ImageRequireSource } from 'react-native';
 
 import { AppIcon, type AppIconName } from './AppIcon';
 import { BouncyPressable } from './BouncyPressable';
-import { tokens } from '../theme/tokens';
+import {
+  FLOATING_ACTION_BUTTON_EDGE_OFFSET,
+  FLOATING_ACTION_BUTTON_GLYPH_SIZE,
+  FLOATING_ACTION_BUTTON_SIZE,
+  tokens,
+} from '../theme/tokens';
 import type { RevealOrigin } from './CircularRevealView';
 import { motionDuration } from '../utils/motion';
 
@@ -55,10 +60,10 @@ const FAB_CLOSE_ICON = '#544F49';
 // 375 viewBox, so the + and the ✕ it rotates into are a true 24pt mark. The
 // other glyphs carry padding inside their canvas, so each is scaled up by its
 // own ratio to land on that same 24pt rather than being given a matching box.
-const FAB_GLYPH_INK = 25;
+const FAB_GLYPH_INK = FLOATING_ACTION_BUTTON_GLYPH_SIZE;
 // Artwork PNGs: the mark occupies ~40% of the square, measured off the source.
 const FAB_IMAGE_SIZE = Math.round(FAB_GLYPH_INK / 0.4);
-const FAB_SIZE = 74;
+const FAB_SIZE = FLOATING_ACTION_BUTTON_SIZE;
 const ACTION_SIZE = FAB_SIZE;
 const ACTION_GAP = 14;
 // The artwork PNGs carry ~40% transparent padding inside a square canvas, so
@@ -367,8 +372,8 @@ export function FabSpeedDial({
 const styles = StyleSheet.create({
   positioner: {
     position: 'absolute',
-    right: 24,
-    bottom: 24,
+    right: FLOATING_ACTION_BUTTON_EDGE_OFFSET,
+    bottom: FLOATING_ACTION_BUTTON_EDGE_OFFSET,
     width: FAB_SIZE,
     height: FAB_SIZE,
     alignItems: 'center',
@@ -440,7 +445,7 @@ const styles = StyleSheet.create({
   // Anchored to the FAB's centre so the row grows leftwards while the circle
   // stays in the FAB's column.
   // An explicit width is required: absolutely-positioned children are otherwise
-  // sized against the 68pt positioner, and a longer label pushes its circle out
+  // sized against the FAB positioner, and a longer label pushes its circle out
   // past the screen edge instead of extending the row leftwards.
   actionRow: {
     position: 'absolute',

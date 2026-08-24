@@ -3,7 +3,12 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppIcon, type AppIconName } from './AppIcon';
 import { BouncyPressable } from './BouncyPressable';
-import { tokens } from '../theme/tokens';
+import {
+  FLOATING_ACTION_BUTTON_EDGE_OFFSET,
+  FLOATING_ACTION_BUTTON_GLYPH_SIZE,
+  FLOATING_ACTION_BUTTON_SIZE,
+  tokens,
+} from '../theme/tokens';
 
 type FloatingActionButtonProps = {
   accessibilityLabel: string;
@@ -35,7 +40,7 @@ export function FloatingActionButton({
         pressedScale={0.94}
         style={({ pressed }) => [styles.buttonPressable, pressed && styles.pressed]}
       >
-        <AppIcon name={icon} size={24} color="#fff" />
+        <AppIcon name={icon} size={FLOATING_ACTION_BUTTON_GLYPH_SIZE} color="#fff" />
       </BouncyPressable>
     </View>
   );
@@ -44,17 +49,17 @@ export function FloatingActionButton({
 const styles = StyleSheet.create({
   positioner: {
     position: 'absolute',
-    right: 24,
-    bottom: 24,
-    width: 68,
-    height: 68,
+    right: FLOATING_ACTION_BUTTON_EDGE_OFFSET,
+    bottom: FLOATING_ACTION_BUTTON_EDGE_OFFSET,
+    width: FLOATING_ACTION_BUTTON_SIZE,
+    height: FLOATING_ACTION_BUTTON_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
   button: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: FLOATING_ACTION_BUTTON_SIZE,
+    height: FLOATING_ACTION_BUTTON_SIZE,
+    borderRadius: FLOATING_ACTION_BUTTON_SIZE / 2,
     backgroundColor: tokens.colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
@@ -67,7 +72,7 @@ const styles = StyleSheet.create({
   buttonPressable: {
     width: '100%',
     height: '100%',
-    borderRadius: 34,
+    borderRadius: FLOATING_ACTION_BUTTON_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,7 +1,18 @@
 import AsyncStorage from 'expo-sqlite/kv-store';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from 'react-native';
 import { Text } from '../src/theme/text';
 import type { ImageRequireSource } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,12 +23,13 @@ import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
 import { InfoModal } from '../src/components/InfoModal';
+import { InlineDropdown } from '../src/components/InlineDropdown';
 import {
   CURRENCY_OPTIONS,
   formatCurrencyOption,
   getCurrencyOption,
 } from '../src/constants/currencies';
-import { DATE_FORMAT_OPTIONS, MEASUREMENT_UNIT_OPTIONS, type AppDateFormat } from '../src/entities/account';
+import { DATE_FORMAT_OPTIONS, MEASUREMENT_UNIT_OPTIONS } from '../src/entities/account';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useCollectives } from '../src/context/CollectivesContext';
@@ -87,7 +99,6 @@ export default function SettingsScreen() {
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [showCurrencyInfo, setShowCurrencyInfo] = useState(false);
   const [currencySearch, setCurrencySearch] = useState('');
-  const [showDateFormatModal, setShowDateFormatModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showBackupInfo, setShowBackupInfo] = useState(false);
@@ -412,15 +423,13 @@ export default function SettingsScreen() {
 
           <View style={styles.block}>
             <Text style={styles.optionLabel}>Date format</Text>
-            <Pressable
+            <InlineDropdown
               accessibilityLabel="Select date format"
-              accessibilityRole="button"
-              onPress={() => setShowDateFormatModal(true)}
-              style={({ pressed }) => [styles.selectField, pressed && styles.pressed]}
-            >
-              <Text style={styles.selectValue}>{profile.dateFormat}</Text>
-              <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-            </Pressable>
+              options={DATE_FORMAT_OPTIONS}
+              value={profile.dateFormat}
+              onSelect={(value) => updateField('dateFormat', value)}
+              fieldStyle={styles.selectField}
+            />
           </View>
         </View>
 
@@ -499,18 +508,6 @@ export default function SettingsScreen() {
           setCurrencySearch('');
           setShowCurrencyModal(false);
         }}
-      />
-
-      <SelectionModal
-        visible={showDateFormatModal}
-        title="Select date format"
-        options={[...DATE_FORMAT_OPTIONS]}
-        selectedValue={profile.dateFormat}
-        onSelect={(value) => {
-          updateField('dateFormat', value as AppDateFormat);
-          setShowDateFormatModal(false);
-        }}
-        onClose={() => setShowDateFormatModal(false)}
       />
 
       <InfoModal
@@ -814,6 +811,14 @@ function SheetButton({ label, onPress, disabled = false, variant = 'default' }: 
   );
 }
 
+/**
+ * Android's stock switch is drawn noticeably smaller than the iOS one, small
+ * enough to be an awkward target in gloved hands. Scaling is the only way to
+ * resize it — the component takes no size props — and the origin is pinned to
+ * the edge it is anchored to so growing it does not shift the row's alignment.
+ */
+const ANDROID_SWITCH_SCALE = 1.3;
+
 const styles = StyleSheet.create({
   photoToggleRow: {
     flexDirection: 'row',
@@ -830,6 +835,8 @@ const styles = StyleSheet.create({
   },
   photoToggleSwitch: {
     alignSelf: 'center',
+    transform: Platform.OS === 'android' ? [{ scale: ANDROID_SWITCH_SCALE }] : undefined,
+    transformOrigin: 'right center',
   },
   safeArea: {
     flex: 1,

@@ -121,15 +121,16 @@ export default function SetupFarmsScreen() {
           <View style={styles.editorCard}>
             <Text style={styles.sectionLabel}>{isEditingFarm ? 'Edit farm' : 'Farm details'}</Text>
 
-          <DesignField value={farmName} label="Farm name *" onChangeText={setFarmName} />
+          <DesignField value={farmName} label="Farm name *" placeholder="e.g. Home Farm" onChangeText={setFarmName} />
 
           <DesignField
             value={holdingId}
             label="Holding ID / Registration No."
+            placeholder="Enter holding or registration number"
             onChangeText={setHoldingId}
           />
 
-          <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
+          <DesignField value={notes} label="Notes" placeholder="Add notes about this farm" large onChangeText={setNotes} />
 
           <View style={styles.editorActionsRow}>
             <BouncyPressable

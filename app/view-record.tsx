@@ -417,7 +417,7 @@ function AnimalNavigationRow({ animal }: { animal: Animal }) {
   const router = useRouter();
 
   return (
-    <Pressable
+    <BouncyPressable
       accessibilityRole="button"
       accessibilityLabel={`View animal ${animal.name.trim() || animal.id}`}
       onPress={() =>
@@ -434,7 +434,7 @@ function AnimalNavigationRow({ animal }: { animal: Animal }) {
         <Text style={styles.animalMeta}>{`${animal.id} • ${animal.species}`}</Text>
       </View>
       <AppIcon name="chevron-right-bold" size={22} color={tokens.colors.text} />
-    </Pressable>
+    </BouncyPressable>
   );
 }
 
@@ -469,7 +469,7 @@ function CollectiveNavigationRow({
   }
 
   return (
-    <Pressable
+    <BouncyPressable
       accessibilityRole="button"
       accessibilityLabel={`View herd or flock ${label}`}
       onPress={() =>
@@ -487,7 +487,7 @@ function CollectiveNavigationRow({
         </Text>
       </View>
       <AppIcon name="chevron-right-bold" size={22} color={tokens.colors.text} />
-    </Pressable>
+    </BouncyPressable>
   );
 }
 

@@ -1,4 +1,4 @@
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -6,8 +6,10 @@ import { Text, TextInput } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
+import DateTimePicker from '../src/components/AppDateTimePicker';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
+import { InlineMultiDropdown } from '../src/components/InlineDropdown';
 import { SPECIES_OPTIONS } from '../src/constants/records';
 import { deriveRecordTypeOptions } from '../src/utils/recordTypeOptions';
 import {
@@ -55,7 +57,6 @@ export default function RecordsFilterScreen() {
   });
   // One value for the three inputs — only one can hold focus at a time.
   const [focusedField, setFocusedField] = useState<'animalId' | 'animalName' | null>(null);
-  const [activeMultiSelect, setActiveMultiSelect] = useState<MultiSelectKey | null>(null);
   const [activeDateField, setActiveDateField] = useState<DateFieldKey | null>(null);
 
   // Highlighted only while the range still equals what the preset produces, so
@@ -318,32 +319,26 @@ export default function RecordsFilterScreen() {
 
             <View style={styles.block}>
               <Text style={styles.label}>By Species</Text>
-              <Pressable
+              <InlineMultiDropdown
                 accessibilityLabel="Select species"
-                accessibilityRole="button"
-                onPress={() => setActiveMultiSelect('species')}
-                style={styles.pickerField}
-              >
-                <Text style={[styles.fieldValue, draftFilters.species.length === 0 && styles.placeholderValue]}>
-                  {formatSelectionSummary(draftFilters.species, 'Select species')}
-                </Text>
-                <AppIcon name="chevron-down" size={18} color="#7a7a7a" />
-              </Pressable>
+                options={speciesOptions}
+                selected={draftFilters.species}
+                onToggle={(option) => toggleMultiSelectValue('species', option)}
+                placeholder="Select species"
+                fieldStyle={styles.pickerField}
+              />
             </View>
 
             <View style={styles.block}>
               <Text style={styles.label}>By Record Type</Text>
-              <Pressable
+              <InlineMultiDropdown
                 accessibilityLabel="Select record types"
-                accessibilityRole="button"
-                onPress={() => setActiveMultiSelect('recordTypes')}
-                style={styles.pickerField}
-              >
-                <Text style={[styles.fieldValue, draftFilters.recordTypes.length === 0 && styles.placeholderValue]}>
-                  {formatSelectionSummary(draftFilters.recordTypes, 'Select record types')}
-                </Text>
-                <AppIcon name="chevron-down" size={18} color="#7a7a7a" />
-              </Pressable>
+                options={recordTypeOptions}
+                selected={draftFilters.recordTypes}
+                onToggle={(option) => toggleMultiSelectValue('recordTypes', option)}
+                placeholder="Select record types"
+                fieldStyle={styles.pickerField}
+              />
             </View>
 
             <View style={styles.block}>
@@ -394,32 +389,26 @@ export default function RecordsFilterScreen() {
 
             <View style={styles.block}>
               <Text style={styles.label}>By Farm</Text>
-              <Pressable
+              <InlineMultiDropdown
                 accessibilityLabel="Select farms"
-                accessibilityRole="button"
-                onPress={() => setActiveMultiSelect('farms')}
-                style={styles.pickerField}
-              >
-                <Text style={[styles.fieldValue, draftFilters.farms.length === 0 && styles.placeholderValue]}>
-                  {formatSelectionSummary(draftFilters.farms, 'Select farm')}
-                </Text>
-                <AppIcon name="chevron-down" size={18} color="#7a7a7a" />
-              </Pressable>
+                options={farmOptions}
+                selected={draftFilters.farms}
+                onToggle={(option) => toggleMultiSelectValue('farms', option)}
+                placeholder="Select farm"
+                fieldStyle={styles.pickerField}
+              />
             </View>
 
             <View style={styles.block}>
               <Text style={styles.label}>By Location</Text>
-              <Pressable
+              <InlineMultiDropdown
                 accessibilityLabel="Select locations"
-                accessibilityRole="button"
-                onPress={() => setActiveMultiSelect('locations')}
-                style={styles.pickerField}
-              >
-                <Text style={[styles.fieldValue, draftFilters.locations.length === 0 && styles.placeholderValue]}>
-                  {formatSelectionSummary(draftFilters.locations, 'Select locations')}
-                </Text>
-                <AppIcon name="chevron-down" size={18} color="#7a7a7a" />
-              </Pressable>
+                options={locationOptions}
+                selected={draftFilters.locations}
+                onToggle={(option) => toggleMultiSelectValue('locations', option)}
+                placeholder="Select locations"
+                fieldStyle={styles.pickerField}
+              />
             </View>
 
             <View style={styles.filterActionsRow}>
@@ -496,65 +485,6 @@ export default function RecordsFilterScreen() {
         </Pressable>
       </Modal>
 
-      <Modal
-        animationType="none"
-        transparent
-        visible={activeMultiSelect !== null}
-        onRequestClose={() => setActiveMultiSelect(null)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setActiveMultiSelect(null)}>
-          <AnimatedPopupCard visible={activeMultiSelect !== null} style={styles.selectionCard} onPress={() => undefined}>
-            <View style={styles.selectionHeader}>
-              <Text style={styles.selectionTitle}>
-                {activeMultiSelect === 'species'
-                  ? 'Select species'
-                  : activeMultiSelect === 'recordTypes'
-                    ? 'Select record types'
-                    : activeMultiSelect === 'farms'
-                      ? 'Select farms'
-                      : 'Select locations'}
-              </Text>
-              <Pressable
-                accessibilityLabel="Done"
-                accessibilityRole="button"
-                onPress={() => setActiveMultiSelect(null)}
-              >
-                <Text style={styles.modalDone}>Done</Text>
-              </Pressable>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {(
-                activeMultiSelect === 'species'
-                  ? speciesOptions
-                  : activeMultiSelect === 'recordTypes'
-                    ? recordTypeOptions
-                    : activeMultiSelect === 'farms'
-                      ? farmOptions
-                      : locationOptions
-              ).map((option) => {
-                const isSelected = draftFilters[activeMultiSelect ?? 'species'].some((entry) => equalsIgnoreCase(entry, option));
-
-                return (
-                  <Pressable
-                    key={option}
-                    accessibilityLabel={option}
-                    accessibilityRole="button"
-                    onPress={() => activeMultiSelect && toggleMultiSelectValue(activeMultiSelect, option)}
-                    style={({ pressed }) => [
-                      styles.selectionRow,
-                      isSelected && styles.selectionRowActive,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{option}</Text>
-                    {isSelected ? <AppIcon name="check" size={16} color="#fff" /> : null}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -766,64 +696,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  selectionCard: {
-    marginHorizontal: 18,
-    marginBottom: 28,
-    borderRadius: 26,
-    backgroundColor: '#fff',
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    gap: 8,
-    maxHeight: '70%',
-  },
-  selectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  selectionTitle: {
-    color: tokens.colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  selectionRow: {
-    minHeight: 46,
-    borderRadius: 18,
-    backgroundColor: '#EFECF0',
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  selectionRowActive: {
-    backgroundColor: tokens.colors.accent,
-  },
-  selectionText: {
-    color: tokens.colors.text,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  selectionTextActive: {
-    color: '#fff',
-  },
   pressed: {
     opacity: 0.92,
   },
 });
-
-function formatSelectionSummary(values: string[], placeholder: string) {
-  if (values.length === 0) {
-    return placeholder;
-  }
-
-  if (values.length <= 2) {
-    return values.join(', ');
-  }
-
-  return `${values.slice(0, 2).join(', ')} +${values.length - 2}`;
-}
 
 function equalsIgnoreCase(left: string, right: string) {
   return left.trim().toLowerCase() === right.trim().toLowerCase();

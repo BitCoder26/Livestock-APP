@@ -25,6 +25,15 @@ export default function SetupLabelsScreen() {
   const [showHelp, setShowHelp] = useState(false);
   const [editingLabelUid, setEditingLabelUid] = useState<string | null>(null);
   const isEditingLabel = editingLabelUid !== null;
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/(tabs)/setup');
+  };
+
 
   const resetLabelForm = () => {
     setEditingLabelUid(null);
@@ -87,7 +96,7 @@ export default function SetupLabelsScreen() {
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
         title="Labels"
-        leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: () => router.back() }}
+        leftAction={{ icon: 'back', accessibilityLabel: 'Back', onPress: handleBack }}
         actions={[
           {
             icon: 'help-circle',
@@ -100,8 +109,8 @@ export default function SetupLabelsScreen() {
         <View style={styles.editorCard}>
           <Text style={styles.sectionLabel}>{isEditingLabel ? 'Edit label' : 'Animal labels'}</Text>
 
-          <DesignField value={name} label="Label name *" onChangeText={setName} />
-          <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
+          <DesignField value={name} label="Label name *" placeholder="e.g. Milking cows" onChangeText={setName} />
+          <DesignField value={notes} label="Notes" placeholder="Add notes about this label" large onChangeText={setNotes} />
 
           <View style={styles.editorActionsRow}>
             <BouncyPressable

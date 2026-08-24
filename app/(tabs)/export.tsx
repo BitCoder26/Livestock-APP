@@ -1,4 +1,4 @@
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DateTimePicker from '../../src/components/AppDateTimePicker';
 
 import { AppIcon } from '../../src/components/AppIcon';
 import { useAppDrawer } from '../../src/components/AppDrawer';
@@ -17,6 +18,7 @@ import { AnimatedPopupCard } from '../../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../../src/components/BouncyPressable';
 import { TabSwipeView } from '../../src/components/TabSwipeView';
 import { DesignField } from '../../src/components/DesignField';
+import { InlineMultiDropdown } from '../../src/components/InlineDropdown';
 import { SPECIES_OPTIONS } from '../../src/constants/records';
 import { deriveRecordTypeOptions } from '../../src/utils/recordTypeOptions';
 import { useDebouncedValue } from '../../src/utils/useDebouncedValue';
@@ -48,7 +50,13 @@ import type { AppIconName } from '../../src/components/AppIcon';
 import { SegmentedToggle } from '../../src/components/SegmentedToggle';
 import { tokens } from '../../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../../src/utils/dateFormat';
-import { buildPdfDocument, createPdfFile, escapeHtml, resolveBusinessBranding, sharePdf } from '../../src/utils/pdfExport';
+import {
+  buildPdfDocument,
+  createPdfFile,
+  escapeHtml,
+  resolveBusinessBranding,
+  sharePdf,
+} from '../../src/utils/pdfExport';
 import { findRecordAnimals, resolveRecordDisplayNames, resolveRecordDisplayTags } from '../../src/utils/recordAnimals';
 import {
   getRecordDisplayTitle,
@@ -62,7 +70,6 @@ import {
 type ExportTarget = 'register' | 'records';
 type ExportFormat = 'pdf' | 'spreadsheet';
 type DateFieldKey = 'startDate' | 'endDate';
-type MultiSelectKey = 'statuses' | 'species' | 'recordTypes' | 'farms' | 'locations' | 'labels';
 
 // One set of filters for the whole register. Individually identified animals
 // and herds and flocks are different entities, but a keeper filtering their
@@ -99,6 +106,7 @@ type RecordExportFilters = {
   recordTypes: string[];
   farms: string[];
   locations: string[];
+  labels: string[];
 };
 
 // The union of both vocabularies, because the register holds both kinds.
@@ -106,12 +114,7 @@ type RecordExportFilters = {
 // a group is only ever Active or Inactive — animals leave it one at a time.
 // Picking a status that one kind cannot hold simply excludes that kind, which
 // is the behaviour a keeper expects from a filter.
-const REGISTER_STATUS_OPTIONS: Array<AnimalStatus | CollectiveStatus> = [
-  'Active',
-  'Sold',
-  'Deceased',
-  'Inactive',
-];
+const REGISTER_STATUS_OPTIONS: Array<AnimalStatus | CollectiveStatus> = ['Active', 'Sold', 'Deceased', 'Inactive'];
 
 const DEFAULT_REGISTER_FILTERS: RegisterExportFilters = {
   scope: 'all',
@@ -131,12 +134,16 @@ const DEFAULT_RECORD_FILTERS: RecordExportFilters = {
   recordTypes: [],
   farms: [],
   locations: [],
+  labels: [],
 };
 
 export default function ExportScreen() {
   const router = useRouter();
   const { openDrawer } = useAppDrawer();
-  const { previewPdf, previewTarget } = useLocalSearchParams<{ previewPdf?: string; previewTarget?: string }>();
+  const { previewPdf, previewTarget } = useLocalSearchParams<{
+    previewPdf?: string;
+    previewTarget?: string;
+  }>();
   const { profile, updateField } = useAccount();
   const { animals } = useAnimals();
   const { records } = useRecords();
@@ -147,36 +154,39 @@ export default function ExportScreen() {
   const [registerFilters, setRegisterFilters] = useState<RegisterExportFilters>(DEFAULT_REGISTER_FILTERS);
   const [recordFilters, setRecordFilters] = useState<RecordExportFilters>(DEFAULT_RECORD_FILTERS);
   const [activeDateField, setActiveDateField] = useState<DateFieldKey | null>(null);
-  const [activeMultiSelect, setActiveMultiSelect] = useState<MultiSelectKey | null>(null);
   const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(null);
   const [showMoreRegisterFilters, setShowMoreRegisterFilters] = useState(false);
   const [showMoreRecordFilters, setShowMoreRecordFilters] = useState(false);
   const hasAutoPreviewed = useRef(false);
 
-  const availableSpecies = useMemo(
-    () => getAvailableSpecies(animals, records),
-    [animals, records],
-  );
+  const availableSpecies = useMemo(() => getAvailableSpecies(animals, records), [animals, records]);
   // Groups are counted alongside animals here: a farm or location that holds
   // only a flock still has to be offered, or its records cannot be filtered to.
   const availableFarms = useMemo(
-    () => uniqueValues([...farms, ...animals.map((animal) => animal.farm), ...collectives.map((collective) => collective.farm)]),
+    () =>
+      uniqueValues([
+        ...farms,
+        ...animals.map((animal) => animal.farm),
+        ...collectives.map((collective) => collective.farm),
+      ]),
     [animals, collectives, farms],
   );
   const availableLocations = useMemo(
-    () => uniqueValues([
-      ...locations,
-      ...animals.map((animal) => animal.location),
-      ...collectives.map((collective) => collective.location),
-    ]),
+    () =>
+      uniqueValues([
+        ...locations,
+        ...animals.map((animal) => animal.location),
+        ...collectives.map((collective) => collective.location),
+      ]),
     [animals, collectives, locations],
   );
   const availableLabels = useMemo(
-    () => uniqueValues([
-      ...labels,
-      ...animals.flatMap((animal) => animal.labels),
-      ...collectives.flatMap((collective) => collective.labels),
-    ]),
+    () =>
+      uniqueValues([
+        ...labels,
+        ...animals.flatMap((animal) => animal.labels),
+        ...collectives.flatMap((collective) => collective.labels),
+      ]),
     [animals, collectives, labels],
   );
   const recordTypeOptions = useMemo(
@@ -225,25 +235,6 @@ export default function ExportScreen() {
     return parseStoredDate(value) ?? new Date();
   }, [activeDateField, recordFilters.endDate, recordFilters.startDate]);
 
-  const multiSelectOptions = useMemo(() => {
-    switch (activeMultiSelect) {
-      case 'statuses':
-        return [...REGISTER_STATUS_OPTIONS];
-      case 'species':
-        return availableSpecies;
-      case 'recordTypes':
-        return recordTypeOptions;
-      case 'farms':
-        return availableFarms;
-      case 'locations':
-        return availableLocations;
-      case 'labels':
-        return availableLabels;
-      default:
-        return [];
-    }
-  }, [activeMultiSelect, availableFarms, availableLabels, availableLocations, availableSpecies, target]);
-
   // The register exports both kinds in one document, so "is there anything to
   // export" has to count both.
   const currentCount =
@@ -285,7 +276,14 @@ export default function ExportScreen() {
                 locationEntities,
                 labelEntities,
               )
-            : await createRecordsPdf(filteredRecords, animals, appliedRecordFilters, profile, farmEntities, locationEntities);
+            : await createRecordsPdf(
+                filteredRecords,
+                animals,
+                appliedRecordFilters,
+                profile,
+                farmEntities,
+                locationEntities,
+              );
 
         await Linking.openURL(uri);
       } catch (error) {
@@ -369,7 +367,14 @@ export default function ExportScreen() {
           }
         }
       } else if (format === 'pdf') {
-        const uri = await createRecordsPdf(filteredRecords, animals, appliedRecordFilters, profile, farmEntities, locationEntities);
+        const uri = await createRecordsPdf(
+          filteredRecords,
+          animals,
+          appliedRecordFilters,
+          profile,
+          farmEntities,
+          locationEntities,
+        );
         await sharePdf(uri);
       } else {
         await exportRecordsCsv(filteredRecords, animals, profile.dateFormat, farmEntities, locationEntities);
@@ -399,37 +404,32 @@ export default function ExportScreen() {
     }));
   }
 
-  function updateRecordMultiSelect(key: keyof Pick<RecordExportFilters, 'species' | 'recordTypes' | 'farms' | 'locations'>, value: string) {
+  function updateRecordMultiSelect(
+    key: keyof Pick<RecordExportFilters, 'species' | 'recordTypes' | 'farms' | 'locations' | 'labels'>,
+    value: string,
+  ) {
     setRecordFilters((current) => ({
       ...current,
       [key]: toggleSelection(current[key], value),
     }));
   }
 
-  function toggleActiveSelection(selectionKey: MultiSelectKey, option: string) {
-    if (target === 'register') {
-      if (selectionKey === 'statuses') updateRegisterMultiSelect('statuses', option);
-      if (selectionKey === 'species') updateRegisterMultiSelect('species', option);
-      if (selectionKey === 'farms') updateRegisterMultiSelect('farms', option);
-      if (selectionKey === 'locations') updateRegisterMultiSelect('locations', option);
-      if (selectionKey === 'labels') updateRegisterMultiSelect('labels', option);
-      return;
-    }
-
-    if (selectionKey === 'species') updateRecordMultiSelect('species', option);
-    if (selectionKey === 'recordTypes') updateRecordMultiSelect('recordTypes', option);
-    if (selectionKey === 'farms') updateRecordMultiSelect('farms', option);
-    if (selectionKey === 'locations') updateRecordMultiSelect('locations', option);
-  }
-
   const activeDatePreset = useMemo(
-    () => matchDateRangePreset({ startDate: recordFilters.startDate, endDate: recordFilters.endDate }),
+    () =>
+      matchDateRangePreset({
+        startDate: recordFilters.startDate,
+        endDate: recordFilters.endDate,
+      }),
     [recordFilters.endDate, recordFilters.startDate],
   );
 
   function applyDatePreset(key: DateRangePresetKey) {
     const range = resolveDateRangePreset(key);
-    setRecordFilters((current) => ({ ...current, startDate: range.startDate, endDate: range.endDate }));
+    setRecordFilters((current) => ({
+      ...current,
+      startDate: range.startDate,
+      endDate: range.endDate,
+    }));
   }
 
   function handleDateChange(event: DateTimePickerEvent, nextDate?: Date) {
@@ -444,7 +444,10 @@ export default function ExportScreen() {
       }
 
       if (nextDate) {
-        setRecordFilters((current) => ({ ...current, [activeDateField]: formatDateForStorage(nextDate) }));
+        setRecordFilters((current) => ({
+          ...current,
+          [activeDateField]: formatDateForStorage(nextDate),
+        }));
       }
 
       setActiveDateField(null);
@@ -452,7 +455,10 @@ export default function ExportScreen() {
     }
 
     if (nextDate) {
-      setRecordFilters((current) => ({ ...current, [activeDateField]: formatDateForStorage(nextDate) }));
+      setRecordFilters((current) => ({
+        ...current,
+        [activeDateField]: formatDateForStorage(nextDate),
+      }));
     }
   }
 
@@ -469,420 +475,372 @@ export default function ExportScreen() {
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <TabSwipeView>
         <AppTopBar
-        title="Export"
-        leftAction={{
-          icon: 'menu',
-          accessibilityLabel: 'Open menu',
-          onPress: openDrawer,
-        }}
-        actions={[
-        ]}
-      />
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <SegmentedToggle<ExportTarget>
-          options={[
-            { key: 'records', label: 'Records' },
-            { key: 'register', label: 'Animal register' },
-          ]}
-          value={target}
-          onChange={setTarget}
+          title="Export"
+          leftAction={{
+            icon: 'menu',
+            accessibilityLabel: 'Open menu',
+            onPress: openDrawer,
+          }}
+          actions={[]}
         />
 
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>Filters</Text>
-            <Pressable accessibilityRole="button" onPress={clearCurrentFilters} style={({ pressed }) => [styles.clearButton, pressed && styles.pressed]}>
-              <Text style={styles.clearButtonText}>Clear all</Text>
-            </Pressable>
-          </View>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <SegmentedToggle<ExportTarget>
+            options={[
+              { key: 'records', label: 'Records' },
+              { key: 'register', label: 'Animal register' },
+            ]}
+            value={target}
+            onChange={setTarget}
+          />
 
-          {target === 'register' ? (
-            <View style={styles.filterStack}>
-              <View style={styles.block}>
-                <Text style={styles.label}>Include</Text>
-                <View style={styles.chipRow}>
-                  {REGISTER_SCOPES.map((scope) => (
-                    <Pressable
-                      key={scope.key}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: registerFilters.scope === scope.key }}
-                      onPress={() => setRegisterFilters((current) => ({ ...current, scope: scope.key }))}
-                      style={({ pressed }) => [
-                        styles.filterChip,
-                        registerFilters.scope === scope.key && styles.filterChipActive,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.filterChipText,
-                          registerFilters.scope === scope.key && styles.filterChipTextActive,
+          <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Filters</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={clearCurrentFilters}
+                style={({ pressed }) => [styles.clearButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.clearButtonText}>Clear all</Text>
+              </Pressable>
+            </View>
+
+            {target === 'register' ? (
+              <View style={styles.filterStack}>
+                <View style={styles.block}>
+                  <Text style={styles.label}>Include</Text>
+                  <View style={styles.chipRow}>
+                    {REGISTER_SCOPES.map((scope) => (
+                      <Pressable
+                        key={scope.key}
+                        accessibilityRole="button"
+                        accessibilityState={{
+                          selected: registerFilters.scope === scope.key,
+                        }}
+                        onPress={() =>
+                          setRegisterFilters((current) => ({
+                            ...current,
+                            scope: scope.key,
+                          }))
+                        }
+                        style={({ pressed }) => [
+                          styles.filterChip,
+                          registerFilters.scope === scope.key && styles.filterChipActive,
+                          pressed && styles.pressed,
                         ]}
                       >
-                        {scope.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-              <DesignField
-                value={registerFilters.searchQuery}
-                label="Search ID, name or breed"
-                placeholder="e.g. UK1234 or Bess"
-                left={<SearchAffix />}
-                search
-                onChangeText={(value) => setRegisterFilters((current) => ({ ...current, searchQuery: value }))}
-              />
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setShowMoreRegisterFilters((current) => !current)}
-                style={({ pressed }) => [styles.moreFiltersButton, pressed && styles.pressed]}
-              >
-                <Text style={styles.moreFiltersText}>{showMoreRegisterFilters ? 'Hide more filters' : 'Show more filters'}</Text>
-                <AppIcon name="chevron-down" size={16} color={tokens.colors.accent} />
-              </Pressable>
-              {showMoreRegisterFilters ? (
-                <>
-                  <SelectionField
-                    label="Status"
-                    value={formatSelectionSummary(registerFilters.statuses, 'Select status')}
-                    onPress={() => setActiveMultiSelect('statuses')}
-                  />
-                  <SelectionField
-                    label="Species"
-                    value={formatSelectionSummary(registerFilters.species, 'Select species')}
-                    onPress={() => setActiveMultiSelect('species')}
-                  />
-                  <SelectionField
-                    label="Farm"
-                    value={formatSelectionSummary(registerFilters.farms, 'Select farm')}
-                    onPress={() => setActiveMultiSelect('farms')}
-                  />
-                  <SelectionField
-                    label="Location"
-                    value={formatSelectionSummary(registerFilters.locations, 'Select location')}
-                    onPress={() => setActiveMultiSelect('locations')}
-                  />
-                  <SelectionField
-                    label="Labels"
-                    value={formatSelectionSummary(registerFilters.labels, 'Select labels')}
-                    onPress={() => setActiveMultiSelect('labels')}
-                  />
-                </>
-              ) : null}
-            </View>
-          ) : (
-            <View style={styles.filterStack}>
-              <DesignField
-                value={recordFilters.searchQuery}
-                label="Search ID or name"
-                placeholder="e.g. UK1234 or Bess"
-                left={<SearchAffix />}
-                search
-                onChangeText={(value) => setRecordFilters((current) => ({ ...current, searchQuery: value }))}
-              />
-              <View style={styles.block}>
-                <Text style={styles.label}>Date range</Text>
-                <View style={styles.chipRow}>
-                  {DATE_RANGE_PRESETS.map((preset) => (
-                    <Pressable
-                      key={preset.key}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: activeDatePreset === preset.key }}
-                      onPress={() => applyDatePreset(preset.key)}
-                      style={({ pressed }) => [
-                        styles.filterChip,
-                        activeDatePreset === preset.key && styles.filterChipActive,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.filterChipText,
-                          activeDatePreset === preset.key && styles.filterChipTextActive,
-                        ]}
-                      >
-                        {preset.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <View style={styles.dateGrid}>
-                  <SelectionField
-                    label=""
-                    value={formatDateForDisplay(recordFilters.startDate, profile.dateFormat) || 'Start date'}
-                    onPress={() => setActiveDateField('startDate')}
-                    containerStyle={styles.dateFieldItem}
-                    hideLabel
-                    isPlaceholder={!recordFilters.startDate}
-                  />
-                  <SelectionField
-                    label=""
-                    value={formatDateForDisplay(recordFilters.endDate, profile.dateFormat) || 'End date'}
-                    onPress={() => setActiveDateField('endDate')}
-                    containerStyle={styles.dateFieldItem}
-                    hideLabel
-                    isPlaceholder={!recordFilters.endDate}
-                  />
-                </View>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setShowMoreRecordFilters((current) => !current)}
-                style={({ pressed }) => [styles.moreFiltersButton, pressed && styles.pressed]}
-              >
-                <Text style={styles.moreFiltersText}>{showMoreRecordFilters ? 'Hide more filters' : 'Show more filters'}</Text>
-                <AppIcon name="chevron-down" size={16} color={tokens.colors.accent} />
-              </Pressable>
-              {showMoreRecordFilters ? (
-                <>
-                  <SelectionField
-                    label="Record type"
-                    value={formatSelectionSummary(recordFilters.recordTypes, 'Select record types')}
-                    onPress={() => setActiveMultiSelect('recordTypes')}
-                  />
-                  <SelectionField
-                    label="Species"
-                    value={formatSelectionSummary(recordFilters.species, 'Select species')}
-                    onPress={() => setActiveMultiSelect('species')}
-                  />
-                  <SelectionField
-                    label="Farm"
-                    value={formatSelectionSummary(recordFilters.farms, 'Select farm')}
-                    onPress={() => setActiveMultiSelect('farms')}
-                  />
-                  <SelectionField
-                    label="Location"
-                    value={formatSelectionSummary(recordFilters.locations, 'Select location')}
-                    onPress={() => setActiveMultiSelect('locations')}
-                  />
-                </>
-              ) : null}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.countTitle}>
-            {target === 'register'
-              ? describeRegisterCount(filteredAnimals, filteredCollectives)
-              : `${currentCount} ${currentCount === 1 ? 'record' : 'records'}`}
-          </Text>
-          <Text style={styles.countText}>Ready to export</Text>
-
-          <View style={styles.summaryWrap}>
-            {currentSummary.length > 0 ? (
-              currentSummary.map((item) => (
-                <View key={item} style={styles.summaryChip}>
-                  <Text style={styles.summaryChipText}>{item}</Text>
-                </View>
-              ))
-            ) : (
-              <View style={styles.summaryChip}>
-                <Text style={styles.summaryChipText}>
-                  {target === 'register' ? 'Everything included' : 'All records included'}
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-      </ScrollView>
-
-      {activeDateField && Platform.OS === 'android' ? (
-        <DateTimePicker
-          mode="date"
-          display="default"
-          value={selectedDate}
-          onChange={handleDateChange}
-        />
-      ) : null}
-
-      <Modal
-        animationType="none"
-        transparent
-        visible={activeDateField !== null && Platform.OS === 'ios'}
-        onRequestClose={() => setActiveDateField(null)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setActiveDateField(null)}>
-          <AnimatedPopupCard visible={activeDateField !== null && Platform.OS === 'ios'} style={styles.modalCard} onPress={() => undefined}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.selectionTitle}>
-                {activeDateField === 'startDate' ? 'Select start date' : 'Select end date'}
-              </Text>
-              <Pressable
-                accessibilityLabel="Done"
-                accessibilityRole="button"
-                onPress={() => {
-                  // Commits whatever date the spinner is currently showing —
-                  // onChange only fires once the user actually scrolls a
-                  // wheel, so without this, tapping Done on an
-                  // already-correct date silently saved nothing.
-                  if (activeDateField) {
-                    setRecordFilters((current) => ({ ...current, [activeDateField]: formatDateForStorage(selectedDate) }));
-                  }
-                  setActiveDateField(null);
-                }}
-              >
-                <Text style={styles.modalDone}>Done</Text>
-              </Pressable>
-            </View>
-            <DateTimePicker
-              mode="date"
-              display="spinner"
-              value={selectedDate}
-              onChange={handleDateChange}
-            />
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="none"
-        transparent
-        visible={activeMultiSelect !== null}
-        onRequestClose={() => setActiveMultiSelect(null)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setActiveMultiSelect(null)}>
-          <AnimatedPopupCard
-            visible={activeMultiSelect !== null}
-            style={activeMultiSelect === 'species' ? styles.modalCard : styles.selectionCard}
-            onPress={() => undefined}
-          >
-            {activeMultiSelect === 'species' ? (
-              <>
-                <View style={styles.speciesModalHeader}>
-                  <Text style={styles.speciesModalTitle}>Select Species</Text>
-                  <Pressable
-                    accessibilityLabel="Done"
-                    accessibilityRole="button"
-                    hitSlop={8}
-                    onPress={() => setActiveMultiSelect(null)}
-                    style={styles.speciesModalClose}
-                  >
-                    <Text style={styles.modalDone}>Done</Text>
-                  </Pressable>
-                </View>
-
-                <ScrollView contentContainerStyle={styles.speciesModalGrid} showsVerticalScrollIndicator={false}>
-                  {multiSelectOptions.length > 0 ? (
-                    multiSelectOptions.map((option) => {
-                      const selected =
-                        target === 'register'
-                          ? isSelectedRegisterOption(registerFilters, 'species', option)
-                          : isSelectedRecordOption(recordFilters, 'species', option);
-                      const theme = getSpeciesThemeByLabel(option);
-                      const iconName = getSpeciesIconName(option);
-                      const iconColor = option === 'Sheep' ? '#171717' : theme.icon;
-
-                      return (
-                        <Pressable
-                          key={option}
-                          accessibilityLabel={option}
-                          accessibilityRole="button"
-                          onPress={() => toggleActiveSelection('species', option)}
-                          style={({ pressed }) => [
-                            styles.speciesModalCard,
-                            { backgroundColor: selected ? tokens.colors.accent : theme.tintBackground },
-                            selected && styles.speciesModalCardActive,
-                            pressed && styles.speciesModalCardPressed,
+                        <Text
+                          style={[
+                            styles.filterChipText,
+                            registerFilters.scope === scope.key && styles.filterChipTextActive,
                           ]}
                         >
-                          <View style={styles.speciesModalCardContent}>
-                            <AppIcon name={iconName} size={26} color={selected ? '#fff' : iconColor} />
-                            <Text
-                              style={[
-                                styles.speciesModalCardLabel,
-                                { color: selected ? '#fff' : theme.text },
-                              ]}
-                            >
-                              {option}
-                            </Text>
-                          </View>
-                          {selected ? <AppIcon name="check" size={16} color="#fff" /> : null}
-                        </Pressable>
-                      );
-                    })
-                  ) : (
-                    <View style={styles.emptyPickerState}>
-                      <Text style={styles.emptyPickerText}>No options yet</Text>
-                    </View>
-                  )}
-                </ScrollView>
-              </>
-            ) : (
-              <>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.selectionTitle}>{getSelectionTitle(activeMultiSelect)}</Text>
-                  <Pressable accessibilityLabel="Done" accessibilityRole="button" onPress={() => setActiveMultiSelect(null)}>
-                    <Text style={styles.modalDone}>Done</Text>
-                  </Pressable>
-                </View>
-
-                <ScrollView showsVerticalScrollIndicator={false}>
-                  <View style={[styles.modalList, needsExtraDropdownGap(activeMultiSelect) && styles.modalListSpaced]}>
-                    {multiSelectOptions.length > 0 ? (
-                      multiSelectOptions.map((option) => {
-                        const selectionKey = activeMultiSelect;
-
-                        if (!selectionKey) {
-                          return null;
-                        }
-
-                        const selected =
-                          target === 'register'
-                            ? isSelectedRegisterOption(registerFilters, selectionKey, option)
-                            : isSelectedRecordOption(recordFilters, selectionKey, option);
-
-                        return (
-                          <Pressable
-                            key={option}
-                            accessibilityLabel={option}
-                            accessibilityRole="button"
-                            onPress={() => toggleActiveSelection(selectionKey, option)}
-                            style={({ pressed }) => [
-                              styles.selectionRow,
-                              selected && styles.selectionRowActive,
-                              pressed && styles.pressed,
-                            ]}
-                          >
-                            <Text style={[styles.selectionText, selected && styles.selectionTextActive]}>{option}</Text>
-                            {selected ? <AppIcon name="check" size={16} color="#fff" /> : null}
-                          </Pressable>
-                        );
-                      })
-                    ) : (
-                      <View style={styles.emptyPickerState}>
-                        <Text style={styles.emptyPickerText}>No options yet</Text>
-                      </View>
-                    )}
+                          {scope.label}
+                        </Text>
+                      </Pressable>
+                    ))}
                   </View>
-                </ScrollView>
-              </>
+                </View>
+                <DesignField
+                  value={registerFilters.searchQuery}
+                  label="Search ID, name or breed"
+                  placeholder="e.g. UK1234 or Bess"
+                  left={<SearchAffix />}
+                  search
+                  onChangeText={(value) =>
+                    setRegisterFilters((current) => ({
+                      ...current,
+                      searchQuery: value,
+                    }))
+                  }
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setShowMoreRegisterFilters((current) => !current)}
+                  style={({ pressed }) => [styles.moreFiltersButton, pressed && styles.pressed]}
+                >
+                  <Text style={styles.moreFiltersText}>
+                    {showMoreRegisterFilters ? 'Hide more filters' : 'Show more filters'}
+                  </Text>
+                  <AppIcon name="chevron-down" size={16} color={tokens.colors.accent} />
+                </Pressable>
+                {showMoreRegisterFilters ? (
+                  <>
+                    <View style={styles.block}>
+                      <Text style={styles.label}>Status</Text>
+                      <InlineMultiDropdown
+                        accessibilityLabel="Status"
+                        options={REGISTER_STATUS_OPTIONS}
+                        selected={registerFilters.statuses}
+                        onToggle={(option) => updateRegisterMultiSelect('statuses', option)}
+                        placeholder="Select status"
+                      />
+                    </View>
+                    <View style={styles.block}>
+                      <Text style={styles.label}>Species</Text>
+                      <InlineMultiDropdown
+                        accessibilityLabel="Species"
+                        options={availableSpecies}
+                        selected={registerFilters.species}
+                        onToggle={(option) => updateRegisterMultiSelect('species', option)}
+                        placeholder="Select species"
+                        renderLabel={(option) => <SpeciesRowLabel label={option} />}
+                      />
+                    </View>
+                    <View style={styles.block}>
+                      <Text style={styles.label}>Farm</Text>
+                      <InlineMultiDropdown
+                        accessibilityLabel="Farm"
+                        options={availableFarms}
+                        selected={registerFilters.farms}
+                        onToggle={(option) => updateRegisterMultiSelect('farms', option)}
+                        placeholder="Select farm"
+                      />
+                    </View>
+                    <View style={styles.block}>
+                      <Text style={styles.label}>Location</Text>
+                      <InlineMultiDropdown
+                        accessibilityLabel="Location"
+                        options={availableLocations}
+                        selected={registerFilters.locations}
+                        onToggle={(option) => updateRegisterMultiSelect('locations', option)}
+                        placeholder="Select location"
+                      />
+                    </View>
+                    <View style={styles.block}>
+                      <Text style={styles.label}>Labels</Text>
+                      <InlineMultiDropdown
+                        accessibilityLabel="Labels"
+                        options={availableLabels}
+                        selected={registerFilters.labels}
+                        onToggle={(option) => updateRegisterMultiSelect('labels', option)}
+                        placeholder="Select labels"
+                      />
+                    </View>
+                  </>
+                ) : null}
+              </View>
+            ) : (
+              <View style={styles.filterStack}>
+                <DesignField
+                  value={recordFilters.searchQuery}
+                  label="Search ID or name"
+                  placeholder="e.g. UK1234 or Bess"
+                  left={<SearchAffix />}
+                  search
+                  onChangeText={(value) =>
+                    setRecordFilters((current) => ({
+                      ...current,
+                      searchQuery: value,
+                    }))
+                  }
+                />
+                <View style={styles.block}>
+                  <Text style={styles.label}>Date range</Text>
+                  <View style={styles.chipRow}>
+                    {DATE_RANGE_PRESETS.map((preset) => (
+                      <Pressable
+                        key={preset.key}
+                        accessibilityRole="button"
+                        accessibilityState={{
+                          selected: activeDatePreset === preset.key,
+                        }}
+                        onPress={() => applyDatePreset(preset.key)}
+                        style={({ pressed }) => [
+                          styles.filterChip,
+                          activeDatePreset === preset.key && styles.filterChipActive,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.filterChipText,
+                            activeDatePreset === preset.key && styles.filterChipTextActive,
+                          ]}
+                        >
+                          {preset.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <View style={styles.dateGrid}>
+                    <SelectionField
+                      label=""
+                      value={formatDateForDisplay(recordFilters.startDate, profile.dateFormat) || 'Start date'}
+                      onPress={() => setActiveDateField('startDate')}
+                      containerStyle={styles.dateFieldItem}
+                      hideLabel
+                      isPlaceholder={!recordFilters.startDate}
+                    />
+                    <SelectionField
+                      label=""
+                      value={formatDateForDisplay(recordFilters.endDate, profile.dateFormat) || 'End date'}
+                      onPress={() => setActiveDateField('endDate')}
+                      containerStyle={styles.dateFieldItem}
+                      hideLabel
+                      isPlaceholder={!recordFilters.endDate}
+                    />
+                  </View>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setShowMoreRecordFilters((current) => !current)}
+                  style={({ pressed }) => [styles.moreFiltersButton, pressed && styles.pressed]}
+                >
+                  <Text style={styles.moreFiltersText}>
+                    {showMoreRecordFilters ? 'Hide more filters' : 'Show more filters'}
+                  </Text>
+                  <AppIcon name="chevron-down" size={16} color={tokens.colors.accent} />
+                </Pressable>
+                {showMoreRecordFilters ? (
+                  <>
+                    <View style={styles.block}>
+                      <Text style={styles.label}>Record type</Text>
+                      <InlineMultiDropdown
+                        accessibilityLabel="Record type"
+                        options={recordTypeOptions}
+                        selected={recordFilters.recordTypes}
+                        onToggle={(option) => updateRecordMultiSelect('recordTypes', option)}
+                        placeholder="Select record types"
+                      />
+                    </View>
+                    <View style={styles.block}>
+                      <Text style={styles.label}>Species</Text>
+                      <InlineMultiDropdown
+                        accessibilityLabel="Species"
+                        options={availableSpecies}
+                        selected={recordFilters.species}
+                        onToggle={(option) => updateRecordMultiSelect('species', option)}
+                        placeholder="Select species"
+                        renderLabel={(option) => <SpeciesRowLabel label={option} />}
+                      />
+                    </View>
+                    <View style={styles.block}>
+                      <Text style={styles.label}>Farm</Text>
+                      <InlineMultiDropdown
+                        accessibilityLabel="Farm"
+                        options={availableFarms}
+                        selected={recordFilters.farms}
+                        onToggle={(option) => updateRecordMultiSelect('farms', option)}
+                        placeholder="Select farm"
+                      />
+                    </View>
+                    <View style={styles.block}>
+                      <Text style={styles.label}>Location</Text>
+                      <InlineMultiDropdown
+                        accessibilityLabel="Location"
+                        options={availableLocations}
+                        selected={recordFilters.locations}
+                        onToggle={(option) => updateRecordMultiSelect('locations', option)}
+                        placeholder="Select location"
+                      />
+                    </View>
+                    <View style={styles.block}>
+                      <Text style={styles.label}>Labels</Text>
+                      <InlineMultiDropdown
+                        accessibilityLabel="Labels"
+                        options={availableLabels}
+                        selected={recordFilters.labels}
+                        onToggle={(option) => updateRecordMultiSelect('labels', option)}
+                        placeholder="Select labels"
+                      />
+                    </View>
+                  </>
+                ) : null}
+              </View>
             )}
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-      <FabSpeedDial
-        accessibilityLabel="Export"
-        image={require('../../assets/export.png')}
-        actions={[
-          {
-            image: require('../../assets/pdf_export.png'),
-            label: 'Export PDF',
-            onPress: () => void handleExport('pdf'),
-          },
-          {
-            image: require('../../assets/csv_export.png'),
-            label: 'Export Spreadsheet',
-            onPress: () => void handleExport('spreadsheet'),
-          },
-        ]}
-      />
-      <PlanLimitGate />
-      </TabSwipeView>
+          </View>
 
+          <View style={styles.summaryCard}>
+            <Text style={styles.countTitle}>
+              {target === 'register'
+                ? describeRegisterCount(filteredAnimals, filteredCollectives)
+                : `${currentCount} ${currentCount === 1 ? 'record' : 'records'}`}
+            </Text>
+            <Text style={styles.countText}>Ready to export</Text>
+
+            <View style={styles.summaryWrap}>
+              {currentSummary.length > 0 ? (
+                currentSummary.map((item) => (
+                  <View key={item} style={styles.summaryChip}>
+                    <Text style={styles.summaryChipText}>{item}</Text>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.summaryChip}>
+                  <Text style={styles.summaryChipText}>
+                    {target === 'register' ? 'Everything included' : 'All records included'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </ScrollView>
+
+        {activeDateField && Platform.OS === 'android' ? (
+          <DateTimePicker mode="date" display="default" value={selectedDate} onChange={handleDateChange} />
+        ) : null}
+
+        <Modal
+          animationType="none"
+          transparent
+          visible={activeDateField !== null && Platform.OS === 'ios'}
+          onRequestClose={() => setActiveDateField(null)}
+        >
+          <Pressable style={styles.modalBackdrop} onPress={() => setActiveDateField(null)}>
+            <AnimatedPopupCard
+              visible={activeDateField !== null && Platform.OS === 'ios'}
+              style={styles.modalCard}
+              onPress={() => undefined}
+            >
+              <View style={styles.modalHeader}>
+                <Text style={styles.selectionTitle}>
+                  {activeDateField === 'startDate' ? 'Select start date' : 'Select end date'}
+                </Text>
+                <Pressable
+                  accessibilityLabel="Done"
+                  accessibilityRole="button"
+                  onPress={() => {
+                    // Commits whatever date the spinner is currently showing —
+                    // onChange only fires once the user actually scrolls a
+                    // wheel, so without this, tapping Done on an
+                    // already-correct date silently saved nothing.
+                    if (activeDateField) {
+                      setRecordFilters((current) => ({
+                        ...current,
+                        [activeDateField]: formatDateForStorage(selectedDate),
+                      }));
+                    }
+                    setActiveDateField(null);
+                  }}
+                >
+                  <Text style={styles.modalDone}>Done</Text>
+                </Pressable>
+              </View>
+              <DateTimePicker mode="date" display="spinner" value={selectedDate} onChange={handleDateChange} />
+            </AnimatedPopupCard>
+          </Pressable>
+        </Modal>
+
+        <FabSpeedDial
+          accessibilityLabel="Export"
+          image={require('../../assets/export.png')}
+          actions={[
+            {
+              image: require('../../assets/pdf_export.png'),
+              label: 'Export PDF',
+              onPress: () => void handleExport('pdf'),
+            },
+            {
+              image: require('../../assets/csv_export.png'),
+              label: 'Export Spreadsheet',
+              onPress: () => void handleExport('spreadsheet'),
+            },
+          ]}
+        />
+        <PlanLimitGate />
+      </TabSwipeView>
     </SafeAreaView>
   );
 }
@@ -930,11 +888,7 @@ function SearchAffix() {
 function animalMatchesFilters(animal: Animal, filters: RegisterExportFilters) {
   const searchQuery = filters.searchQuery.trim().toLowerCase();
 
-  if (
-    searchQuery &&
-    ![animal.id, animal.name]
-      .some((value) => value.toLowerCase().includes(searchQuery))
-  ) {
+  if (searchQuery && ![animal.id, animal.name].some((value) => value.toLowerCase().includes(searchQuery))) {
     return false;
   }
 
@@ -969,7 +923,10 @@ function animalMatchesFilters(animal: Animal, filters: RegisterExportFilters) {
 // for every single record — with hundreds of animals and thousands of
 // records that per-record rebuild is the difference between an export that
 // feels instant and one that visibly stalls.
-type AnimalLookup = { animalUidSet: Set<string>; animalsByUid: Map<string, Animal> };
+type AnimalLookup = {
+  animalUidSet: Set<string>;
+  animalsByUid: Map<string, Animal>;
+};
 
 function buildAnimalLookup(animals: Animal[]): AnimalLookup {
   return {
@@ -1009,7 +966,8 @@ function recordMatchesFilters(
   // Only resolve the record's related animals when a filter that actually
   // needs them is active — cheap checks above already reject most records
   // in a typical filtered/searched pass.
-  const needsRelatedAnimals = Boolean(searchQuery) || filters.farms.length > 0 || filters.locations.length > 0;
+  const needsRelatedAnimals =
+    Boolean(searchQuery) || filters.farms.length > 0 || filters.locations.length > 0 || filters.labels.length > 0;
   const relatedAnimals = needsRelatedAnimals ? findRelatedAnimals(record, animals, lookup) : [];
 
   // A record belonging to a herd or flock has no related animals at all — its
@@ -1052,6 +1010,21 @@ function recordMatchesFilters(
     filters.locations.length > 0 &&
     !relatedAnimals.some((animal) => filters.locations.some((value) => equalsIgnoreCase(value, animal.location))) &&
     !(relatedCollective && filters.locations.some((value) => equalsIgnoreCase(value, relatedCollective.location)))
+  ) {
+    return false;
+  }
+
+  // Labels sit on the animal or the group, never on the record, so a record
+  // qualifies when any subject it belongs to carries one of the chosen labels.
+  if (
+    filters.labels.length > 0 &&
+    !relatedAnimals.some((animal) =>
+      filters.labels.some((value) => animal.labels.some((entry) => equalsIgnoreCase(value, entry))),
+    ) &&
+    !(
+      relatedCollective &&
+      filters.labels.some((value) => relatedCollective.labels.some((entry) => equalsIgnoreCase(value, entry)))
+    )
   ) {
     return false;
   }
@@ -1125,17 +1098,28 @@ async function exportAnimalsCsv(
   await writeAndShareCsv(`animal-register-${createTimestamp()}.csv`, rows);
 }
 
-async function exportCollectivesCsv(
-  collectives: Collective[],
-  dateFormat: Parameters<typeof formatDateForDisplay>[1],
-) {
+async function exportCollectivesCsv(collectives: Collective[], dateFormat: Parameters<typeof formatDateForDisplay>[1]) {
   const rows = [
     ['LivestockBook'],
     [],
     [
-      'Herd/Flock ID', 'Name', 'Type', 'Species', 'Breed', 'Head Count', 'Status',
-      'Farm', 'Location', 'Labels', 'Supplier', 'Cost Per Animal', 'Average Weight',
-      'Date Established', 'Born or Hatched', 'Closed', 'Purpose', 'Notes',
+      'Herd/Flock ID',
+      'Name',
+      'Type',
+      'Species',
+      'Breed',
+      'Head Count',
+      'Status',
+      'Farm',
+      'Location',
+      'Labels',
+      'Supplier',
+      'Cost Per Animal',
+      'Average Weight',
+      'Date Established',
+      'Closed',
+      'Purpose',
+      'Notes',
       'Count Changes',
     ],
     ...collectives.map((collective) => [
@@ -1153,7 +1137,6 @@ async function exportCollectivesCsv(
       collective.cost,
       formatWeight(collective.averageWeight, collective.weightUnit),
       formatDateForDisplay(collective.startDate, dateFormat),
-      formatDateForDisplay(collective.birthDate, dateFormat),
       formatDateForDisplay(collective.endDate, dateFormat),
       collective.purpose,
       collective.notes,
@@ -1197,8 +1180,9 @@ function collectiveMatchesFilters(collective: Collective, filters: RegisterExpor
 
   if (
     searchQuery &&
-    ![collective.id, collective.name, collective.breed, collective.supplier]
-      .some((value) => value.toLowerCase().includes(searchQuery))
+    ![collective.id, collective.name, collective.breed, collective.supplier].some((value) =>
+      value.toLowerCase().includes(searchQuery),
+    )
   ) {
     return false;
   }
@@ -1215,7 +1199,10 @@ function collectiveMatchesFilters(collective: Collective, filters: RegisterExpor
     return false;
   }
 
-  if (filters.locations.length > 0 && !filters.locations.some((value) => equalsIgnoreCase(value, collective.location))) {
+  if (
+    filters.locations.length > 0 &&
+    !filters.locations.some((value) => equalsIgnoreCase(value, collective.location))
+  ) {
     return false;
   }
 
@@ -1244,19 +1231,52 @@ async function exportRecordsCsv(
     // pivoting, so a column that is blank for most types still earns its place —
     // unlike the PDF, which is read as a page.
     [
-      'Date', 'Record Type', 'Title',
-      'Animal ID', 'Animal Name', 'Herd/Flock ID', 'Herd/Flock Name',
-      'Species', 'Farm', 'Location', 'Moved From Farm', 'Moved From Location',
-      'Affected Count', 'New Count',
-      'Weight', 'Sample Size',
-      'Medicine', 'Dose', 'Route', 'Meat Withdrawal', 'Milk Withdrawal', 'Batch No.', 'Expiry',
-      'Health Status', 'Condition', 'Vet Seen',
-      'Cause of Death', 'Disposal Method',
-      'Buyer', 'Sale Price', 'Destination',
-      'Seller', 'Purchase Price', 'Source Farm', 'Currency',
-      'Feed Type', 'Feed Quantity', 'Cost',
-      'Eggs Collected', 'Eggs Damaged',
-      'Mother', 'Offspring Tag', 'Offspring Species', 'Offspring Breed', 'Offspring Sex', 'Offspring Weight',
+      'Date',
+      'Record Type',
+      'Title',
+      'Animal ID',
+      'Animal Name',
+      'Herd/Flock ID',
+      'Herd/Flock Name',
+      'Species',
+      'Farm',
+      'Location',
+      'Moved From Farm',
+      'Moved From Location',
+      'Affected Count',
+      'New Count',
+      'Weight',
+      'Sample Size',
+      'Medicine',
+      'Dose',
+      'Route',
+      'Meat Withdrawal',
+      'Milk Withdrawal',
+      'Batch No.',
+      'Expiry',
+      'Health Status',
+      'Condition',
+      'Vet Seen',
+      'Cause of Death',
+      'Disposal Method',
+      'Buyer',
+      'Sale Price',
+      'Destination',
+      'Seller',
+      'Purchase Price',
+      'Source Farm',
+      'Currency',
+      'Feed Type',
+      'Feed Quantity',
+      'Cost',
+      'Eggs Collected',
+      'Eggs Damaged',
+      'Mother',
+      'Offspring Tag',
+      'Offspring Species',
+      'Offspring Breed',
+      'Offspring Sex',
+      'Offspring Weight',
       'Details',
     ],
     ...records.map((record) => {
@@ -1278,9 +1298,7 @@ async function exportRecordsCsv(
           ? resolveLocationName(record.toLocationUid, record.toLocation, locations)
           : joinUnique(relatedAnimals.map((animal) => resolveAnimalLocationName(animal, locations))),
         record.type === 'Movement' ? resolveFarmName(record.fromFarmUid, record.fromFarm, farms) : '',
-        record.type === 'Movement'
-          ? resolveLocationName(record.fromLocationUid, record.fromLocation, locations)
-          : '',
+        record.type === 'Movement' ? resolveLocationName(record.fromLocationUid, record.fromLocation, locations) : '',
         record.affectedCount ?? '',
         record.newCount ?? '',
         [record.weight, record.weightUnit].filter(Boolean).join(' '),
@@ -1353,8 +1371,18 @@ async function createRegisterPdf(
       heading: 'Herds and flocks',
       subheading: describeCollectiveCount(collectives),
       headers: [
-        'ID', 'Name', 'Species', 'Breed', 'Head Count', 'Status',
-        'Farm', 'Location', 'Labels', 'Supplier', 'Established', 'Purpose',
+        'ID',
+        'Name',
+        'Species',
+        'Breed',
+        'Head Count',
+        'Status',
+        'Farm',
+        'Location',
+        'Labels',
+        'Supplier',
+        'Established',
+        'Purpose',
       ],
       rows: collectives.map((collective) => [
         collective.id || '—',
@@ -1378,8 +1406,20 @@ async function createRegisterPdf(
       heading: 'Individual animals',
       subheading: `${animals.length} ${animals.length === 1 ? 'animal' : 'animals'}`,
       headers: [
-        'Animal ID', 'EID', 'Name', 'Species', 'Breed', 'Sex', 'Age',
-        'Date of Birth', 'Weight', 'Status', 'Farm', 'Location', 'Labels', 'Source',
+        'Animal ID',
+        'EID',
+        'Name',
+        'Species',
+        'Breed',
+        'Sex',
+        'Age',
+        'Date of Birth',
+        'Weight',
+        'Status',
+        'Farm',
+        'Location',
+        'Labels',
+        'Source',
       ],
       rows: animals.map((animal) => [
         animal.id,
@@ -1476,8 +1516,13 @@ async function writeAndShareCsv(fileName: string, rows: string[][]) {
   const uri = `${directory}${fileName}`;
   const csv = rows.map((row) => row.map(escapeCsv).join(',')).join('\n');
 
-  await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
-  await Sharing.shareAsync(uri, { UTI: 'public.comma-separated-values-text', mimeType: 'text/csv' });
+  await FileSystem.writeAsStringAsync(uri, csv, {
+    encoding: FileSystem.EncodingType.UTF8,
+  });
+  await Sharing.shareAsync(uri, {
+    UTI: 'public.comma-separated-values-text',
+    mimeType: 'text/csv',
+  });
 }
 
 /**
@@ -1501,7 +1546,11 @@ function buildPdfHtml({
   sections,
 }: {
   title: string;
-  branding: { businessName: string; businessAddress: string; logoDataUri: string };
+  branding: {
+    businessName: string;
+    businessAddress: string;
+    logoDataUri: string;
+  };
   countLabel: string;
   filterSummary: string[];
   headers?: string[];
@@ -1565,8 +1614,7 @@ function buildPdfHtml({
 
   // A single headers/rows pair is just a one-section document, so both call
   // shapes go through the same renderer.
-  const renderedSections: PdfSection[] =
-    sections ?? [{ headers: headers ?? [], rows: rows ?? [] }];
+  const renderedSections: PdfSection[] = sections ?? [{ headers: headers ?? [], rows: rows ?? [] }];
 
   const tableHtml = renderedSections
     .map(
@@ -1581,12 +1629,7 @@ function buildPdfHtml({
             </tr>
           </thead>
           <tbody>
-            ${section.rows
-              .map(
-                (row) =>
-                  `<tr>${row.map((cell) => `<td>${escapeHtml(cell || '—')}</td>`).join('')}</tr>`,
-              )
-              .join('')}
+            ${section.rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell || '—')}</td>`).join('')}</tr>`).join('')}
           </tbody>
         </table>
       </div>
@@ -1594,47 +1637,14 @@ function buildPdfHtml({
     )
     .join('');
 
-  return buildPdfDocument({ title, branding, countLabel, filterSummary, extraStyles: tableStyles, bodyHtml: tableHtml });
-}
-
-function isSelectedRegisterOption(filters: RegisterExportFilters, key: MultiSelectKey, value: string) {
-  if (key === 'statuses') return filters.statuses.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'species') return filters.species.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'farms') return filters.farms.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'locations') return filters.locations.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'labels') return filters.labels.some((entry) => equalsIgnoreCase(entry, value));
-  return false;
-}
-
-function isSelectedRecordOption(filters: RecordExportFilters, key: MultiSelectKey, value: string) {
-  if (key === 'species') return filters.species.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'recordTypes') return filters.recordTypes.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'farms') return filters.farms.some((entry) => equalsIgnoreCase(entry, value));
-  if (key === 'locations') return filters.locations.some((entry) => equalsIgnoreCase(entry, value));
-  return false;
-}
-
-function getSelectionTitle(key: MultiSelectKey | null) {
-  switch (key) {
-    case 'statuses':
-      return 'Select status';
-    case 'species':
-      return 'Select species';
-    case 'recordTypes':
-      return 'Select record types';
-    case 'farms':
-      return 'Select farms';
-    case 'locations':
-      return 'Select locations';
-    case 'labels':
-      return 'Select labels';
-    default:
-      return 'Select options';
-  }
-}
-
-function needsExtraDropdownGap(key: MultiSelectKey | null) {
-  return key === 'recordTypes' || key === 'farms' || key === 'locations';
+  return buildPdfDocument({
+    title,
+    branding,
+    countLabel,
+    filterSummary,
+    extraStyles: tableStyles,
+    bodyHtml: tableHtml,
+  });
 }
 
 function getRegisterFilterSummary(filters: RegisterExportFilters) {
@@ -1662,6 +1672,7 @@ function getRecordFilterSummary(filters: RecordExportFilters, dateFormat: Parame
   if (filters.species.length > 0) summary.push(`Species: ${filters.species.join(', ')}`);
   if (filters.farms.length > 0) summary.push(`Farm: ${filters.farms.join(', ')}`);
   if (filters.locations.length > 0) summary.push(`Location: ${filters.locations.join(', ')}`);
+  if (filters.labels.length > 0) summary.push(`Labels: ${filters.labels.join(', ')}`);
 
   return summary;
 }
@@ -1672,16 +1683,20 @@ function toggleSelection(values: string[], nextValue: string) {
     : [...values, nextValue];
 }
 
-function formatSelectionSummary(values: string[], placeholder: string) {
-  if (values.length === 0) {
-    return placeholder;
-  }
+// The species filter keeps the mark next to the name — a keeper picks their
+// stock out of a list by the silhouette faster than by reading it.
+function SpeciesRowLabel({ label }: { label: string }) {
+  const theme = getSpeciesThemeByLabel(label);
+  const iconColor = label === 'Sheep' ? '#171717' : theme.icon;
 
-  if (values.length <= 2) {
-    return values.join(', ');
-  }
-
-  return `${values.slice(0, 2).join(', ')} +${values.length - 2}`;
+  return (
+    <View style={styles.speciesRowLabel}>
+      <AppIcon name={getSpeciesIconName(label)} size={20} color={iconColor} />
+      <Text style={styles.speciesRowLabelText} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
 }
 
 function splitValues(value: string) {
@@ -1724,7 +1739,12 @@ function getSpeciesIconName(label: string): AppIconName {
     return known.label === 'Sheep' ? 'sheep-black' : known.icon;
   }
 
-  if (normalized.includes('cow') || normalized.includes('cattle') || normalized.includes('buffalo') || normalized.includes('bison')) {
+  if (
+    normalized.includes('cow') ||
+    normalized.includes('cattle') ||
+    normalized.includes('buffalo') ||
+    normalized.includes('bison')
+  ) {
     return 'cow-copy';
   }
 
@@ -1801,7 +1821,9 @@ function equalsIgnoreCase(left: string, right: string) {
 }
 
 function escapeCsv(value: string) {
-  const normalized = String(value ?? '').replace(/\r?\n/g, ' ').trim();
+  const normalized = String(value ?? '')
+    .replace(/\r?\n/g, ' ')
+    .trim();
   return `"${normalized.replace(/"/g, '""')}"`;
 }
 
@@ -1903,6 +1925,18 @@ const styles = StyleSheet.create({
   dateFieldItem: {
     flex: 1,
   },
+  speciesRowLabel: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  speciesRowLabelText: {
+    color: tokens.colors.text,
+    fontSize: 15,
+    fontWeight: '500',
+    flexShrink: 1,
+  },
   block: {
     gap: 8,
   },
@@ -2001,15 +2035,6 @@ const styles = StyleSheet.create({
     paddingBottom: 26,
     maxHeight: '80%',
   },
-  selectionCard: {
-    marginHorizontal: 18,
-    marginBottom: 28,
-    borderRadius: 26,
-    backgroundColor: '#fff',
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    gap: 8,
-  },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2026,101 +2051,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 4,
-  },
-  modalList: {
-    gap: 8,
-  },
-  modalListSpaced: {
-    paddingTop: 12,
-  },
-  selectionRow: {
-    minHeight: 46,
-    borderRadius: 18,
-    backgroundColor: '#EFECF0',
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  selectionRowActive: {
-    backgroundColor: tokens.colors.accent,
-  },
-  selectionText: {
-    color: tokens.colors.text,
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
-    paddingRight: 10,
-  },
-  selectionTextActive: {
-    color: '#fff',
-  },
-  speciesModalGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    paddingTop: 18,
-    paddingBottom: 12,
-  },
-  speciesModalHeader: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  speciesModalTitle: {
-    color: tokens.colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  speciesModalClose: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    padding: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  speciesModalCard: {
-    width: '48%',
-    minHeight: 74,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    paddingLeft: 20,
-    paddingRight: 14,
-  },
-  speciesModalCardActive: {
-    borderWidth: 1.5,
-    borderColor: tokens.colors.accentDeep,
-  },
-  speciesModalCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  speciesModalCardLabel: {
-    color: '#171717',
-    fontSize: 15,
-    fontWeight: '500',
-    flexShrink: 1,
-  },
-  speciesModalCardPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  emptyPickerState: {
-    minHeight: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyPickerText: {
-    color: tokens.colors.textSoft,
-    fontSize: 13,
-    fontWeight: '500',
   },
   pressed: {
     opacity: 0.92,

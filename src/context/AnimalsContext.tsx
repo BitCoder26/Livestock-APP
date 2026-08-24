@@ -45,15 +45,18 @@ type AnimalsContextValue = {
     status: AnimalStatus,
   ) => Promise<AnimalMutationResult>;
   /**
-   * Drops one dated line from the animal's status history. The animal's
-   * current `status` is deliberately left alone — this removes a line from the
-   * record of what happened, not the state itself, which the status dropdown
-   * owns. Removing the line that set the current status therefore leaves the
-   * animal on that status with nothing on the timeline explaining it.
+   * Drops one dated line from the animal's status history and puts the status
+   * back to what the remaining evidence says: the newest hand-made line still
+   * standing, or — when none are — `statusWithoutManualChanges`, which the
+   * caller derives from the animal's own records
+   * (`deriveAnimalStatusFromRecords`). Leaving `status` untouched was the old
+   * behaviour and it stranded the animal on a status with nothing on the
+   * timeline explaining it, which read as an undo that had not undone.
    */
   removeAnimalStatusChange: (
     animalUid: string,
     changeId: string,
+    statusWithoutManualChanges: AnimalStatus,
   ) => Promise<AnimalMutationResult>;
   getAnimalsSnapshot: () => Animal[];
   replaceAnimalsFromTransaction: (nextAnimals: Animal[]) => void;
@@ -228,7 +231,7 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
 
         return { ok: true, animal: updated };
       },
-      removeAnimalStatusChange: async (animalUid, changeId) => {
+      removeAnimalStatusChange: async (animalUid, changeId, statusWithoutManualChanges) => {
         const existing = animalsRef.current.find((item) => item.uid === animalUid);
 
         if (!existing) {
@@ -243,7 +246,13 @@ export function AnimalsProvider({ children }: PropsWithChildren) {
           return { ok: true, animal: existing };
         }
 
-        const updated: Animal = { ...existing, statusHistory };
+        // statusHistory is appended, so the last entry standing is the newest
+        // one — and with the removed line gone, it is what the animal is now.
+        const updated: Animal = {
+          ...existing,
+          status: statusHistory[statusHistory.length - 1]?.status ?? statusWithoutManualChanges,
+          statusHistory,
+        };
         const next = animalsRef.current.map((item) => (item.uid === animalUid ? updated : item));
 
         if (!(await persistAndReplaceAnimals(next))) {

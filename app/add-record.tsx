@@ -1,19 +1,22 @@
 import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Image, Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, AppIconName } from '../src/components/AppIcon';
+import DateTimePicker from '../src/components/AppDateTimePicker';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
+import { FieldClearButton } from '../src/components/FieldClearButton';
 import { FieldLabel } from '../src/components/FieldLabel';
 import { FloatingActionButton } from '../src/components/FloatingActionButton';
 import { InfoModal } from '../src/components/InfoModal';
+import { InlineDropdown } from '../src/components/InlineDropdown';
 import { RECORD_TYPES, SPECIES_OPTIONS } from '../src/constants/records';
 import { FREE_RECORD_LIMIT } from '../src/constants/subscription';
 import { useAccount } from '../src/context/AccountContext';
@@ -35,6 +38,7 @@ import type { Animal, AnimalAgeUnit, AnimalSex, AnimalWeightUnit } from '../src/
 import type { RecordEntry } from '../src/entities/record';
 import { TAB_ALIGNED_FAB_BOTTOM_OFFSET, tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../src/utils/dateFormat';
+import { buildWithdrawalIndex, confirmSaleWithinWithdrawal, latestPerKind } from '../src/utils/withdrawal';
 import { filterAccessibleImageUris, persistRecordImage } from '../src/utils/imageStorage';
 import { findRecordAnimals, resolveRecordAnimalUids } from '../src/utils/recordAnimals';
 import { getStructuredDetailLabels, stripStructuredDetailLines } from '../src/utils/recordNotes';
@@ -66,7 +70,6 @@ const CAUSE_OF_DEATH_OPTIONS = [
   'Unknown',
   'Other',
 ] as const;
-const MOVEMENT_PICKERS = ['fromFarm', 'fromLocation', 'toFarm', 'toLocation'] as const;
 
 /**
  * The notes behind each field's (i), matching the collective Add Record
@@ -91,8 +94,6 @@ const FIELD_NOTES: Record<string, { title: string; description: string }> = {
       'Other covers anything the types above do not \u2014 bedding, fencing, a water test. Whatever you type here becomes the record\u2019s name.',
   },
 };
-
-type MovementPickerKey = (typeof MOVEMENT_PICKERS)[number];
 
 export default function AddRecordScreen() {
   const [fieldNote, setFieldNote] = useState<(typeof FIELD_NOTES)[string] | null>(null);
@@ -185,17 +186,8 @@ export default function AddRecordScreen() {
   const [chosenAnimalIds, setChosenAnimalIds] = useState<string[]>(
     selectedAnimalIds ? selectedAnimalIds.split(',').filter(Boolean) : [],
   );
-  const [showDoseUnitPicker, setShowDoseUnitPicker] = useState(false);
-  const [showWeightUnitPicker, setShowWeightUnitPicker] = useState(false);
-  const [showBirthWeightUnitPicker, setShowBirthWeightUnitPicker] = useState(false);
-  const [showHealthStatusPicker, setShowHealthStatusPicker] = useState(false);
-  const [showRoutePicker, setShowRoutePicker] = useState(false);
-  const [showTreatmentPicker, setShowTreatmentPicker] = useState(false);
-  const [showDisposalMethodPicker, setShowDisposalMethodPicker] = useState(false);
-  const [showCauseOfDeathPicker, setShowCauseOfDeathPicker] = useState(false);
   const [showBirthSpeciesPicker, setShowBirthSpeciesPicker] = useState(false);
   const [showExpiryDatePicker, setShowExpiryDatePicker] = useState(false);
-  const [activeMovementPicker, setActiveMovementPicker] = useState<MovementPickerKey | null>(null);
   const [imageUris, setImageUris] = useState<string[]>([]);
   const [showUpdateImpactConfirm, setShowUpdateImpactConfirm] = useState(false);
   const [updateImpact, setUpdateImpact] = useState<RecordImpactChange[]>([]);
@@ -244,6 +236,14 @@ export default function AddRecordScreen() {
   const availableTreatments = useMemo(
     () => medicineEntities.filter((entry) => entry.treatmentType === (isVaccinationRecord ? 'vaccine' : 'medicine')),
     [isVaccinationRecord, medicineEntities],
+  );
+  // The dropdown works in names, since that is what the field stores; the
+  // entry behind the chosen one still carries the dose/route/withdrawal
+  // defaults that selecting it fills in.
+  const treatmentNames = useMemo(() => availableTreatments.map((entry) => entry.name), [availableTreatments]);
+  const treatmentsByName = useMemo(
+    () => new Map(availableTreatments.map((entry) => [entry.name, entry])),
+    [availableTreatments],
   );
   const fromLocationOptions = useMemo(
     () =>
@@ -429,6 +429,41 @@ export default function AddRecordScreen() {
 
     clearSetupSelectionResult();
   }, [clearSetupSelectionResult, pendingSetupSelectionResult]);
+
+  // A farm with exactly one location has no real choice to make, so fill it in
+  // — still fully editable/clearable afterward if that's not what the user
+  // wants. Changing farm drops a location belonging to the old one.
+  const selectMovementFarm = (
+    option: string,
+    current: string,
+    setFarm: (value: string) => void,
+    setLocation: (value: string) => void,
+  ) => {
+    if (!equalsIgnoreCase(option, current)) {
+      const matchingLocations = locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
+      setLocation(matchingLocations.length === 1 ? matchingLocations[0].name : '');
+    }
+
+    setFarm(option);
+  };
+
+  // Picking a location before its farm (the location list is unfiltered until
+  // a farm is chosen) shouldn't leave the farm blank or mismatched — fill it in
+  // to match.
+  const selectMovementLocation = (
+    option: string,
+    currentFarm: string,
+    setFarm: (value: string) => void,
+    setLocation: (value: string) => void,
+  ) => {
+    const matchedFarm = locationEntities.find((entry) => equalsIgnoreCase(entry.name, option))?.farm;
+
+    if (matchedFarm && !equalsIgnoreCase(matchedFarm, currentFarm)) {
+      setFarm(matchedFarm);
+    }
+
+    setLocation(option);
+  };
 
   const showMissingRequiredFields = (fields: string[]) => {
     Alert.alert(
@@ -713,6 +748,35 @@ export default function AddRecordScreen() {
     ]
       .filter(Boolean)
       .join('\n\n');
+    // Judged against the sale's own date, not today, so a backdated sale is
+    // measured against the period as it stood then. The record being edited is
+    // left out of the check — a treatment cannot put itself in withdrawal.
+    if (isSaleRecord) {
+      const saleDate = parseStoredDate(storedDate) ?? new Date();
+      const index = buildWithdrawalIndex(
+        records.filter((record) => record.id !== editingRecord?.id),
+        animals,
+        saleDate,
+      );
+      const stillWithdrawn = selectedAnimals.filter(
+        (animal) => (index.byAnimalUid.get(animal.uid) ?? []).length > 0,
+      );
+
+      if (stillWithdrawn.length > 0) {
+        // Selling several at once: the furthest-out date of each kind is the
+        // one that governs the group.
+        const proceed = await confirmSaleWithinWithdrawal(
+          formatAnimalReferences(stillWithdrawn),
+          latestPerKind(stillWithdrawn.flatMap((animal) => index.byAnimalUid.get(animal.uid) ?? [])),
+          profile.dateFormat,
+        );
+
+        if (!proceed) {
+          return;
+        }
+      }
+    }
+
     const saleDetails = [
       buyer.trim() ? `Buyer: ${buyer.trim()}` : '',
       salePrice.trim() ? `Sale Price: ${formatCurrencyAmount(salePrice.trim(), currencyCode)}` : '',
@@ -972,6 +1036,17 @@ export default function AddRecordScreen() {
     imageUris,
   });
 
+  const handleTreatmentNameSelect = (name: string) => {
+    const entry = treatmentsByName.get(name);
+
+    if (entry) {
+      handleTreatmentSelect(entry);
+      return;
+    }
+
+    setMedicine(name);
+  };
+
   const handleTreatmentSelect = (entry: MedicineEntity) => {
     setMedicine(entry.name);
     if (entry.defaultDose.trim()) {
@@ -999,8 +1074,6 @@ export default function AddRecordScreen() {
     if (entry.expiryDate?.trim()) {
       setExpiryDate(entry.expiryDate);
     }
-
-    setShowTreatmentPicker(false);
   };
 
   const cancelUpdateImpact = () => {
@@ -1079,6 +1152,21 @@ export default function AddRecordScreen() {
     router.push({
       pathname: '/setup-medicines',
       params: { treatmentType: isVaccinationRecord ? 'vaccine' : 'medicine' },
+    });
+  };
+
+  const openAddAnimalScreen = () => {
+    router.push({
+      pathname: '/add-animal',
+      params: {
+        returnToRecordSelector: '1',
+        recordSelectorSelectedAnimalIds: chosenAnimalIds.join(','),
+        ...(recordId ? { recordSelectorRecordId: recordId } : {}),
+        recordSelectorDraftRecord: draftRecordState,
+        ...(recordType ? { recordSelectorRecordType: recordType } : {}),
+        ...(isMovementRecord && fromFarm.trim() ? { recordSelectorFromFarm: fromFarm.trim() } : {}),
+        ...(isMovementRecord && fromLocation.trim() ? { recordSelectorFromLocation: fromLocation.trim() } : {}),
+      },
     });
   };
 
@@ -1208,7 +1296,8 @@ export default function AddRecordScreen() {
           {!isBirthRecord ? (
             <>
             <View style={styles.block}>
-              <Text style={styles.label}>{isOtherRecord ? 'Animal(s)' : 'Animal(s) *'}</Text>
+              <FieldLabel label={isOtherRecord ? 'Animal(s)' : 'Animal(s) *'} addAccessibilityLabel="Add animal" onAddPress={openAddAnimalScreen} />
+              <View style={styles.clearableField}>
               <Pressable
                 accessibilityLabel="Select animal"
                 accessibilityRole="button"
@@ -1231,6 +1320,7 @@ export default function AddRecordScreen() {
                   style={[
                     styles.dateValue,
                     selectedAnimals.length === 0 && styles.placeholderValue,
+                    selectedAnimals.length > 0 && styles.clearableFieldValue,
                   ]}
                 >
                   {animals.length === 0
@@ -1249,45 +1339,18 @@ export default function AddRecordScreen() {
                   <AppIcon name="chevron-right" size={12} color="#EFEFEF" />
                 </View>
               </Pressable>
+                {selectedAnimals.length > 0 ? (
+                  <FieldClearButton
+                    accessibilityLabel="Clear selected animals"
+                    onPress={() => setChosenAnimalIds([])}
+                    style={styles.customFieldClearButton}
+                  />
+                ) : null}
+              </View>
               {selectedAnimals.length > 1 ? (
                 <Text style={styles.selectionSummary}>
                   {selectedAnimals.map((animal) => animal.name).join(', ')}
                 </Text>
-              ) : null}
-            </View>
-            <View style={styles.helperLinkRow}>
-              <Pressable
-                accessibilityLabel="Add animal"
-                accessibilityRole="button"
-                hitSlop={12}
-                onPress={() =>
-                  router.push({
-                    pathname: '/add-animal',
-                    params: {
-                      returnToRecordSelector: '1',
-                      recordSelectorSelectedAnimalIds: chosenAnimalIds.join(','),
-                      ...(recordId ? { recordSelectorRecordId: recordId } : {}),
-                      recordSelectorDraftRecord: draftRecordState,
-                      ...(recordType ? { recordSelectorRecordType: recordType } : {}),
-                      ...(isMovementRecord && fromFarm.trim() ? { recordSelectorFromFarm: fromFarm.trim() } : {}),
-                      ...(isMovementRecord && fromLocation.trim() ? { recordSelectorFromLocation: fromLocation.trim() } : {}),
-                    },
-                  })
-                }
-                style={({ pressed }) => [pressed && styles.pressed]}
-              >
-                <Text style={styles.helperLinkCompact}>+ Add</Text>
-              </Pressable>
-              {selectedAnimals.length > 0 ? (
-                <Pressable
-                  accessibilityLabel="Clear selected animals"
-                  accessibilityRole="button"
-                  hitSlop={12}
-                  onPress={() => setChosenAnimalIds([])}
-                  style={({ pressed }) => [pressed && styles.pressed]}
-                >
-                  <Text style={styles.helperLinkCompact}>Clear</Text>
-                </Pressable>
               ) : null}
             </View>
             </>
@@ -1310,56 +1373,58 @@ export default function AddRecordScreen() {
               </View>
               <View style={styles.block}>
                 <Text style={styles.label}>Mother</Text>
-                <Pressable
-                  accessibilityLabel="Select mother"
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: !birthSpecies.trim() }}
-                  disabled={!birthSpecies.trim()}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/select-mother-animal',
-                      params: {
-                        ...(recordId ? { recordId } : {}),
-                        draftRecord: draftRecordState,
-                        birthSpecies,
-                        ...(motherUid ? { selectedMotherUid: motherUid } : {}),
-                      },
-                    })}
-                  style={({ pressed }) => [
-                    styles.dateField,
-                    !birthSpecies.trim() && styles.disabledField,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text style={[styles.dateValue, !motherName && styles.placeholderValue]}>
-                    {!birthSpecies.trim()
-                      ? 'Select species first'
-                      : (selectedMother?.name ?? motherName) ||
-                        (eligibleMothers.length === 0
-                          ? 'No eligible mothers available'
-                          : `${eligibleMothers.length} eligible ${eligibleMothers.length === 1 ? 'mother' : 'mothers'}`)}
-                  </Text>
-                  <View style={styles.fieldChevron}>
-                    <AppIcon name="chevron-right" size={12} color="#EFEFEF" />
-                  </View>
-                </Pressable>
-              </View>
-              {motherUid || motherName ? (
-                <View style={styles.helperLinkRow}>
+                <View style={styles.clearableField}>
                   <Pressable
-                    accessibilityLabel="Clear mother"
+                    accessibilityLabel="Select mother"
                     accessibilityRole="button"
-                    hitSlop={12}
-                    onPress={() => {
-                      setMotherUid('');
-                      setMotherName('');
-                    }}
-                    style={({ pressed }) => [pressed && styles.pressed]}
+                    accessibilityState={{ disabled: !birthSpecies.trim() }}
+                    disabled={!birthSpecies.trim()}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/select-mother-animal',
+                        params: {
+                          ...(recordId ? { recordId } : {}),
+                          draftRecord: draftRecordState,
+                          birthSpecies,
+                          ...(motherUid ? { selectedMotherUid: motherUid } : {}),
+                        },
+                      })}
+                    style={({ pressed }) => [
+                      styles.dateField,
+                      !birthSpecies.trim() && styles.disabledField,
+                      pressed && styles.pressed,
+                    ]}
                   >
-                    <Text style={styles.helperLinkCompact}>Clear</Text>
+                    <Text
+                      style={[
+                        styles.dateValue,
+                        !motherName && styles.placeholderValue,
+                        (motherUid || motherName) && styles.clearableFieldValue,
+                      ]}
+                    >
+                      {!birthSpecies.trim()
+                        ? 'Select species first'
+                        : (selectedMother?.name ?? motherName) ||
+                          (eligibleMothers.length === 0
+                            ? 'No eligible mothers available'
+                            : `${eligibleMothers.length} eligible ${eligibleMothers.length === 1 ? 'mother' : 'mothers'}`)}
+                    </Text>
+                    <View style={styles.fieldChevron}>
+                      <AppIcon name="chevron-right" size={12} color="#EFEFEF" />
+                    </View>
                   </Pressable>
+                  {motherUid || motherName ? (
+                    <FieldClearButton
+                      accessibilityLabel="Clear mother"
+                      onPress={() => {
+                        setMotherUid('');
+                        setMotherName('');
+                      }}
+                      style={styles.customFieldClearButton}
+                    />
+                  ) : null}
                 </View>
-              ) : null}
+              </View>
               {inheritedMother || isEditing ? (
                 <View style={styles.inheritedLocationRow}>
                   <AppIcon name="pin" size={17} color={tokens.colors.textSoft} />
@@ -1409,15 +1474,12 @@ export default function AddRecordScreen() {
                 <View style={styles.inlineUnit}>
                   <View style={styles.block}>
                     <Text style={styles.label}>Unit</Text>
-                    <Pressable
+                    <InlineDropdown
                       accessibilityLabel="Select birth weight unit"
-                      accessibilityRole="button"
-                      onPress={() => setShowBirthWeightUnitPicker(true)}
-                      style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                    >
-                      <Text style={styles.dateValue}>{birthWeightUnit}</Text>
-                      <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                    </Pressable>
+                      options={WEIGHT_UNITS}
+                      value={birthWeightUnit}
+                      onSelect={setBirthWeightUnit}
+                    />
                   </View>
                 </View>
               </View>
@@ -1425,46 +1487,18 @@ export default function AddRecordScreen() {
           ) : isMedicationRecord ? (
             <>
               <View style={styles.block}>
-                <Text style={styles.label}>Medicine *</Text>
-                <Pressable
+                <FieldLabel label="Medicine *" addAccessibilityLabel="Add medicine" onAddPress={openMedicinesScreen} />
+                <InlineDropdown
                   accessibilityLabel="Select medicine"
-                  accessibilityRole="button"
-                  onPress={() => {
-                    if (availableTreatments.length === 0) {
-                      openMedicinesScreen();
-                      return;
-                    }
-                    setShowTreatmentPicker(true);
-                  }}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.dateValue, !medicine && styles.placeholderValue]}>
-                    {medicine || (availableTreatments.length === 0 ? 'No medicines available' : 'Select medicine')}
-                  </Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
-              </View>
-              <View style={styles.helperLinkRow}>
-                <Pressable
-                  accessibilityLabel="Add medicine"
-                  accessibilityRole="button"
-                  hitSlop={12}
-                  onPress={openMedicinesScreen}
-                  style={({ pressed }) => [pressed && styles.pressed]}
-                >
-                  <Text style={styles.helperLinkCompact}>+ Add</Text>
-                </Pressable>
-                {medicine ? (
-                  <Pressable
-                    accessibilityLabel="Clear medicine"
-                    accessibilityRole="button"
-                    hitSlop={12}
-                    onPress={clearTreatment}
-                    style={({ pressed }) => [pressed && styles.pressed]}
-                  >
-                    <Text style={styles.helperLinkCompact}>Clear</Text>
-                  </Pressable>
-                ) : null}
+                  options={treatmentNames}
+                  value={medicine === '' ? null : medicine}
+                  placeholder={availableTreatments.length === 0 ? 'No medicines available' : 'Select medicine'}
+                  onSelect={handleTreatmentNameSelect}
+                  onEmptyPress={openMedicinesScreen}
+                  renderLabel={(name) => <TreatmentRowLabel entry={treatmentsByName.get(name)} name={name} />}
+                  onClear={clearTreatment}
+                  clearAccessibilityLabel="Clear medicine"
+                />
               </View>
               <View style={styles.inlineRow}>
                 <View style={styles.inlineGrow}>
@@ -1473,34 +1507,28 @@ export default function AddRecordScreen() {
                 <View style={styles.inlineUnit}>
                   <View style={styles.block}>
                     <Text style={styles.label}>Unit</Text>
-                    <Pressable
+                    <InlineDropdown
                       accessibilityLabel="Select dose quantity type"
-                      accessibilityRole="button"
-                      onPress={() => setShowDoseUnitPicker(true)}
-                      style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                    >
-                      <Text style={styles.dateValue}>{doseUnit}</Text>
-                      <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                    </Pressable>
+                      options={DOSE_UNITS}
+                      value={doseUnit}
+                      onSelect={setDoseUnit}
+                    />
                   </View>
                 </View>
               </View>
               <View style={styles.block}>
                 <Text style={styles.label}>Route</Text>
-                <Pressable
+                <InlineDropdown
                   accessibilityLabel="Select route"
-                  accessibilityRole="button"
-                  onPress={() => setShowRoutePicker(true)}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={styles.dateValue}>{route}</Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
+                  options={ROUTE_OPTIONS}
+                  value={route}
+                  onSelect={setRoute}
+                />
               </View>
               <View style={styles.inlineRow}>
                 <View style={styles.inlineGrow}>
                   <View style={styles.withdrawalBlock}>
-                    <FieldLabel label="Meat Withdrawal (Days)" onInfoPress={showFieldNote('withdrawal')} />
+                    <FieldLabel label="Meat Withdrawal (Days)" />
                     <View style={styles.withdrawalField}>
                       <TextInput
                         accessibilityLabel="Meat withdrawal days"
@@ -1519,7 +1547,7 @@ export default function AddRecordScreen() {
                 </View>
                 <View style={styles.inlineGrow}>
                   <View style={styles.withdrawalBlock}>
-                    <FieldLabel label="Milk Withdrawal (Days)" onInfoPress={showFieldNote('withdrawal')} />
+                    <FieldLabel label="Milk Withdrawal (Days)" />
                     <View style={styles.withdrawalField}>
                       <TextInput
                         accessibilityLabel="Milk withdrawal days"
@@ -1544,69 +1572,51 @@ export default function AddRecordScreen() {
                 <View style={styles.inlineGrow}>
                   <View style={styles.block}>
                     <Text style={styles.label}>Expiry Date</Text>
-                    <Pressable
-                      accessibilityLabel="Select expiry date"
-                      accessibilityRole="button"
-                      onPress={openExpiryDatePicker}
-                      style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                    >
-                      <Text style={[styles.dateValue, !expiryDate && styles.placeholderValue]}>
-                        {expiryDate ? formatDateForDisplay(expiryDate, profile.dateFormat) : 'Select date'}
-                      </Text>
-                      <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                    </Pressable>
+                    <View style={styles.clearableField}>
+                      <Pressable
+                        accessibilityLabel="Select expiry date"
+                        accessibilityRole="button"
+                        onPress={openExpiryDatePicker}
+                        style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
+                      >
+                        <Text
+                          style={[
+                            styles.dateValue,
+                            !expiryDate && styles.placeholderValue,
+                            expiryDate && styles.clearableFieldValue,
+                          ]}
+                        >
+                          {expiryDate ? formatDateForDisplay(expiryDate, profile.dateFormat) : 'Select date'}
+                        </Text>
+                        <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+                      </Pressable>
+                      {expiryDate ? (
+                        <FieldClearButton
+                          accessibilityLabel="Clear expiry date"
+                          onPress={() => setExpiryDate('')}
+                          style={styles.customFieldClearButton}
+                        />
+                      ) : null}
+                    </View>
                   </View>
                 </View>
               </View>
-              <ClearLink
-                label="Clear Expiry Date"
-                visible={Boolean(expiryDate)}
-                onPress={() => setExpiryDate('')}
-              />
             </>
           ) : isVaccinationRecord ? (
             <>
               <View style={styles.block}>
-                <Text style={styles.label}>Vaccine *</Text>
-                <Pressable
+                <FieldLabel label="Vaccine *" addAccessibilityLabel="Add vaccine" onAddPress={openMedicinesScreen} />
+                <InlineDropdown
                   accessibilityLabel="Select vaccine"
-                  accessibilityRole="button"
-                  onPress={() => {
-                    if (availableTreatments.length === 0) {
-                      openMedicinesScreen();
-                      return;
-                    }
-                    setShowTreatmentPicker(true);
-                  }}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.dateValue, !medicine && styles.placeholderValue]}>
-                    {medicine || (availableTreatments.length === 0 ? 'No vaccines available' : 'Select vaccine')}
-                  </Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
-              </View>
-              <View style={styles.helperLinkRow}>
-                <Pressable
-                  accessibilityLabel="Add vaccine"
-                  accessibilityRole="button"
-                  hitSlop={12}
-                  onPress={openMedicinesScreen}
-                  style={({ pressed }) => [pressed && styles.pressed]}
-                >
-                  <Text style={styles.helperLinkCompact}>+ Add</Text>
-                </Pressable>
-                {medicine ? (
-                  <Pressable
-                    accessibilityLabel="Clear vaccine"
-                    accessibilityRole="button"
-                    hitSlop={12}
-                    onPress={clearTreatment}
-                    style={({ pressed }) => [pressed && styles.pressed]}
-                  >
-                    <Text style={styles.helperLinkCompact}>Clear</Text>
-                  </Pressable>
-                ) : null}
+                  options={treatmentNames}
+                  value={medicine === '' ? null : medicine}
+                  placeholder={availableTreatments.length === 0 ? 'No vaccines available' : 'Select vaccine'}
+                  onSelect={handleTreatmentNameSelect}
+                  onEmptyPress={openMedicinesScreen}
+                  renderLabel={(name) => <TreatmentRowLabel entry={treatmentsByName.get(name)} name={name} />}
+                  onClear={clearTreatment}
+                  clearAccessibilityLabel="Clear vaccine"
+                />
               </View>
               <View style={styles.inlineRow}>
                 <View style={styles.inlineGrow}>
@@ -1615,34 +1625,28 @@ export default function AddRecordScreen() {
                 <View style={styles.inlineUnit}>
                   <View style={styles.block}>
                     <Text style={styles.label}>Unit</Text>
-                    <Pressable
+                    <InlineDropdown
                       accessibilityLabel="Select dose quantity type"
-                      accessibilityRole="button"
-                      onPress={() => setShowDoseUnitPicker(true)}
-                      style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                    >
-                      <Text style={styles.dateValue}>{doseUnit}</Text>
-                      <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                    </Pressable>
+                      options={DOSE_UNITS}
+                      value={doseUnit}
+                      onSelect={setDoseUnit}
+                    />
                   </View>
                 </View>
               </View>
               <View style={styles.block}>
                 <Text style={styles.label}>Route</Text>
-                <Pressable
+                <InlineDropdown
                   accessibilityLabel="Select route"
-                  accessibilityRole="button"
-                  onPress={() => setShowRoutePicker(true)}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={styles.dateValue}>{route}</Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
+                  options={ROUTE_OPTIONS}
+                  value={route}
+                  onSelect={setRoute}
+                />
               </View>
               <View style={styles.inlineRow}>
                 <View style={styles.inlineGrow}>
                   <View style={styles.withdrawalBlock}>
-                    <FieldLabel label="Meat Withdrawal (Days)" onInfoPress={showFieldNote('withdrawal')} />
+                    <FieldLabel label="Meat Withdrawal (Days)" />
                     <View style={styles.withdrawalField}>
                       <TextInput
                         accessibilityLabel="Meat withdrawal days"
@@ -1661,7 +1665,7 @@ export default function AddRecordScreen() {
                 </View>
                 <View style={styles.inlineGrow}>
                   <View style={styles.withdrawalBlock}>
-                    <FieldLabel label="Milk Withdrawal (Days)" onInfoPress={showFieldNote('withdrawal')} />
+                    <FieldLabel label="Milk Withdrawal (Days)" />
                     <View style={styles.withdrawalField}>
                       <TextInput
                         accessibilityLabel="Milk withdrawal days"
@@ -1686,39 +1690,46 @@ export default function AddRecordScreen() {
                 <View style={styles.inlineGrow}>
                   <View style={styles.block}>
                     <Text style={styles.label}>Expiry Date</Text>
-                    <Pressable
-                      accessibilityLabel="Select expiry date"
-                      accessibilityRole="button"
-                      onPress={openExpiryDatePicker}
-                      style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                    >
-                      <Text style={[styles.dateValue, !expiryDate && styles.placeholderValue]}>
-                        {expiryDate ? formatDateForDisplay(expiryDate, profile.dateFormat) : 'Select date'}
-                      </Text>
-                      <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                    </Pressable>
+                    <View style={styles.clearableField}>
+                      <Pressable
+                        accessibilityLabel="Select expiry date"
+                        accessibilityRole="button"
+                        onPress={openExpiryDatePicker}
+                        style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
+                      >
+                        <Text
+                          style={[
+                            styles.dateValue,
+                            !expiryDate && styles.placeholderValue,
+                            expiryDate && styles.clearableFieldValue,
+                          ]}
+                        >
+                          {expiryDate ? formatDateForDisplay(expiryDate, profile.dateFormat) : 'Select date'}
+                        </Text>
+                        <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
+                      </Pressable>
+                      {expiryDate ? (
+                        <FieldClearButton
+                          accessibilityLabel="Clear expiry date"
+                          onPress={() => setExpiryDate('')}
+                          style={styles.customFieldClearButton}
+                        />
+                      ) : null}
+                    </View>
                   </View>
                 </View>
               </View>
-              <ClearLink
-                label="Clear Expiry Date"
-                visible={Boolean(expiryDate)}
-                onPress={() => setExpiryDate('')}
-              />
             </>
           ) : isHealthCheckRecord ? (
             <>
               <View style={styles.block}>
                 <Text style={styles.label}>Health Status *</Text>
-                <Pressable
+                <InlineDropdown
                   accessibilityLabel="Select health status"
-                  accessibilityRole="button"
-                  onPress={() => setShowHealthStatusPicker(true)}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={styles.dateValue}>{healthStatus}</Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
+                  options={HEALTH_STATUSES}
+                  value={healthStatus}
+                  onSelect={setHealthStatus}
+                />
               </View>
               <DesignField
                 value={conditionDiagnosis}
@@ -1761,194 +1772,82 @@ export default function AddRecordScreen() {
           ) : isMovementRecord ? (
             <>
               <View style={styles.block}>
-                <Text style={styles.label}>From Farm *</Text>
-                <Pressable
+                <FieldLabel label="From Farm *" addAccessibilityLabel="Add farm" onAddPress={() => openSetupScreen('/setup-farms', 'fromFarm')} />
+                <InlineDropdown
                   accessibilityLabel="Select from farm"
-                  accessibilityRole="button"
-                  onPress={() => {
-                    if (farms.length === 0) {
-                      openSetupScreen('/setup-farms', 'fromFarm');
-                      return;
-                    }
-
-                    setActiveMovementPicker('fromFarm');
-                  }}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.dateValue, (!fromFarm || farms.length === 0) && styles.placeholderValue]}>
-                    {farms.length === 0
+                  options={farms}
+                  value={fromFarm === '' ? null : fromFarm}
+                  placeholder={
+                    farms.length === 0
                       ? 'No farms available'
-                      : fromFarm || `${farms.length} ${farms.length === 1 ? 'farm' : 'farms'} available`}
-                  </Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
-              </View>
-              <View style={styles.helperLinkRow}>
-                <Pressable
-                  accessibilityLabel="Add farm"
-                  accessibilityRole="button"
-                  hitSlop={12}
-                  onPress={() => openSetupScreen('/setup-farms', 'fromFarm')}
-                  style={({ pressed }) => [pressed && styles.pressed]}
-                >
-                  <Text style={styles.helperLinkCompact}>+ Add</Text>
-                </Pressable>
-                {fromFarm ? (
-                  <Pressable
-                    accessibilityLabel="Clear from farm"
-                    accessibilityRole="button"
-                    hitSlop={12}
-                    onPress={() => {
-                      setFromFarm('');
-                      setFromLocation('');
-                    }}
-                    style={({ pressed }) => [pressed && styles.pressed]}
-                  >
-                    <Text style={styles.helperLinkCompact}>Clear</Text>
-                  </Pressable>
-                ) : null}
+                      : `${farms.length} ${farms.length === 1 ? 'farm' : 'farms'} available`
+                  }
+                  onSelect={(option) => selectMovementFarm(option, fromFarm, setFromFarm, setFromLocation)}
+                  onEmptyPress={() => openSetupScreen('/setup-farms', 'fromFarm')}
+                  onClear={() => {
+                    setFromFarm('');
+                    setFromLocation('');
+                  }}
+                  clearAccessibilityLabel="Clear from farm"
+                />
               </View>
               <View style={styles.block}>
-                <Text style={styles.label}>From Location</Text>
-                <Pressable
+                <FieldLabel label="From Location" addAccessibilityLabel="Add location" onAddPress={() => openSetupScreen('/setup-locations', 'fromLocation')} />
+                <InlineDropdown
                   accessibilityLabel="Select from location"
-                  accessibilityRole="button"
-                  onPress={() => {
-                    if (fromLocationOptions.length === 0) {
-                      openSetupScreen('/setup-locations', 'fromLocation');
-                      return;
-                    }
-
-                    setActiveMovementPicker('fromLocation');
-                  }}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.dateValue, (!fromLocation || fromLocationOptions.length === 0) && styles.placeholderValue]}>
-                    {fromLocationOptions.length === 0
+                  options={fromLocationOptions}
+                  value={fromLocation === '' ? null : fromLocation}
+                  placeholder={
+                    fromLocationOptions.length === 0
                       ? fromFarm
                         ? 'No locations for this farm'
                         : 'No locations available'
-                      : fromLocation || `${fromLocationOptions.length} ${fromLocationOptions.length === 1 ? 'location' : 'locations'} available`}
-                  </Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
-              </View>
-              <View style={styles.helperLinkRow}>
-                <Pressable
-                  accessibilityLabel="Add location"
-                  accessibilityRole="button"
-                  hitSlop={12}
-                  onPress={() => openSetupScreen('/setup-locations', 'fromLocation')}
-                  style={({ pressed }) => [pressed && styles.pressed]}
-                >
-                  <Text style={styles.helperLinkCompact}>+ Add</Text>
-                </Pressable>
-                {fromLocation ? (
-                  <Pressable
-                    accessibilityLabel="Clear from location"
-                    accessibilityRole="button"
-                    hitSlop={12}
-                    onPress={() => setFromLocation('')}
-                    style={({ pressed }) => [pressed && styles.pressed]}
-                  >
-                    <Text style={styles.helperLinkCompact}>Clear</Text>
-                  </Pressable>
-                ) : null}
+                      : `${fromLocationOptions.length} ${fromLocationOptions.length === 1 ? 'location' : 'locations'} available`
+                  }
+                  onSelect={(option) => selectMovementLocation(option, fromFarm, setFromFarm, setFromLocation)}
+                  onEmptyPress={() => openSetupScreen('/setup-locations', 'fromLocation')}
+                  onClear={() => setFromLocation('')}
+                  clearAccessibilityLabel="Clear from location"
+                />
               </View>
               <View style={styles.block}>
-                <Text style={styles.label}>To Farm *</Text>
-                <Pressable
+                <FieldLabel label="To Farm *" addAccessibilityLabel="Add farm" onAddPress={() => openSetupScreen('/setup-farms', 'toFarm')} />
+                <InlineDropdown
                   accessibilityLabel="Select to farm"
-                  accessibilityRole="button"
-                  onPress={() => {
-                    if (farms.length === 0) {
-                      openSetupScreen('/setup-farms', 'toFarm');
-                      return;
-                    }
-
-                    setActiveMovementPicker('toFarm');
-                  }}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.dateValue, (!toFarm || farms.length === 0) && styles.placeholderValue]}>
-                    {farms.length === 0
+                  options={farms}
+                  value={toFarm === '' ? null : toFarm}
+                  placeholder={
+                    farms.length === 0
                       ? 'No farms available'
-                      : toFarm || `${farms.length} ${farms.length === 1 ? 'farm' : 'farms'} available`}
-                  </Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
-              </View>
-              <View style={styles.helperLinkRow}>
-                <Pressable
-                  accessibilityLabel="Add farm"
-                  accessibilityRole="button"
-                  hitSlop={12}
-                  onPress={() => openSetupScreen('/setup-farms', 'toFarm')}
-                  style={({ pressed }) => [pressed && styles.pressed]}
-                >
-                  <Text style={styles.helperLinkCompact}>+ Add</Text>
-                </Pressable>
-                {toFarm ? (
-                  <Pressable
-                    accessibilityLabel="Clear to farm"
-                    accessibilityRole="button"
-                    hitSlop={12}
-                    onPress={() => {
-                      setToFarm('');
-                      setToLocation('');
-                    }}
-                    style={({ pressed }) => [pressed && styles.pressed]}
-                  >
-                    <Text style={styles.helperLinkCompact}>Clear</Text>
-                  </Pressable>
-                ) : null}
+                      : `${farms.length} ${farms.length === 1 ? 'farm' : 'farms'} available`
+                  }
+                  onSelect={(option) => selectMovementFarm(option, toFarm, setToFarm, setToLocation)}
+                  onEmptyPress={() => openSetupScreen('/setup-farms', 'toFarm')}
+                  onClear={() => {
+                    setToFarm('');
+                    setToLocation('');
+                  }}
+                  clearAccessibilityLabel="Clear to farm"
+                />
               </View>
               <View style={styles.block}>
-                <Text style={styles.label}>To Location</Text>
-                <Pressable
+                <FieldLabel label="To Location" addAccessibilityLabel="Add location" onAddPress={() => openSetupScreen('/setup-locations', 'toLocation')} />
+                <InlineDropdown
                   accessibilityLabel="Select to location"
-                  accessibilityRole="button"
-                  onPress={() => {
-                    if (toLocationOptions.length === 0) {
-                      openSetupScreen('/setup-locations', 'toLocation');
-                      return;
-                    }
-
-                    setActiveMovementPicker('toLocation');
-                  }}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.dateValue, (!toLocation || toLocationOptions.length === 0) && styles.placeholderValue]}>
-                    {toLocationOptions.length === 0
+                  options={toLocationOptions}
+                  value={toLocation === '' ? null : toLocation}
+                  placeholder={
+                    toLocationOptions.length === 0
                       ? toFarm
                         ? 'No locations for this farm'
                         : 'No locations available'
-                      : toLocation || `${toLocationOptions.length} ${toLocationOptions.length === 1 ? 'location' : 'locations'} available`}
-                  </Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
-              </View>
-              <View style={styles.helperLinkRow}>
-                <Pressable
-                  accessibilityLabel="Add location"
-                  accessibilityRole="button"
-                  hitSlop={12}
-                  onPress={() => openSetupScreen('/setup-locations', 'toLocation')}
-                  style={({ pressed }) => [pressed && styles.pressed]}
-                >
-                  <Text style={styles.helperLinkCompact}>+ Add</Text>
-                </Pressable>
-                {toLocation ? (
-                  <Pressable
-                    accessibilityLabel="Clear to location"
-                    accessibilityRole="button"
-                    hitSlop={12}
-                    onPress={() => setToLocation('')}
-                    style={({ pressed }) => [pressed && styles.pressed]}
-                  >
-                    <Text style={styles.helperLinkCompact}>Clear</Text>
-                  </Pressable>
-                ) : null}
+                      : `${toLocationOptions.length} ${toLocationOptions.length === 1 ? 'location' : 'locations'} available`
+                  }
+                  onSelect={(option) => selectMovementLocation(option, toFarm, setToFarm, setToLocation)}
+                  onEmptyPress={() => openSetupScreen('/setup-locations', 'toLocation')}
+                  onClear={() => setToLocation('')}
+                  clearAccessibilityLabel="Clear to location"
+                />
               </View>
             </>
           ) : isWeightRecord ? (
@@ -1960,15 +1859,12 @@ export default function AddRecordScreen() {
                 <View style={styles.inlineUnit}>
                   <View style={styles.block}>
                     <Text style={styles.label}>Unit *</Text>
-                    <Pressable
+                    <InlineDropdown
                       accessibilityLabel="Select weight unit"
-                      accessibilityRole="button"
-                      onPress={() => setShowWeightUnitPicker(true)}
-                      style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                    >
-                      <Text style={styles.dateValue}>{weightUnit}</Text>
-                      <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                    </Pressable>
+                      options={WEIGHT_UNITS}
+                      value={weightUnit}
+                      onSelect={setWeightUnit}
+                    />
                   </View>
                 </View>
               </View>
@@ -1977,42 +1873,28 @@ export default function AddRecordScreen() {
             <>
               <View style={styles.block}>
                 <Text style={styles.label}>Cause of Death</Text>
-                <Pressable
+                <InlineDropdown
                   accessibilityLabel="Select cause of death"
-                  accessibilityRole="button"
-                  onPress={() => setShowCauseOfDeathPicker(true)}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.dateValue, !causeOfDeath && styles.placeholderValue]}>
-                    {causeOfDeath || 'Select cause of death'}
-                  </Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
+                  options={CAUSE_OF_DEATH_OPTIONS}
+                  value={causeOfDeath === '' ? null : causeOfDeath}
+                  placeholder="Select cause of death"
+                  onSelect={setCauseOfDeath}
+                  onClear={() => setCauseOfDeath('')}
+                  clearAccessibilityLabel="Clear cause of death"
+                />
               </View>
-              <ClearLink
-                label="Clear Cause"
-                visible={Boolean(causeOfDeath)}
-                onPress={() => setCauseOfDeath('')}
-              />
               <View style={styles.block}>
                 <Text style={styles.label}>Disposal Method</Text>
-                <Pressable
+                <InlineDropdown
                   accessibilityLabel="Select disposal method"
-                  accessibilityRole="button"
-                  onPress={() => setShowDisposalMethodPicker(true)}
-                  style={({ pressed }) => [styles.dateField, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.dateValue, !disposalMethod && styles.placeholderValue]}>
-                    {disposalMethod || 'Select disposal method'}
-                  </Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
+                  options={DISPOSAL_METHOD_OPTIONS}
+                  value={disposalMethod === '' ? null : disposalMethod}
+                  placeholder="Select disposal method"
+                  onSelect={setDisposalMethod}
+                  onClear={() => setDisposalMethod('')}
+                  clearAccessibilityLabel="Clear disposal method"
+                />
               </View>
-              <ClearLink
-                label="Clear Method"
-                visible={Boolean(disposalMethod)}
-                onPress={() => setDisposalMethod('')}
-              />
             </>
           ) : isOtherRecord ? (
             <>
@@ -2220,313 +2102,6 @@ export default function AddRecordScreen() {
       <Modal
         animationType="none"
         transparent
-        visible={showDoseUnitPicker}
-        onRequestClose={() => setShowDoseUnitPicker(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowDoseUnitPicker(false)}>
-          <AnimatedPopupCard visible={showDoseUnitPicker} style={styles.selectionCard} onPress={() => undefined}>
-            <Text style={styles.selectionTitle}>Select quantity</Text>
-            {DOSE_UNITS.map((unit) => (
-              <Pressable
-                key={unit}
-                accessibilityLabel={unit}
-                accessibilityRole="button"
-                onPress={() => {
-                  setDoseUnit(unit);
-                  setShowDoseUnitPicker(false);
-                }}
-                style={({ pressed }) => [
-                  styles.selectionRow,
-                  unit === doseUnit && styles.selectionRowActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.selectionText,
-                    unit === doseUnit && styles.selectionTextActive,
-                  ]}
-                >
-                  {unit}
-                </Text>
-                {unit === doseUnit ? <AppIcon name="check" size={16} color="#fff" /> : null}
-              </Pressable>
-            ))}
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="none"
-        transparent
-        visible={showHealthStatusPicker}
-        onRequestClose={() => setShowHealthStatusPicker(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowHealthStatusPicker(false)}>
-          <AnimatedPopupCard visible={showHealthStatusPicker} style={styles.selectionCard} onPress={() => undefined}>
-            <Text style={styles.selectionTitle}>Select health status</Text>
-            {HEALTH_STATUSES.map((status) => (
-              <Pressable
-                key={status}
-                accessibilityLabel={status}
-                accessibilityRole="button"
-                onPress={() => {
-                  setHealthStatus(status);
-                  setShowHealthStatusPicker(false);
-                }}
-                style={({ pressed }) => [
-                  styles.selectionRow,
-                  status === healthStatus && styles.selectionRowActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.selectionText,
-                    status === healthStatus && styles.selectionTextActive,
-                  ]}
-                >
-                  {status}
-                </Text>
-                {status === healthStatus ? <AppIcon name="check" size={16} color="#fff" /> : null}
-              </Pressable>
-            ))}
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="none"
-        transparent
-        visible={showWeightUnitPicker}
-        onRequestClose={() => setShowWeightUnitPicker(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowWeightUnitPicker(false)}>
-          <AnimatedPopupCard visible={showWeightUnitPicker} style={styles.selectionCard} onPress={() => undefined}>
-            <Text style={styles.selectionTitle}>Select unit</Text>
-            {WEIGHT_UNITS.map((unit) => (
-              <Pressable
-                key={unit}
-                accessibilityLabel={unit}
-                accessibilityRole="button"
-                onPress={() => {
-                  setWeightUnit(unit);
-                  setShowWeightUnitPicker(false);
-                }}
-                style={({ pressed }) => [
-                  styles.selectionRow,
-                  unit === weightUnit && styles.selectionRowActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.selectionText,
-                    unit === weightUnit && styles.selectionTextActive,
-                  ]}
-                >
-                  {unit}
-                </Text>
-                {unit === weightUnit ? <AppIcon name="check" size={16} color="#fff" /> : null}
-              </Pressable>
-            ))}
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="none"
-        transparent
-        visible={showBirthWeightUnitPicker}
-        onRequestClose={() => setShowBirthWeightUnitPicker(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowBirthWeightUnitPicker(false)}>
-          <AnimatedPopupCard visible={showBirthWeightUnitPicker} style={styles.selectionCard} onPress={() => undefined}>
-            <Text style={styles.selectionTitle}>Select unit</Text>
-            {WEIGHT_UNITS.map((unit) => (
-              <Pressable
-                key={unit}
-                accessibilityLabel={unit}
-                accessibilityRole="button"
-                onPress={() => {
-                  setBirthWeightUnit(unit);
-                  setShowBirthWeightUnitPicker(false);
-                }}
-                style={({ pressed }) => [
-                  styles.selectionRow,
-                  unit === birthWeightUnit && styles.selectionRowActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.selectionText,
-                    unit === birthWeightUnit && styles.selectionTextActive,
-                  ]}
-                >
-                  {unit}
-                </Text>
-                {unit === birthWeightUnit ? <AppIcon name="check" size={16} color="#fff" /> : null}
-              </Pressable>
-            ))}
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="none"
-        transparent
-        visible={showTreatmentPicker}
-        onRequestClose={() => setShowTreatmentPicker(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowTreatmentPicker(false)}>
-          <AnimatedPopupCard visible={showTreatmentPicker} style={styles.selectionCard} onPress={() => undefined}>
-            <Text style={styles.selectionTitle}>{isVaccinationRecord ? 'Select vaccine' : 'Select medicine'}</Text>
-            {availableTreatments.map((entry) => (
-              <Pressable
-                key={`${entry.treatmentType}-${entry.name}`}
-                accessibilityLabel={entry.name}
-                accessibilityRole="button"
-                onPress={() => handleTreatmentSelect(entry)}
-                style={({ pressed }) => [
-                  styles.selectionRow,
-                  entry.name === medicine && styles.selectionRowActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={styles.selectionCopy}>
-                  <Text style={[styles.selectionText, entry.name === medicine && styles.selectionTextActive]}>{entry.name}</Text>
-                  <Text style={styles.selectionSubtext}>
-                    {entry.defaultDose ? `${entry.defaultDose} ${entry.doseUnit}` : entry.activeIngredient || (entry.treatmentType === 'vaccine' ? 'Vaccine' : 'Medicine')}
-                  </Text>
-                </View>
-                {entry.name === medicine ? <AppIcon name="check" size={16} color="#fff" /> : null}
-              </Pressable>
-            ))}
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="none"
-        transparent
-        visible={showRoutePicker}
-        onRequestClose={() => setShowRoutePicker(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowRoutePicker(false)}>
-          <AnimatedPopupCard visible={showRoutePicker} style={styles.selectionCard} onPress={() => undefined}>
-            <Text style={styles.selectionTitle}>Select route</Text>
-            {ROUTE_OPTIONS.map((option) => (
-              <Pressable
-                key={option}
-                accessibilityLabel={option}
-                accessibilityRole="button"
-                onPress={() => {
-                  setRoute(option);
-                  setShowRoutePicker(false);
-                }}
-                style={({ pressed }) => [
-                  styles.selectionRow,
-                  option === route && styles.selectionRowActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.selectionText,
-                    option === route && styles.selectionTextActive,
-                  ]}
-                >
-                  {option}
-                </Text>
-                {option === route ? <AppIcon name="check" size={16} color="#fff" /> : null}
-              </Pressable>
-            ))}
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="none"
-        transparent
-        visible={showDisposalMethodPicker}
-        onRequestClose={() => setShowDisposalMethodPicker(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowDisposalMethodPicker(false)}>
-          <AnimatedPopupCard visible={showDisposalMethodPicker} style={styles.selectionCard} onPress={() => undefined}>
-            <Text style={styles.selectionTitle}>Select disposal method</Text>
-            {DISPOSAL_METHOD_OPTIONS.map((option) => (
-              <Pressable
-                key={option}
-                accessibilityLabel={option}
-                accessibilityRole="button"
-                onPress={() => {
-                  setDisposalMethod(option);
-                  setShowDisposalMethodPicker(false);
-                }}
-                style={({ pressed }) => [
-                  styles.selectionRow,
-                  option === disposalMethod && styles.selectionRowActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.selectionText,
-                    option === disposalMethod && styles.selectionTextActive,
-                  ]}
-                >
-                  {option}
-                </Text>
-                {option === disposalMethod ? <AppIcon name="check" size={16} color="#fff" /> : null}
-              </Pressable>
-            ))}
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="none"
-        transparent
-        visible={showCauseOfDeathPicker}
-        onRequestClose={() => setShowCauseOfDeathPicker(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowCauseOfDeathPicker(false)}>
-          <AnimatedPopupCard visible={showCauseOfDeathPicker} style={styles.selectionCard} onPress={() => undefined}>
-            <Text style={styles.selectionTitle}>Select cause of death</Text>
-            {CAUSE_OF_DEATH_OPTIONS.map((option) => (
-              <Pressable
-                key={option}
-                accessibilityLabel={option}
-                accessibilityRole="button"
-                onPress={() => {
-                  setCauseOfDeath(option);
-                  setShowCauseOfDeathPicker(false);
-                }}
-                style={({ pressed }) => [
-                  styles.selectionRow,
-                  option === causeOfDeath && styles.selectionRowActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.selectionText,
-                    option === causeOfDeath && styles.selectionTextActive,
-                  ]}
-                >
-                  {option}
-                </Text>
-                {option === causeOfDeath ? <AppIcon name="check" size={16} color="#fff" /> : null}
-              </Pressable>
-            ))}
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="none"
-        transparent
         visible={showBirthSpeciesPicker}
         onRequestClose={() => setShowBirthSpeciesPicker(false)}
       >
@@ -2577,88 +2152,6 @@ export default function AddRecordScreen() {
                 })()
               ))}
             </ScrollView>
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="none"
-        transparent
-        visible={activeMovementPicker !== null}
-        onRequestClose={() => setActiveMovementPicker(null)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setActiveMovementPicker(null)}>
-          <AnimatedPopupCard visible={activeMovementPicker !== null} style={styles.selectionCard} onPress={() => undefined}>
-            <Text style={styles.selectionTitle}>{getMovementPickerTitle(activeMovementPicker)}</Text>
-            {getMovementPickerOptions(activeMovementPicker, farms, fromLocationOptions, toLocationOptions).map((option) => {
-              const activeValue = getMovementPickerValue(
-                activeMovementPicker,
-                fromFarm,
-                fromLocation,
-                toFarm,
-                toLocation,
-              );
-
-              return (
-                <Pressable
-                  key={option}
-                  accessibilityLabel={option}
-                  accessibilityRole="button"
-                  onPress={() => {
-                    // A farm with exactly one location has no real choice to
-                    // make, so fill it in — still fully editable/clearable
-                    // afterward if that's not what the user wants.
-                    if (activeMovementPicker === 'fromFarm' && !equalsIgnoreCase(option, fromFarm)) {
-                      const matchingLocations = locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
-                      setFromLocation(matchingLocations.length === 1 ? matchingLocations[0].name : '');
-                    }
-                    if (activeMovementPicker === 'toFarm' && !equalsIgnoreCase(option, toFarm)) {
-                      const matchingLocations = locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
-                      setToLocation(matchingLocations.length === 1 ? matchingLocations[0].name : '');
-                    }
-                    // Picking a location before its farm (the location list is
-                    // unfiltered until a farm is chosen) shouldn't leave the
-                    // farm blank or mismatched — fill it in to match.
-                    if (activeMovementPicker === 'fromLocation') {
-                      const matchedFarm = locationEntities.find((entry) => equalsIgnoreCase(entry.name, option))?.farm;
-                      if (matchedFarm && !equalsIgnoreCase(matchedFarm, fromFarm)) {
-                        setFromFarm(matchedFarm);
-                      }
-                    }
-                    if (activeMovementPicker === 'toLocation') {
-                      const matchedFarm = locationEntities.find((entry) => equalsIgnoreCase(entry.name, option))?.farm;
-                      if (matchedFarm && !equalsIgnoreCase(matchedFarm, toFarm)) {
-                        setToFarm(matchedFarm);
-                      }
-                    }
-                    applyMovementSelection(
-                      activeMovementPicker,
-                      option,
-                      setFromFarm,
-                      setFromLocation,
-                      setToFarm,
-                      setToLocation,
-                    );
-                    setActiveMovementPicker(null);
-                  }}
-                  style={({ pressed }) => [
-                    styles.selectionRow,
-                    option === activeValue && styles.selectionRowActive,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.selectionText,
-                      option === activeValue && styles.selectionTextActive,
-                    ]}
-                  >
-                    {option}
-                  </Text>
-                  {option === activeValue ? <AppIcon name="check" size={16} color="#fff" /> : null}
-                </Pressable>
-              );
-            })}
           </AnimatedPopupCard>
         </Pressable>
       </Modal>
@@ -2790,21 +2283,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  clearableField: {
+    position: 'relative',
+  },
+  clearableFieldValue: {
+    paddingRight: 32,
+  },
+  customFieldClearButton: {
+    position: 'absolute',
+    right: 34,
+    top: 8,
+    zIndex: 1,
+    elevation: 1,
+  },
   placeholderValue: {
     color: '#7a7a7a',
-  },
-  helperLinkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginTop: -10,
-    marginBottom: 4,
-  },
-  helperLinkCompact: {
-    color: tokens.colors.accent,
-    fontSize: 13,
-    fontWeight: '700',
   },
   helperText: {
     color: tokens.colors.textSoft,
@@ -3177,35 +2670,22 @@ function formatMovementPlace(farm: string, location: string) {
   return [farm.trim(), location.trim()].filter(Boolean).join(' / ');
 }
 
-function getMovementPickerTitle(picker: MovementPickerKey | null) {
-  switch (picker) {
-    case 'fromFarm':
-      return 'Select from farm';
-    case 'fromLocation':
-      return 'Select from location';
-    case 'toFarm':
-      return 'Select to farm';
-    case 'toLocation':
-      return 'Select to location';
-    default:
-      return 'Select option';
-  }
-}
-
-function getMovementPickerOptions(
-  picker: MovementPickerKey | null,
-  farms: string[],
-  fromLocations: string[],
-  toLocations: string[],
-) {
-  if (picker === 'fromFarm' || picker === 'toFarm') {
-    return farms;
-  }
-
-  if (picker === 'fromLocation') return fromLocations;
-  if (picker === 'toLocation') return toLocations;
-
-  return [];
+// A treatment reads as its name over the dose or ingredient behind it — the
+// same two lines the old picker sheet showed, so choosing between two similar
+// products still takes one look.
+function TreatmentRowLabel({ entry, name }: { entry?: MedicineEntity; name: string }) {
+  return (
+    <View style={styles.selectionCopy}>
+      <Text style={styles.selectionText}>{name}</Text>
+      {entry ? (
+        <Text style={styles.selectionSubtext}>
+          {entry.defaultDose
+            ? `${entry.defaultDose} ${entry.doseUnit}`
+            : entry.activeIngredient || (entry.treatmentType === 'vaccine' ? 'Vaccine' : 'Medicine')}
+        </Text>
+      ) : null}
+    </View>
+  );
 }
 
 function formatImpactLine(change: RecordImpactChange) {
@@ -3238,52 +2718,6 @@ function formatAnimalReferences(animals: Array<{ id: string; name: string }>) {
 
   return `${references.slice(0, 3).join(', ')} and ${references.length - 3} more`;
 }
-
-function getMovementPickerValue(
-  picker: MovementPickerKey | null,
-  fromFarm: string,
-  fromLocation: string,
-  toFarm: string,
-  toLocation: string,
-) {
-  switch (picker) {
-    case 'fromFarm':
-      return fromFarm;
-    case 'fromLocation':
-      return fromLocation;
-    case 'toFarm':
-      return toFarm;
-    case 'toLocation':
-      return toLocation;
-    default:
-      return '';
-  }
-}
-
-function applyMovementSelection(
-  picker: MovementPickerKey | null,
-  value: string,
-  setFromFarm: (value: string) => void,
-  setFromLocation: (value: string) => void,
-  setToFarm: (value: string) => void,
-  setToLocation: (value: string) => void,
-) {
-  switch (picker) {
-    case 'fromFarm':
-      setFromFarm(value);
-      break;
-    case 'fromLocation':
-      setFromLocation(value);
-      break;
-    case 'toFarm':
-      setToFarm(value);
-      break;
-    case 'toLocation':
-      setToLocation(value);
-      break;
-  }
-}
-
 
 type DraftRecordState = {
   selectedDateIso: string;
@@ -3734,35 +3168,6 @@ type BinaryOptionProps = {
   active: boolean;
   onPress: () => void;
 };
-
-/**
- * The Clear link under an optional dropdown. A picker can be re-picked but not
- * un-picked, so anything that may legitimately be left blank needs a way back
- * to blank. Dropdowns that always carry a value (units, route, status) have
- * nothing to clear and get none.
- */
-function ClearLink({ label, visible, onPress }: { label: string; visible: boolean; onPress: () => void }) {
-  if (!visible) {
-    return null;
-  }
-
-  return (
-    <View style={styles.helperLinkRow}>
-      <Pressable
-        accessibilityLabel={label}
-        accessibilityRole="button"
-        hitSlop={12}
-        onPress={onPress}
-        style={({ pressed }) => [pressed && styles.pressed]}
-      >
-        {/* The field above says what is being cleared, so the link only has to
-            say the verb. `label` still carries the full phrase for screen
-            readers, which have no such context. */}
-        <Text style={styles.helperLinkCompact}>Clear</Text>
-      </Pressable>
-    </View>
-  );
-}
 
 function BinaryOption({ label, active, onPress }: BinaryOptionProps) {
   return (

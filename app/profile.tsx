@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
 import { InfoModal } from '../src/components/InfoModal';
+import { InlineDropdown } from '../src/components/InlineDropdown';
 import { COUNTRY_OPTIONS, INDUSTRY_OPTIONS, getCountryFlag } from '../src/entities/account';
 import { useAccount } from '../src/context/AccountContext';
 import { useSubscription } from '../src/context/SubscriptionContext';
@@ -25,26 +26,28 @@ export default function ProfileScreen() {
   const { profile, isLoaded, updateField } = useAccount();
   const { customerInfo, isPro, loading: subscriptionLoading } = useSubscription();
   const [showCountryModal, setShowCountryModal] = useState(false);
-  const [showIndustryModal, setShowIndustryModal] = useState(false);
   const [showBrandingInfo, setShowBrandingInfo] = useState(false);
   const [countrySearchQuery, setCountrySearchQuery] = useState('');
-  const [customIndustry, setCustomIndustry] = useState('');
 
-  useEffect(() => {
-    if (!showIndustryModal) {
-      setCustomIndustry('');
-      return;
-    }
-
-    if (INDUSTRY_OPTIONS.includes(profile.industry as (typeof INDUSTRY_OPTIONS)[number])) {
-      setCustomIndustry('');
-      return;
-    }
-
-    setCustomIndustry(profile.industry);
-  }, [profile.industry, showIndustryModal]);
+  // A typed industry is stored verbatim, so anything not in the preset list is
+  // one — it reads back as Other with the wording kept in the field below.
+  // Picking Other itself stores 'Other' until something is typed over it, which
+  // is what keeps the field showing while it is still empty.
+  const isTypedIndustry =
+    profile.industry !== '' &&
+    !INDUSTRY_OPTIONS.includes(profile.industry as (typeof INDUSTRY_OPTIONS)[number]);
+  const industrySelection = isTypedIndustry ? 'Other' : profile.industry === '' ? null : profile.industry;
 
   const logoUri = filterAccessibleImageUris([profile.businessLogoUri])[0];
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/account');
+  };
+
 
   const handleAddLogo = async () => {
     // No permission request before launching. launchImageLibraryAsync presents
@@ -95,7 +98,7 @@ export default function ProfileScreen() {
           leftAction={{
             icon: 'back',
             accessibilityLabel: 'Back',
-            onPress: () => router.back(),
+            onPress: handleBack,
           }}
         />
         <View style={styles.loadingWrap}>
@@ -135,7 +138,7 @@ export default function ProfileScreen() {
         leftAction={{
           icon: 'back',
           accessibilityLabel: 'Back',
-          onPress: () => router.back(),
+          onPress: handleBack,
         }}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -159,24 +162,33 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Personal details</Text>
           <DesignField
             label="Name"
-            value={profile.name}
+            value={profile.name.trim() ? profile.name : ''}
+            placeholder="Enter your name"
             onChangeText={(value) => updateField('name', value)}
             fieldStyle={styles.formField}
           />
           <View style={styles.block}>
             <Text style={styles.optionLabel}>Industry</Text>
-            <Pressable
+            <InlineDropdown
               accessibilityLabel="Select industry"
-              accessibilityRole="button"
-              onPress={() => setShowIndustryModal(true)}
-              style={({ pressed }) => [styles.selectField, pressed && styles.pressed]}
-            >
-              <Text style={[styles.selectValue, !profile.industry && styles.placeholderValue]}>
-                {profile.industry || 'Select industry'}
-              </Text>
-              <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-            </Pressable>
+              options={INDUSTRY_OPTIONS}
+              value={industrySelection}
+              placeholder="Select industry"
+              onSelect={(option) => updateField('industry', option)}
+              fieldStyle={styles.selectField}
+            />
           </View>
+          {industrySelection === 'Other' ? (
+            <DesignField
+              label="Your industry"
+              value={isTypedIndustry ? profile.industry : ''}
+              placeholder="Type your industry"
+              onChangeText={(value) =>
+                updateField('industry', (value.trim() ? value : 'Other') as typeof profile.industry)
+              }
+              fieldStyle={styles.formField}
+            />
+          ) : null}
           <View style={styles.block}>
             <Text style={styles.optionLabel}>Country</Text>
             <Pressable
@@ -209,13 +221,15 @@ export default function ProfileScreen() {
           </View>
           <DesignField
             label="Business / Farm name"
-            value={profile.businessName ?? ''}
+            value={profile.businessName?.trim() ? profile.businessName : ''}
+            placeholder="Enter business or farm name"
             onChangeText={(value) => updateField('businessName', value)}
             fieldStyle={styles.formField}
           />
           <DesignField
             label="Address"
-            value={profile.businessAddress ?? ''}
+            value={profile.businessAddress?.trim() ? profile.businessAddress : ''}
+            placeholder="Enter business or farm address"
             onChangeText={(value) => updateField('businessAddress', value)}
             fieldStyle={styles.formField}
             large
@@ -306,97 +320,6 @@ export default function ProfileScreen() {
                     {`${getCountryFlag(option)} ${option}`.trim()}
                   </Text>
                   {profile.country === option ? <AppIcon name="check" size={18} color={tokens.colors.accentDeep} /> : null}
-                </Pressable>
-              ))}
-            </ScrollView>
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
-
-      <Modal transparent animationType="none" visible={showIndustryModal} onRequestClose={() => setShowIndustryModal(false)}>
-        <Pressable style={styles.overlay} onPress={() => setShowIndustryModal(false)}>
-          <AnimatedPopupCard visible={showIndustryModal} style={styles.selectionSheet} onPress={() => undefined}>
-            <Text style={styles.selectionTitle}>Select industry</Text>
-            <ScrollView
-              style={styles.selectionScroll}
-              contentContainerStyle={styles.selectionScrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.selectionCustomBlock}>
-                <DesignField
-                  label="Type your industry"
-                  value={customIndustry}
-                  onChangeText={setCustomIndustry}
-                  fieldStyle={styles.formField}
-                />
-                <Pressable
-                  accessibilityLabel="Use typed industry"
-                  accessibilityRole="button"
-                  disabled={customIndustry.trim().length === 0}
-                  onPress={() => {
-                    const nextIndustry = customIndustry.trim();
-
-                    if (!nextIndustry) {
-                      return;
-                    }
-
-                    updateField('industry', nextIndustry as typeof profile.industry);
-                    setShowIndustryModal(false);
-                  }}
-                  style={({ pressed }) => [
-                    styles.selectionCustomButton,
-                    customIndustry.trim().length === 0 && styles.selectionCustomButtonDisabled,
-                    pressed && customIndustry.trim().length > 0 && styles.pressed,
-                  ]}
-                >
-                  <Text style={styles.selectionCustomButtonText}>Use typed industry</Text>
-                </Pressable>
-              </View>
-              <Pressable
-                accessibilityLabel="Select industry"
-                accessibilityRole="button"
-                onPress={() => {
-                  updateField('industry', '');
-                  setShowIndustryModal(false);
-                }}
-                style={[
-                  styles.selectionRow,
-                  profile.industry === '' && styles.selectionRowActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.selectionText,
-                    profile.industry === '' && styles.selectionTextActive,
-                  ]}
-                >
-                  Select industry
-                </Text>
-                {profile.industry === '' ? <AppIcon name="check" size={18} color={tokens.colors.accentDeep} /> : null}
-              </Pressable>
-              {INDUSTRY_OPTIONS.map((option) => (
-                <Pressable
-                  key={option}
-                  accessibilityLabel={option}
-                  accessibilityRole="button"
-                  onPress={() => {
-                    updateField('industry', option);
-                    setShowIndustryModal(false);
-                  }}
-                  style={[
-                    styles.selectionRow,
-                    profile.industry === option && styles.selectionRowActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.selectionText,
-                      profile.industry === option && styles.selectionTextActive,
-                    ]}
-                  >
-                    {option}
-                  </Text>
-                  {profile.industry === option ? <AppIcon name="check" size={18} color={tokens.colors.accentDeep} /> : null}
                 </Pressable>
               ))}
             </ScrollView>
@@ -569,26 +492,6 @@ const styles = StyleSheet.create({
   },
   selectionSearchBlock: {
     marginBottom: 6,
-  },
-  selectionCustomBlock: {
-    gap: 10,
-    marginBottom: 6,
-  },
-  selectionCustomButton: {
-    minHeight: 46,
-    borderRadius: 23,
-    backgroundColor: tokens.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  selectionCustomButtonDisabled: {
-    opacity: 0.45,
-  },
-  selectionCustomButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
   },
   selectionRow: {
     minHeight: 46,

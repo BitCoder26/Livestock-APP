@@ -6,15 +6,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
 import { AppTopBar } from '../src/components/AppTopBar';
-import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
+import { InlineDropdown } from '../src/components/InlineDropdown';
 import { InfoModal } from '../src/components/InfoModal';
 import { useAnimals } from '../src/context/AnimalsContext';
 import { useSetup } from '../src/context/SetupContext';
 import { tokens } from '../src/theme/tokens';
-
-type PickerKey = 'farm' | null;
 
 export default function SetupLocationsScreen() {
   const router = useRouter();
@@ -31,7 +29,6 @@ export default function SetupLocationsScreen() {
   const [name, setName] = useState('');
   const [farm, setFarm] = useState('');
   const [notes, setNotes] = useState('');
-  const [activePicker, setActivePicker] = useState<PickerKey>(null);
   const [locationPendingDelete, setLocationPendingDelete] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [editingLocationUid, setEditingLocationUid] = useState<string | null>(null);
@@ -112,8 +109,6 @@ export default function SetupLocationsScreen() {
     }
   };
 
-  const pickerOptions = activePicker === 'farm' ? farms : [];
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
@@ -131,14 +126,18 @@ export default function SetupLocationsScreen() {
         <View style={styles.editorCard}>
           <Text style={styles.sectionLabel}>{isEditingLocation ? 'Edit location' : 'Locations'}</Text>
 
-          <DesignField value={name} label="Location name *" onChangeText={setName} />
-          <SelectionField
-            label="Farm *"
-            value={farm}
-            emptyLabel={farms.length === 0 ? 'No farms available' : 'Select farm'}
-            onPress={() => setActivePicker('farm')}
-          />
-          <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
+          <DesignField value={name} label="Location name *" placeholder="e.g. North paddock" onChangeText={setName} />
+          <View style={styles.block}>
+            <Text style={styles.label}>Farm *</Text>
+            <InlineDropdown
+              accessibilityLabel="Farm *"
+              options={farms}
+              value={farm === '' ? null : farm}
+              placeholder={farms.length === 0 ? 'No farms available' : 'Select farm'}
+              onSelect={setFarm}
+            />
+          </View>
+          <DesignField value={notes} label="Notes" placeholder="Add notes about this location" large onChangeText={setNotes} />
 
           <View style={styles.editorActionsRow}>
             <BouncyPressable
@@ -223,34 +222,6 @@ export default function SetupLocationsScreen() {
         </Pressable>
       </Modal>
 
-      <Modal transparent animationType="none" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
-          <AnimatedPopupCard visible={activePicker !== null} style={styles.selectionCard} onPress={() => {}}>
-            <Text style={styles.selectionTitle}>Select farm</Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.modalList}>
-                {pickerOptions.map((option) => {
-                  const isSelected = farm === option;
-                  return (
-                    <Pressable
-                      key={option}
-                      accessibilityRole="button"
-                      onPress={() => {
-                        setFarm(option);
-                        setActivePicker(null);
-                      }}
-                      style={({ pressed }) => [styles.selectionRow, isSelected && styles.selectionRowActive, pressed && styles.pressed]}
-                    >
-                      <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{option}</Text>
-                      {isSelected ? <AppIcon name="check" size={16} color="#fff" /> : null}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </ScrollView>
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
       <InfoModal
         visible={showHelp}
         onClose={() => setShowHelp(false)}
@@ -258,28 +229,6 @@ export default function SetupLocationsScreen() {
         description="The fields or enclosures within a farm. Use locations to track where animals are kept or grazing and filter records by location."
       />
     </SafeAreaView>
-  );
-}
-
-function SelectionField({
-  label,
-  value,
-  emptyLabel,
-  onPress,
-}: {
-  label: string;
-  value: string;
-  emptyLabel: string;
-  onPress: () => void;
-}) {
-  return (
-    <View style={styles.block}>
-      <Text style={styles.label}>{label}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.dateField}>
-        <Text style={[styles.dateValue, !value && styles.placeholderValue]}>{value || emptyLabel}</Text>
-        <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-      </Pressable>
-    </View>
   );
 }
 
@@ -295,17 +244,6 @@ const styles = StyleSheet.create({
   sectionLabel: { color: tokens.colors.text, fontSize: 16, fontWeight: '700' },
   block: { gap: 8 },
   label: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
-  dateField: {
-    minHeight: 48,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dateValue: { color: '#2b2b2b', fontSize: 13, fontWeight: '500', flex: 1, paddingRight: 10 },
-  placeholderValue: { color: '#7a7a7a' },
   addButton: {
     marginTop: 4,
     minHeight: 50,
@@ -442,29 +380,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.28)', justifyContent: 'flex-end' },
-  selectionCard: {
-    marginHorizontal: 18,
-    marginBottom: 28,
-    borderRadius: 26,
-    backgroundColor: '#fff',
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    gap: 8,
-  },
-  selectionTitle: { color: tokens.colors.text, fontSize: 18, fontWeight: '700', marginBottom: 4 },
-  modalList: { gap: 8 },
-  selectionRow: {
-    minHeight: 46,
-    borderRadius: 18,
-    backgroundColor: '#EFECF0',
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  selectionRowActive: { backgroundColor: tokens.colors.accent },
-  selectionText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
-  selectionTextActive: { color: '#fff' },
   pressed: { opacity: 0.92 },
 });

@@ -36,6 +36,12 @@ export const tokens = {
   },
 } as const;
 
+// One geometry source keeps the list-screen + button and full-screen save
+// button identical in size and aligned to the same right/bottom edges.
+export const FLOATING_ACTION_BUTTON_SIZE = 74;
+export const FLOATING_ACTION_BUTTON_EDGE_OFFSET = 24;
+export const FLOATING_ACTION_BUTTON_GLYPH_SIZE = 25;
+
 export const TAB_BAR_STYLE = {
   height: 88,
   paddingTop: 11,
@@ -47,8 +53,9 @@ export const TAB_BAR_STYLE = {
 // Add forms cover the full screen, while list FABs sit in the tab scene above
 // this fixed-height bar. This keeps the two button centres at the same window
 // coordinate; a safe-area-derived offset left the save tick lower on Android.
-export const TAB_ALIGNED_FAB_BOTTOM_OFFSET = TAB_BAR_STYLE.height + 24;
+export const TAB_ALIGNED_FAB_BOTTOM_OFFSET =
+  TAB_BAR_STYLE.height + FLOATING_ACTION_BUTTON_EDGE_OFFSET;
 
-export const ANIMAL_CARD_AVATAR_SIZE = 60;
-export const ANIMAL_CARD_AVATAR_RADIUS = 20;
-export const ANIMAL_CARD_AVATAR_ICON_SIZE = 32;
+export const ANIMAL_CARD_AVATAR_SIZE = 66;
+export const ANIMAL_CARD_AVATAR_RADIUS = 22;
+export const ANIMAL_CARD_AVATAR_ICON_SIZE = 35;

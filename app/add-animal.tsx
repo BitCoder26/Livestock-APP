@@ -1,4 +1,4 @@
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -7,11 +7,13 @@ import { Text, TextInput } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, type AppIconName } from '../src/components/AppIcon';
+import DateTimePicker from '../src/components/AppDateTimePicker';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
-import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
+import { FieldLabel } from '../src/components/FieldLabel';
 import { FloatingActionButton } from '../src/components/FloatingActionButton';
+import { InlineDropdown, InlineMultiDropdown } from '../src/components/InlineDropdown';
 import { SPECIES_OPTIONS } from '../src/constants/records';
 import { getSpeciesThemeByLabel } from '../src/constants/speciesTheme';
 import { useAccount } from '../src/context/AccountContext';
@@ -31,8 +33,6 @@ const SOURCE_OPTIONS: AnimalSource[] = ['Born on farm', 'Purchased', 'Transferre
 const SPECIES_ICONS: Record<string, AppIconName> = Object.fromEntries(
   SPECIES_OPTIONS.map((item) => [item.label, item.icon]),
 ) as Record<string, AppIconName>;
-
-type PickerKey = 'status' | 'weightUnit' | 'farm' | 'location' | 'label' | 'source';
 
 export function AddAnimalScreen() {
   const router = useRouter();
@@ -64,7 +64,7 @@ export function AddAnimalScreen() {
     recordSelectorFromLocation?: string;
   }>();
   const { profile } = useAccount();
-  const { animals, addAnimal, updateAnimal } = useAnimals();
+  const { animals, addAnimal, updateAnimal, setAnimalStatusManually } = useAnimals();
   const { farms, farmEntities, locationEntities, labelEntities } = useSetup();
   const { isPro } = useSubscription();
   const existingAnimal = animalUid
@@ -107,7 +107,6 @@ export function AddAnimalScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEntryDatePicker, setShowEntryDatePicker] = useState(false);
   const [showSpeciesPicker, setShowSpeciesPicker] = useState(false);
-  const [activePicker, setActivePicker] = useState<PickerKey | null>(null);
   const availableLocations = useMemo(
     () => locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, farm)).map((entry) => entry.name),
     [farm, locationEntities],
@@ -220,8 +219,9 @@ export function AddAnimalScreen() {
       // the profile form can only set it at creation time.
       weight: existingAnimal ? existingAnimal.weight : weight.trim(),
       weightUnit: existingAnimal ? existingAnimal.weightUnit : weightUnit,
-      // Status is derived from Death/Sale/Purchase records once an animal exists;
-      // the profile form can only set it at creation time.
+      // Never written straight through on an edit: a status change is a dated
+      // event, so it goes via setAnimalStatusManually after the profile lands,
+      // exactly as the pill on the animal's own page does.
       status: existingAnimal ? existingAnimal.status : status,
       // Location is derived from Movement records once an animal exists;
       // the profile form can only set it at creation time.
@@ -252,6 +252,19 @@ export function AddAnimalScreen() {
         saveInProgress.current = false;
         showAnimalMutationError(result.reason);
         return;
+      }
+
+      // Same call the animal's status pill makes, so this door produces the
+      // same dated history entry, the same timeline line and the same undo.
+      // A status the animal already has is a no-op inside it, not an event.
+      if (status !== existingAnimal.status) {
+        const statusResult = await setAnimalStatusManually(existingAnimal.uid, status);
+
+        if (!statusResult.ok) {
+          saveInProgress.current = false;
+          showAnimalMutationError(statusResult.reason);
+          return;
+        }
       }
 
       router.dismissTo({
@@ -386,13 +399,26 @@ export function AddAnimalScreen() {
     setShowImageOnCard(false);
   };
 
-  const pickerOptions = getPickerOptions(activePicker, farms, availableLocations, availableLabels);
-
   const openSetupScreen = (pathname: '/setup-farms' | '/setup-locations' | '/setup-labels') => {
     router.push({
       pathname,
       params: { source: 'add-animal' },
     });
+  };
+
+  const handleFarmSelect = (option: string) => {
+    setFarm(option);
+    const currentLocation = locationEntities.find((entry) => equalsIgnoreCase(entry.name, location));
+    // A farm with exactly one location has no real choice to make, so fill it
+    // in — still fully editable/clearable afterward if that's not what the
+    // user wants.
+    const matchingLocations = locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
+
+    if (currentLocation && !equalsIgnoreCase(currentLocation.farm, option)) {
+      setLocation(matchingLocations.length === 1 ? matchingLocations[0].name : '');
+    } else if (!location.trim() && matchingLocations.length === 1) {
+      setLocation(matchingLocations[0].name);
+    }
   };
 
   return (
@@ -441,32 +467,12 @@ export function AddAnimalScreen() {
 
           <View style={styles.block}>
             <Text style={styles.label}>Status *</Text>
-            <Pressable
+            <InlineDropdown
               accessibilityLabel="Select status"
-              accessibilityRole="button"
-              disabled={Boolean(existingAnimal)}
-              onPress={() => {
-                if (existingAnimal) {
-                  return;
-                }
-
-                setActivePicker('status');
-              }}
-              style={({ pressed }) => [
-                styles.dateField,
-                Boolean(existingAnimal) && styles.dateFieldDisabled,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.dateValue}>{existingAnimal ? existingAnimal.status : status}</Text>
-              <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-            </Pressable>
-            {existingAnimal ? (
-              <Text style={styles.helperText}>
-                Status updates automatically from Death, Sale, and Purchase records. Add one of those records to
-                change it.
-              </Text>
-            ) : null}
+              options={STATUS_OPTIONS}
+              value={status}
+              onSelect={setStatus}
+            />
           </View>
 
           <View style={styles.block}>
@@ -549,12 +555,16 @@ export function AddAnimalScreen() {
             </Pressable>
           </View>
 
-          <SelectionField
-            label="Source"
-            value={source}
-            emptyLabel="Select source"
-            onPress={() => setActivePicker('source')}
-          />
+          <View style={styles.block}>
+            <Text style={styles.label}>Source</Text>
+            <InlineDropdown
+              accessibilityLabel="Select source"
+              options={SOURCE_OPTIONS}
+              value={source === '' ? null : source}
+              placeholder="Select source"
+              onSelect={setSource}
+            />
+          </View>
 
           <View style={styles.inlineRow}>
             <View style={styles.inlineGrow}>
@@ -570,20 +580,13 @@ export function AddAnimalScreen() {
             <View style={styles.inlineUnit}>
               <View style={styles.block}>
                 <Text style={styles.label}>Unit</Text>
-                <Pressable
+                <InlineDropdown
                   accessibilityLabel="Select weight unit"
-                  accessibilityRole="button"
                   disabled={Boolean(existingAnimal)}
-                  onPress={() => setActivePicker('weightUnit')}
-                  style={({ pressed }) => [
-                    styles.dateField,
-                    Boolean(existingAnimal) && styles.dateFieldDisabled,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text style={styles.dateValue}>{existingAnimal ? existingAnimal.weightUnit : weightUnit}</Text>
-                  <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-                </Pressable>
+                  options={WEIGHT_UNITS}
+                  value={existingAnimal ? existingAnimal.weightUnit : weightUnit}
+                  onSelect={setWeightUnit}
+                />
               </View>
             </View>
           </View>
@@ -593,128 +596,83 @@ export function AddAnimalScreen() {
             </Text>
           ) : null}
 
-          <SelectionField
-            label="Farm"
-            value={farm}
-            disabled={Boolean(existingAnimal)}
-            emptyLabel={farms.length === 0 ? 'No farms available' : 'Select farm'}
-            onPress={() => {
-              if (existingAnimal) {
-                return;
+          <View style={styles.block}>
+            {existingAnimal ? (
+              <Text style={styles.label}>Farm</Text>
+            ) : (
+              <FieldLabel label="Farm" addAccessibilityLabel="Add farm" onAddPress={() => openSetupScreen('/setup-farms')} />
+            )}
+            <InlineDropdown
+              accessibilityLabel="Farm"
+              disabled={Boolean(existingAnimal)}
+              options={farms}
+              value={farm === '' ? null : farm}
+              placeholder={farms.length === 0 ? 'No farms available' : 'Select farm'}
+              onSelect={handleFarmSelect}
+              onEmptyPress={() => openSetupScreen('/setup-farms')}
+              onClear={() => {
+                setFarm('');
+                setLocation('');
+              }}
+              clearAccessibilityLabel="Clear farm"
+            />
+          </View>
+
+          <View style={styles.block}>
+            {existingAnimal ? (
+              <Text style={styles.label}>Location</Text>
+            ) : (
+              <FieldLabel
+                label="Location"
+                addAccessibilityLabel="Add location"
+                onAddPress={() => openSetupScreen('/setup-locations')}
+              />
+            )}
+            <InlineDropdown
+              accessibilityLabel="Location"
+              disabled={Boolean(existingAnimal)}
+              options={availableLocations}
+              value={location === '' ? null : location}
+              placeholder={
+                !farm
+                  ? 'Select farm first'
+                  : availableLocations.length === 0
+                    ? 'No locations for this farm'
+                    : 'Select location'
               }
-
-              if (farms.length === 0) {
-                openSetupScreen('/setup-farms');
-                return;
-              }
-
-              setActivePicker('farm');
-            }}
-          />
-          {existingAnimal ? null : (
-            <View style={styles.helperLinkRow}>
-              <BouncyPressable
-                accessibilityLabel="Add farm"
-                accessibilityRole="button"
-                onPress={() => openSetupScreen('/setup-farms')}
-                style={({ pressed }) => [pressed && styles.pressed]}
-              >
-                <Text style={styles.helperLink}>+ Add</Text>
-              </BouncyPressable>
-              {farm ? (
-                <BouncyPressable
-                  accessibilityLabel="Clear farm"
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setFarm('');
-                    setLocation('');
-                  }}
-                  style={({ pressed }) => [pressed && styles.pressed]}
-                >
-                  <Text style={styles.helperLink}>Clear</Text>
-                </BouncyPressable>
-              ) : null}
-            </View>
-          )}
-
-          <SelectionField
-            label="Location"
-            value={location}
-            disabled={Boolean(existingAnimal)}
-            emptyLabel={!farm ? 'Select farm first' : availableLocations.length === 0 ? 'No locations for this farm' : 'Select location'}
-            onPress={() => {
-              if (existingAnimal || !farm) {
-                return;
-              }
-
-              if (availableLocations.length === 0) {
-                openSetupScreen('/setup-locations');
-                return;
-              }
-
-              setActivePicker('location');
-            }}
-          />
+              onSelect={setLocation}
+              // Without a farm there is no list to set up yet, so the field
+              // stays inert rather than sending the keeper to Locations.
+              onEmptyPress={farm ? () => openSetupScreen('/setup-locations') : undefined}
+              onClear={() => setLocation('')}
+              clearAccessibilityLabel="Clear location"
+            />
+          </View>
           {existingAnimal ? (
             <Text style={styles.helperText}>
               Farm and location update automatically from the animal's Movement records. Add a Movement record to change them.
             </Text>
           ) : null}
-          {existingAnimal ? null : (
-            <View style={styles.helperLinkRow}>
-              <BouncyPressable
-                accessibilityLabel="Add location"
-                accessibilityRole="button"
-                onPress={() => openSetupScreen('/setup-locations')}
-                style={({ pressed }) => [pressed && styles.pressed]}
-              >
-                <Text style={styles.helperLink}>+ Add</Text>
-              </BouncyPressable>
-              {location ? (
-                <BouncyPressable
-                  accessibilityLabel="Clear location"
-                  accessibilityRole="button"
-                  onPress={() => setLocation('')}
-                  style={({ pressed }) => [pressed && styles.pressed]}
-                >
-                  <Text style={styles.helperLink}>Clear</Text>
-                </BouncyPressable>
-              ) : null}
-            </View>
-          )}
 
-          <SelectionField
-            label="Labels"
-            value={formatLabelSelection(labels)}
-            emptyLabel={availableLabels.length === 0 ? 'No labels set up yet' : 'Select labels'}
-            onPress={() => {
-              if (availableLabels.length === 0) {
-                openSetupScreen('/setup-labels');
-                return;
+          <View style={styles.block}>
+            <FieldLabel label="Labels" addAccessibilityLabel="Add label" onAddPress={() => openSetupScreen('/setup-labels')} />
+            <InlineMultiDropdown
+              accessibilityLabel="Labels"
+              options={availableLabels}
+              selected={labels}
+              placeholder={availableLabels.length === 0 ? 'No labels set up yet' : 'Select labels'}
+              formatSummary={formatLabelSelection}
+              onToggle={(option) =>
+                setLabels((current) =>
+                  current.includes(option)
+                    ? current.filter((entry) => entry !== option)
+                    : [...current, option],
+                )
               }
-
-              setActivePicker('label');
-            }}
-          />
-          <View style={styles.helperLinkRow}>
-            <BouncyPressable
-              accessibilityLabel="Add label"
-              accessibilityRole="button"
-              onPress={() => openSetupScreen('/setup-labels')}
-              style={({ pressed }) => [pressed && styles.pressed]}
-            >
-              <Text style={styles.helperLink}>+ Add</Text>
-            </BouncyPressable>
-            {labels.length > 0 ? (
-              <BouncyPressable
-                accessibilityLabel="Clear labels"
-                accessibilityRole="button"
-                onPress={() => setLabels([])}
-                style={({ pressed }) => [pressed && styles.pressed]}
-              >
-                <Text style={styles.helperLink}>Clear</Text>
-              </BouncyPressable>
-            ) : null}
+              onEmptyPress={() => openSetupScreen('/setup-labels')}
+              onClear={() => setLabels([])}
+              clearAccessibilityLabel="Clear labels"
+            />
           </View>
 
           <DesignField
@@ -929,78 +887,19 @@ export function AddAnimalScreen() {
         </Pressable>
       </Modal>
 
-      <Modal
-        animationType="none"
-        transparent
-        visible={activePicker !== null}
-        onRequestClose={() => setActivePicker(null)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
-          <AnimatedPopupCard visible={activePicker !== null} style={styles.selectionCard} onPress={() => undefined}>
-            <Text style={styles.selectionTitle}>{getPickerTitle(activePicker)}</Text>
-            {pickerOptions.map((option) => {
-              const isLabelPicker = activePicker === 'label';
-              // Labels are the one multi-select picker — an animal can carry
-              // several — so a row here toggles membership and the sheet stays
-              // open. Every other picker is a single choice that closes on tap.
-              const active = isLabelPicker
-                ? labels.includes(option)
-                : option === getPickerValue(activePicker, status, weightUnit, farm, location, source);
-
-              return (
-                <Pressable
-                  key={option}
-                  accessibilityLabel={option}
-                  accessibilityRole="button"
-                  onPress={() => {
-                    if (isLabelPicker) {
-                      setLabels((current) =>
-                        current.includes(option)
-                          ? current.filter((entry) => entry !== option)
-                          : [...current, option],
-                      );
-                      return;
-                    }
-
-                    if (activePicker === 'farm') {
-                      setFarm(option);
-                      const currentLocation = locationEntities.find((entry) => equalsIgnoreCase(entry.name, location));
-                      // A farm with exactly one location has no real choice to
-                      // make, so fill it in — still fully editable/clearable
-                      // afterward if that's not what the user wants.
-                      const matchingLocations = locationEntities.filter((entry) => equalsIgnoreCase(entry.farm, option));
-
-                      if (currentLocation && !equalsIgnoreCase(currentLocation.farm, option)) {
-                        setLocation(matchingLocations.length === 1 ? matchingLocations[0].name : '');
-                      } else if (!location.trim() && matchingLocations.length === 1) {
-                        setLocation(matchingLocations[0].name);
-                      }
-                    } else {
-                      applyPickerSelection(option, activePicker, setStatus, setWeightUnit, setFarm, setLocation, setSource);
-                    }
-                    setActivePicker(null);
-                  }}
-                  style={({ pressed }) => [
-                    styles.selectionRow,
-                    active && styles.selectionRowActive,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text style={[styles.selectionText, active && styles.selectionTextActive]}>
-                    {option}
-                  </Text>
-                  {active ? <AppIcon name="check" size={16} color="#fff" /> : null}
-                </Pressable>
-              );
-            })}
-          </AnimatedPopupCard>
-        </Pressable>
-      </Modal>
       </SafeAreaView>
   );
 }
 
 export default AddAnimalScreen;
+
+/**
+ * Android's stock switch is drawn noticeably smaller than the iOS one, small
+ * enough to be an awkward target in gloved hands. Scaling is the only way to
+ * resize it — the component takes no size props — and the origin is pinned to
+ * the edge it is anchored to so growing it does not shift the row's alignment.
+ */
+const ANDROID_SWITCH_SCALE = 1.3;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -1032,18 +931,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     lineHeight: 18,
-  },
-  helperLink: {
-    color: tokens.colors.accent,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: -6,
-  },
-  helperLinkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 16,
   },
   radioRow: {
     flexDirection: 'row',
@@ -1079,9 +966,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
     paddingRight: 10,
-  },
-  dateFieldDisabled: {
-    backgroundColor: '#F0EEF1',
   },
   placeholderValue: {
     color: '#7a7a7a',
@@ -1241,6 +1125,8 @@ const styles = StyleSheet.create({
   },
   cardImagePreferenceSwitch: {
     alignSelf: 'flex-start',
+    transform: Platform.OS === 'android' ? [{ scale: ANDROID_SWITCH_SCALE }] : undefined,
+    transformOrigin: 'left center',
   },
   cardImagePreferenceTitle: {
     color: tokens.colors.text,
@@ -1306,41 +1192,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  selectionCard: {
-    marginHorizontal: 18,
-    marginBottom: 28,
-    borderRadius: 26,
-    backgroundColor: '#fff',
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    gap: 8,
-  },
-  selectionTitle: {
-    color: tokens.colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  selectionRow: {
-    minHeight: 46,
-    borderRadius: 18,
-    backgroundColor: '#EFECF0',
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  selectionRowActive: {
-    backgroundColor: tokens.colors.accent,
-  },
-  selectionText: {
-    color: tokens.colors.text,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  selectionTextActive: {
-    color: '#fff',
-  },
   pressed: {
     opacity: 0.92,
   },
@@ -1374,39 +1225,13 @@ function SexOption({ label, icon, active, onPress }: SexOptionProps) {
   );
 }
 
-type SelectionFieldProps = {
-  label: string;
-  value: string;
-  emptyLabel: string;
-  onPress: () => void;
-  disabled?: boolean;
-};
-
-function formatLabelSelection(labels: string[]) {
+function formatLabelSelection(labels: readonly string[]) {
   if (labels.length === 0) {
     return '';
   }
 
   // Two still fit on one line; beyond that the names are wider than the field.
   return labels.length <= 2 ? labels.join(', ') : `${labels.length} labels selected`;
-}
-
-function SelectionField({ label, value, emptyLabel, onPress, disabled = false }: SelectionFieldProps) {
-  return (
-    <View style={styles.block}>
-      <Text style={styles.label}>{label}</Text>
-      <Pressable
-        accessibilityLabel={label}
-        accessibilityRole="button"
-        disabled={disabled}
-        onPress={onPress}
-        style={[styles.dateField, disabled && styles.dateFieldDisabled]}
-      >
-        <Text style={[styles.dateValue, !value && styles.placeholderValue]}>{value || emptyLabel}</Text>
-        <AppIcon name="chevron-down" size={18} color={tokens.colors.text} />
-      </Pressable>
-    </View>
-  );
 }
 
 // Quick age buttons above the date-of-birth picker. Each one simply subtracts
@@ -1483,98 +1308,6 @@ function showAnimalMutationError(reason: string) {
     'Animal could not be saved',
     'The animal was left unchanged. Return to the Animals page, reopen it, and try again.',
   );
-}
-
-function getPickerTitle(picker: PickerKey | null) {
-  switch (picker) {
-    case 'status':
-      return 'Select status';
-    case 'weightUnit':
-      return 'Select unit';
-    case 'farm':
-      return 'Select farm';
-    case 'location':
-      return 'Select location';
-    case 'label':
-      return 'Select labels';
-    case 'source':
-      return 'Select source';
-    default:
-      return '';
-  }
-}
-
-function getPickerOptions(picker: PickerKey | null, farms: string[], locations: string[], labels: string[]) {
-  switch (picker) {
-    case 'status':
-      return STATUS_OPTIONS;
-    case 'weightUnit':
-      return WEIGHT_UNITS;
-    case 'farm':
-      return farms;
-    case 'location':
-      return locations;
-    case 'label':
-      return labels;
-    case 'source':
-      return SOURCE_OPTIONS;
-    default:
-      return [];
-  }
-}
-
-function getPickerValue(
-  picker: PickerKey | null,
-  status: AnimalStatus,
-  weightUnit: AnimalWeightUnit,
-  farm: string,
-  location: string,
-  source: AnimalSource | '',
-) {
-  switch (picker) {
-    case 'status':
-      return status;
-    case 'weightUnit':
-      return weightUnit;
-    case 'farm':
-      return farm;
-    case 'location':
-      return location;
-
-    case 'source':
-      return source;
-    default:
-      return '';
-  }
-}
-
-function applyPickerSelection(
-  option: string,
-  picker: PickerKey | null,
-  setStatus: (value: AnimalStatus) => void,
-  setWeightUnit: (value: AnimalWeightUnit) => void,
-  setFarm: (value: string) => void,
-  setLocation: (value: string) => void,
-  setSource: (value: AnimalSource | '') => void,
-) {
-  switch (picker) {
-    case 'status':
-      setStatus(option as AnimalStatus);
-      break;
-    case 'weightUnit':
-      setWeightUnit(option as AnimalWeightUnit);
-      break;
-    case 'farm':
-      setFarm(option);
-      break;
-    case 'location':
-      setLocation(option);
-      break;
-
-    case 'source':
-      setSource(option as AnimalSource);
-      break;
-  }
 }
 
 const MONTH_INDEX: Record<string, number> = {

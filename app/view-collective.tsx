@@ -416,10 +416,6 @@ export default function ViewCollectiveScreen() {
                 label="Established"
                 value={formatDateForDisplay(collective.startDate, profile.dateFormat)}
               />
-              <SummaryDetail
-                label="Born or hatched"
-                value={formatDateForDisplay(collective.birthDate, profile.dateFormat)}
-              />
               <SummaryDetail label="Purpose" value={collective.purpose} />
               <SummaryDetail label="Labels" value={collective.labels.join(', ')} />
             </View>

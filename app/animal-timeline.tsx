@@ -11,16 +11,18 @@ import { AppTopBar } from '../src/components/AppTopBar';
 import { getSpeciesThemeByTone } from '../src/constants/speciesTheme';
 import { useAccount } from '../src/context/AccountContext';
 import { useAnimals } from '../src/context/AnimalsContext';
-import { useRecords } from '../src/context/RecordsContext';
+import { deriveAnimalStatusFromRecords, useRecords } from '../src/context/RecordsContext';
 import { type FarmEntity, type LocationEntity, useSetup } from '../src/context/SetupContext';
 import { type AnimalStatus, type AnimalTone } from '../src/entities/animal';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
+import { WithdrawalBanner } from '../src/components/WithdrawalBadge';
 import type { RecordEntry } from '../src/entities/record';
 import { tokens } from '../src/theme/tokens';
 import { formatDateForDisplay, parseStoredDate } from '../src/utils/dateFormat';
 import { recordTypeHeadline } from '../src/utils/recordCollectives';
 import { resolveRecordAnimalUids } from '../src/utils/recordAnimals';
+import { withdrawalsForAnimal } from '../src/utils/withdrawal';
 import { abbreviateAgeLabel, getAnimalSexIcon } from '../src/utils/animalDisplay';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -48,6 +50,12 @@ export default function AnimalTimelineScreen() {
           ? animals.find((entry) => entry.id === animalId) ?? null
           : null,
     [animalId, animalUid, animals],
+  );
+  // Derived from the animal's own treatment records rather than stored on it,
+  // so editing or deleting a treatment corrects the period with no bookkeeping.
+  const activeWithdrawals = useMemo(
+    () => (animal ? withdrawalsForAnimal(animal.uid, records, animals) : []),
+    [animal, animals, records],
   );
   // Resolved live via uid rather than trusting animal.farm/location directly,
   // so a farm/location rename in Setup shows up here immediately.
@@ -178,7 +186,11 @@ export default function AnimalTimelineScreen() {
       return;
     }
 
-    const result = await removeAnimalStatusChange(animal.uid, changeId);
+    const result = await removeAnimalStatusChange(
+      animal.uid,
+      changeId,
+      deriveAnimalStatusFromRecords(records, animal.uid),
+    );
 
     if (!result.ok) {
       Alert.alert('Could not remove', 'That status change could not be removed. Please try again.');
@@ -330,6 +342,12 @@ export default function AnimalTimelineScreen() {
               </Pressable>
             </View>
 
+            <WithdrawalBanner
+              withdrawals={activeWithdrawals}
+              dateFormat={profile.dateFormat}
+              style={styles.withdrawalBanner}
+            />
+
             {/* Sex, age and weight are the three the eye goes to first, so they
                 sit as cards above the grid and stay out of it — the same value
                 twice on one screen reads as a bug. Breed stays in the grid: it
@@ -450,7 +468,12 @@ export default function AnimalTimelineScreen() {
                     {!isLast ? <View style={styles.railLine} /> : null}
                     <View style={styles.railDot} />
                   </View>
-                  <Pressable
+                  <BouncyPressable
+                    // The card fills the rest of the timeline row, so the flex
+                    // has to sit on the animating wrapper too — left on the card
+                    // alone it stretches inside a wrapper that is itself
+                    // content-width, and the copy collapses to nothing.
+                    containerStyle={styles.recordCardWrapper}
                     accessibilityRole="button"
                     accessibilityLabel={`${recordTypeHeadline(record)} on ${formatDateForDisplay(record.date, profile.dateFormat)}`}
                     onPress={() => router.push({ pathname: '/view-record', params: { recordId: record.id } })}
@@ -461,7 +484,7 @@ export default function AnimalTimelineScreen() {
                       <Text style={styles.recordDetails}>{details}</Text>
                     </View>
                     <AppIcon name="chevron-right-minimal" size={18} color="#171717" />
-                  </Pressable>
+                  </BouncyPressable>
                 </View>
               );
             })}
@@ -967,6 +990,9 @@ const styles = StyleSheet.create({
   // Left-justified rather than stretched: three fixed squares sitting at the
   // start of the row, so the block reads as a set of badges instead of a bar
   // divided into thirds.
+  withdrawalBanner: {
+    marginBottom: 16,
+  },
   statCards: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
@@ -1092,6 +1118,9 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 999,
     backgroundColor: tokens.colors.accent,
+  },
+  recordCardWrapper: {
+    flex: 1,
   },
   recordCard: {
     flex: 1,

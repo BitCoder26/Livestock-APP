@@ -589,7 +589,10 @@ const styles = StyleSheet.create({
   sheetHeaderSpacer: { width: 34 },
   sheetTitle: { color: tokens.colors.text, fontSize: 18, fontWeight: '700' },
   closeButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
-  sortSheetContent: { paddingBottom: 24 },
+  // The filter screen opens on a text label, whose ink starts a few pixels
+  // below its line box; a filled chip has no such inset, so it needs the
+  // difference added back to sit the same distance under the sheet title.
+  sortSheetContent: { paddingTop: 6, paddingBottom: 24 },
   selectionRow: {
     minHeight: 46,
     borderRadius: 18,

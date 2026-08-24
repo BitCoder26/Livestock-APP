@@ -8,7 +8,7 @@ import { BouncyPressable } from './BouncyPressable';
 import { tokens } from '../theme/tokens';
 import { FAST_AMBIENT_MOTION_DURATION, FAST_MOTION_DURATION } from '../utils/motion';
 
-const UPGRADE_SHIMMER_DURATION = FAST_AMBIENT_MOTION_DURATION * 4;
+const UPGRADE_SHIMMER_DURATION = FAST_AMBIENT_MOTION_DURATION * 4.25;
 const UPGRADE_SHIMMER_FADE_DURATION = FAST_MOTION_DURATION * 3;
 const UPGRADE_SHIMMER_HOLD_DURATION = UPGRADE_SHIMMER_DURATION - UPGRADE_SHIMMER_FADE_DURATION * 2;
 
@@ -150,7 +150,7 @@ function UpgradeButton({ onPress, tone }: { onPress: () => void; tone: PlanCardT
         }),
         Animated.sequence([
           Animated.timing(shimmerOpacity, {
-            toValue: 0.24,
+            toValue: 0.16,
             duration: UPGRADE_SHIMMER_FADE_DURATION,
             useNativeDriver: true,
           }),
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     top: -12,
     bottom: -12,
     left: 0,
-    width: 34,
+    width: 26,
     backgroundColor: '#FFFFFF',
   },
   upgradeButtonText: {

@@ -1,4 +1,4 @@
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -6,10 +6,12 @@ import { Text } from '../src/theme/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../src/components/AppIcon';
+import DateTimePicker from '../src/components/AppDateTimePicker';
 import { AppTopBar } from '../src/components/AppTopBar';
 import { AnimatedPopupCard } from '../src/components/AnimatedPopupCard';
 import { BouncyPressable } from '../src/components/BouncyPressable';
 import { DesignField } from '../src/components/DesignField';
+import { InlineDropdown } from '../src/components/InlineDropdown';
 import { InfoModal } from '../src/components/InfoModal';
 import { useAccount } from '../src/context/AccountContext';
 import { type MedicineEntity, type TreatmentKind, useSetup } from '../src/context/SetupContext';
@@ -19,7 +21,6 @@ import { formatDateForDisplay, formatDateForStorage, parseStoredDate } from '../
 const DOSE_UNITS = ['ml', 'mg', 'g', 'tablet(s)', 'bolus', 'sachet', 'dose'] as const;
 const ROUTE_OPTIONS = ['Injection', 'Oral', 'Pour-on', 'Drench', 'Topical', 'Feed', 'Water', 'Other'] as const;
 
-type PickerKey = 'doseUnit' | 'route' | null;
 const TREATMENT_TYPES: Array<{ label: string; value: TreatmentKind }> = [
   { label: 'Medicine', value: 'medicine' },
   { label: 'Vaccine', value: 'vaccine' },
@@ -48,7 +49,6 @@ export default function SetupMedicinesScreen() {
   const [supplier, setSupplier] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
   const [notes, setNotes] = useState('');
-  const [activePicker, setActivePicker] = useState<PickerKey>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerTarget, setDatePickerTarget] = useState<'expiry' | 'purchase'>('expiry');
   const [showHelp, setShowHelp] = useState(false);
@@ -179,8 +179,6 @@ export default function SetupMedicinesScreen() {
     }
   };
 
-  const pickerOptions = activePicker === 'doseUnit' ? [...DOSE_UNITS] : activePicker === 'route' ? [...ROUTE_OPTIONS] : [];
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <AppTopBar
@@ -212,22 +210,39 @@ export default function SetupMedicinesScreen() {
             </View>
           </View>
 
-          <DesignField value={name} label={treatmentType === 'medicine' ? "Medicine name *" : "Vaccine name *"} onChangeText={setName} />
-          <DesignField value={activeIngredient} label="Active ingredient" onChangeText={setActiveIngredient} />
+          <DesignField value={name} label={treatmentType === 'medicine' ? "Medicine name *" : "Vaccine name *"} placeholder={treatmentType === 'medicine' ? 'Enter medicine name' : 'Enter vaccine name'} onChangeText={setName} />
+          <DesignField value={activeIngredient} label="Active ingredient" placeholder="e.g. Oxytetracycline" onChangeText={setActiveIngredient} />
           <View style={styles.inlineRow}>
             <View style={styles.inlineGrow}>
-              <DesignField value={defaultDose} label="Default dose" onChangeText={setDefaultDose} keyboardType="decimal-pad" />
+              <DesignField value={defaultDose} label="Default dose" placeholder="e.g. 10" onChangeText={setDefaultDose} keyboardType="decimal-pad" />
             </View>
             <View style={styles.inlineGrow}>
-              <SelectionField label="Dose unit" value={doseUnit} emptyLabel="Select unit" onPress={() => setActivePicker('doseUnit')} />
+              <View style={styles.block}>
+                <Text style={styles.label}>Dose unit</Text>
+                <InlineDropdown
+                  accessibilityLabel="Dose unit"
+                  options={DOSE_UNITS}
+                  value={doseUnit}
+                  onSelect={setDoseUnit}
+                />
+              </View>
             </View>
           </View>
-          <SelectionField label="Default route" value={defaultRoute} emptyLabel="Select route" onPress={() => setActivePicker('route')} />
+          <View style={styles.block}>
+            <Text style={styles.label}>Default route</Text>
+            <InlineDropdown
+              accessibilityLabel="Default route"
+              options={ROUTE_OPTIONS}
+              value={defaultRoute}
+              onSelect={setDefaultRoute}
+            />
+          </View>
           <View style={styles.inlineRow}>
             <View style={styles.inlineGrow}>
               <DesignField
                 value={meatWithdrawalPeriod}
                 label="Meat withdrawal (days)"
+                placeholder="e.g. 28"
                 keyboardType="number-pad"
                 onChangeText={setMeatWithdrawalPeriod}
               />
@@ -236,14 +251,15 @@ export default function SetupMedicinesScreen() {
               <DesignField
                 value={milkWithdrawalPeriod}
                 label="Milk withdrawal (days)"
+                placeholder="e.g. 7"
                 keyboardType="number-pad"
                 onChangeText={setMilkWithdrawalPeriod}
               />
             </View>
           </View>
-          <DesignField value={manufacturer} label="Manufacturer" onChangeText={setManufacturer} />
-          <DesignField value={batchNumber} label="Batch / Lot number" onChangeText={setBatchNumber} />
-          <DesignField value={supplier} label="Supplier" onChangeText={setSupplier} />
+          <DesignField value={manufacturer} label="Manufacturer" placeholder="e.g. Manufacturer name" onChangeText={setManufacturer} />
+          <DesignField value={batchNumber} label="Batch / Lot number" placeholder="e.g. LOT-12345" onChangeText={setBatchNumber} />
+          <DesignField value={supplier} label="Supplier" placeholder="e.g. Veterinary practice" onChangeText={setSupplier} />
           <View style={styles.inlineRow}>
             <View style={styles.inlineGrow}>
               <SelectionField
@@ -268,7 +284,7 @@ export default function SetupMedicinesScreen() {
               />
             </View>
           </View>
-          <DesignField value={notes} label="Notes" large onChangeText={setNotes} />
+          <DesignField value={notes} label="Notes" placeholder="Add storage or usage notes" large onChangeText={setNotes} />
 
           <View style={styles.editorActionsRow}>
             <BouncyPressable
@@ -362,35 +378,6 @@ export default function SetupMedicinesScreen() {
               </BouncyPressable>
             </View>
           </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal transparent animationType="none" visible={activePicker !== null} onRequestClose={() => setActivePicker(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setActivePicker(null)}>
-          <AnimatedPopupCard visible={activePicker !== null} style={styles.selectionCard} onPress={() => {}}>
-            <Text style={styles.selectionTitle}>{activePicker === 'doseUnit' ? 'Select quantity' : 'Select route'}</Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.modalList}>
-                {pickerOptions.map((option) => {
-                  const isSelected = activePicker === 'doseUnit' ? doseUnit === option : defaultRoute === option;
-                  return (
-                    <Pressable
-                      key={option}
-                      onPress={() => {
-                        if (activePicker === 'doseUnit') setDoseUnit(option as (typeof DOSE_UNITS)[number]);
-                        if (activePicker === 'route') setDefaultRoute(option as (typeof ROUTE_OPTIONS)[number]);
-                        setActivePicker(null);
-                      }}
-                      style={({ pressed }) => [styles.selectionRow, isSelected && styles.selectionRowActive, pressed && styles.pressed]}
-                    >
-                      <Text style={[styles.selectionText, isSelected && styles.selectionTextActive]}>{option}</Text>
-                      {isSelected ? <AppIcon name="check" size={16} color="#fff" /> : null}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </ScrollView>
-          </AnimatedPopupCard>
         </Pressable>
       </Modal>
 
@@ -650,30 +637,8 @@ const styles = StyleSheet.create({
     paddingBottom: 26,
     maxHeight: '80%',
   },
-  selectionCard: {
-    marginHorizontal: 18,
-    marginBottom: 28,
-    borderRadius: 26,
-    backgroundColor: '#fff',
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    gap: 8,
-  },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   modalDone: { color: tokens.colors.accent, fontSize: 15, fontWeight: '700' },
   selectionTitle: { color: tokens.colors.text, fontSize: 18, fontWeight: '700', marginBottom: 4 },
-  modalList: { gap: 8 },
-  selectionRow: {
-    minHeight: 46,
-    borderRadius: 18,
-    backgroundColor: '#EFECF0',
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  selectionRowActive: { backgroundColor: tokens.colors.accent },
-  selectionText: { color: tokens.colors.text, fontSize: 14, fontWeight: '500' },
-  selectionTextActive: { color: '#fff' },
   pressed: { opacity: 0.92 },
 });
