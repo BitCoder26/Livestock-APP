@@ -366,12 +366,12 @@ export default function RecordsScreen() {
             // Mirrors the Animals tab exactly: the single-animal artwork,
             // then the herd artwork.
             image: require('../../assets/individual.png'),
-            label: 'Add for animal',
+            label: 'Add animal record',
             onPress: () => router.push('/add-record'),
           },
           {
             image: require('../../assets/herd.png'),
-            label: 'Add for herd or flock',
+            label: 'Add herd or flock record',
             onPress: () => router.push('/add-collective-record'),
           },
         ]}

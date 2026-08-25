@@ -10,7 +10,7 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "17",
+      "buildNumber": "18",
       "bundleIdentifier": "app.livestockbook",
       "appStoreUrl": "https://apps.apple.com/gb/app/livestockbook-animal-records/id6790605803",
       "infoPlist": {
