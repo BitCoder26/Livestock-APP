@@ -25,7 +25,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 6,
+      "versionCode": 7,
       "package": "app.livestockbook"
     },
     "web": {
